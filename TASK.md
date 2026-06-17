@@ -41,7 +41,7 @@
 | `E##` | Evaluation | Task one of Evaluation → **E01** |
 | `W##` | Writing & submission | Task one of Writing → **W01** |
 
-> **GitHub issues:** Create one issue per task ID when onboarding. Replace `TBD` in the task index with issue links.
+> **GitHub issues:** 33 issues created — see task index and category sections below.
 
 ## Suggested execution order
 
@@ -95,39 +95,39 @@ flowchart TD
 
 | ID | GitHub Issue | Category | Title | Priority | Complexity | Est. days | Owner | References |
 |----|--------------|----------|-------|----------|------------|-----------|-------|------------|
-| **I01** | TBD | Infrastructure | Repository scaffold and development environment | High | Low | 2 | — | — |
-| **I02** | TBD | Infrastructure | PhysioNet credentialing and DUA verification | High | Low | 1 | — | — |
-| **I03** | TBD | Infrastructure | ORCD GPU reservation and storage layout | High | Low | 1 | — | — |
-| **I04** | TBD | Infrastructure | EchoJEPA-L weights access (private) | **Critical** | Medium | 2 | — | R1 |
-| **I05** | TBD | Infrastructure | ECG-FM weights pull and smoke test | High | Low | 1 | — | R2 |
-| **I06** | TBD | Infrastructure | Experiment config, logging, and reproducibility | Medium | Low | 2 | — | — |
-| **D01** | TBD | Data | Echo↔ECG temporal pairing (24–48h window) | High | Medium | 2 | — | — |
-| **D02** | TBD | Data | LVEF label join and cohort validation | High | Low | 1 | — | — |
-| **D03** | TBD | Data | Demographics join (sex, age, race) | High | Low | 1 | — | — |
-| **D04** | TBD | Data | Subject-level train / val / test split | High | Low | 1 | — | — |
-| **D05** | TBD | Data | Cohort flow diagram and exclusion statistics | Medium | Low | 1 | — | — |
-| **D06** | TBD | Data | EF≤40% prevalence sanity check | High | Low | 1 | — | — |
-| **M01** | TBD | Model | Frozen EchoJEPA-L encoder wrapper | High | Medium | 2 | — | R1 |
-| **M02** | TBD | Model | Echo embedding extraction pipeline | High | Medium | 2 | — | R1 |
-| **M03** | TBD | Model | Frozen ECG-FM encoder wrapper | High | Low | 1 | — | R2 |
-| **M04** | TBD | Model | ECG embedding extraction pipeline | High | Low | 2 | — | R2 |
-| **M05** | TBD | Model | Embedding cache storage layer | High | Medium | 2 | — | — |
-| **M06** | TBD | Model | ECG-only probe (linear / MLP) | High | Low | 1 | — | R2 |
-| **M07** | TBD | Model | Echo-only attentive probe | High | Medium | 2 | — | R1 |
-| **M08** | TBD | Model | Quick-win concat-MLP fused probe | High | Low | 1 | — | — |
-| **M09** | TBD | Model | Cross-attention fused probe | High | High | 3 | — | R3 |
-| **E01** | TBD | Evaluation | Missing-modality evaluation protocol | **Critical** | Medium | 2 | — | — |
-| **E02** | TBD | Evaluation | Degradation curve figures | **Critical** | Low | 1 | — | — |
-| **E03** | TBD | Evaluation | Fairness stratification (sex, age, race) | High | Low | 1 | — | — |
-| **E04** | TBD | Evaluation | EF≤40% calibration (optional stretch) | Low | Low | 1 | — | — |
-| **E05** | TBD | Evaluation | Metrics aggregation and result tables | High | Low | 1 | — | — |
-| **E06** | TBD | Evaluation | ECG-FM pooling ablation (mean vs attentive) | Medium | Low | 1 | — | R2 |
-| **W01** | TBD | Writing | EchoingECG review and differentiation paragraph | High | Low | 1 | — | R3 |
-| **W02** | TBD | Writing | Methods and data section draft | High | Medium | 2 | — | — |
-| **W03** | TBD | Writing | Results figures (degradation + fairness) | High | Low | 1 | — | — |
-| **W04** | TBD | Writing | Full paper draft (8pp research / 4pp fallback) | High | High | 3 | — | — |
-| **W05** | TBD | Writing | Anonymization pass | High | Low | 1 | — | — |
-| **W06** | TBD | Writing | OpenReview submission | High | Low | 1 | — | — |
+| **I01** | [#13](https://github.com/criticaldata/PRIMED-AI/issues/13) | Infrastructure | Repository scaffold and development environment | High | Low | 2 | — | — |
+| **I02** | [#14](https://github.com/criticaldata/PRIMED-AI/issues/14) | Infrastructure | PhysioNet credentialing and DUA verification | High | Low | 1 | — | — |
+| **I03** | [#15](https://github.com/criticaldata/PRIMED-AI/issues/15) | Infrastructure | ORCD GPU reservation and storage layout | High | Low | 1 | — | — |
+| **I04** | [#16](https://github.com/criticaldata/PRIMED-AI/issues/16) | Infrastructure | EchoJEPA-L weights access (private) | **Critical** | Medium | 2 | — | R1 |
+| **I05** | [#17](https://github.com/criticaldata/PRIMED-AI/issues/17) | Infrastructure | ECG-FM weights pull and smoke test | High | Low | 1 | — | R2 |
+| **I06** | [#18](https://github.com/criticaldata/PRIMED-AI/issues/18) | Infrastructure | Experiment config, logging, and reproducibility | Medium | Low | 2 | — | — |
+| **D01** | [#1](https://github.com/criticaldata/PRIMED-AI/issues/1) | Data | Echo↔ECG temporal pairing (24–48h window) | High | Medium | 2 | — | — |
+| **D02** | [#2](https://github.com/criticaldata/PRIMED-AI/issues/2) | Data | LVEF label join and cohort validation | High | Low | 1 | — | — |
+| **D03** | [#3](https://github.com/criticaldata/PRIMED-AI/issues/3) | Data | Demographics join (sex, age, race) | High | Low | 1 | — | — |
+| **D04** | [#4](https://github.com/criticaldata/PRIMED-AI/issues/4) | Data | Subject-level train / val / test split | High | Low | 1 | — | — |
+| **D05** | [#5](https://github.com/criticaldata/PRIMED-AI/issues/5) | Data | Cohort flow diagram and exclusion statistics | Medium | Low | 1 | — | — |
+| **D06** | [#6](https://github.com/criticaldata/PRIMED-AI/issues/6) | Data | EF≤40% prevalence sanity check | High | Low | 1 | — | — |
+| **M01** | [#19](https://github.com/criticaldata/PRIMED-AI/issues/19) | Model | Frozen EchoJEPA-L encoder wrapper | High | Medium | 2 | — | R1 |
+| **M02** | [#20](https://github.com/criticaldata/PRIMED-AI/issues/20) | Model | Echo embedding extraction pipeline | High | Medium | 2 | — | R1 |
+| **M03** | [#21](https://github.com/criticaldata/PRIMED-AI/issues/21) | Model | Frozen ECG-FM encoder wrapper | High | Low | 1 | — | R2 |
+| **M04** | [#22](https://github.com/criticaldata/PRIMED-AI/issues/22) | Model | ECG embedding extraction pipeline | High | Low | 2 | — | R2 |
+| **M05** | [#23](https://github.com/criticaldata/PRIMED-AI/issues/23) | Model | Embedding cache storage layer | High | Medium | 2 | — | — |
+| **M06** | [#24](https://github.com/criticaldata/PRIMED-AI/issues/24) | Model | ECG-only probe (linear / MLP) | High | Low | 1 | — | R2 |
+| **M07** | [#25](https://github.com/criticaldata/PRIMED-AI/issues/25) | Model | Echo-only attentive probe | High | Medium | 2 | — | R1 |
+| **M08** | [#26](https://github.com/criticaldata/PRIMED-AI/issues/26) | Model | Quick-win concat-MLP fused probe | High | Low | 1 | — | — |
+| **M09** | [#27](https://github.com/criticaldata/PRIMED-AI/issues/27) | Model | Cross-attention fused probe | High | High | 3 | — | R3 |
+| **E01** | [#7](https://github.com/criticaldata/PRIMED-AI/issues/7) | Evaluation | Missing-modality evaluation protocol | **Critical** | Medium | 2 | — | — |
+| **E02** | [#8](https://github.com/criticaldata/PRIMED-AI/issues/8) | Evaluation | Degradation curve figures | **Critical** | Low | 1 | — | — |
+| **E03** | [#9](https://github.com/criticaldata/PRIMED-AI/issues/9) | Evaluation | Fairness stratification (sex, age, race) | High | Low | 1 | — | — |
+| **E04** | [#10](https://github.com/criticaldata/PRIMED-AI/issues/10) | Evaluation | EF≤40% calibration (optional stretch) | Low | Low | 1 | — | — |
+| **E05** | [#11](https://github.com/criticaldata/PRIMED-AI/issues/11) | Evaluation | Metrics aggregation and result tables | High | Low | 1 | — | — |
+| **E06** | [#12](https://github.com/criticaldata/PRIMED-AI/issues/12) | Evaluation | ECG-FM pooling ablation (mean vs attentive) | Medium | Low | 1 | — | R2 |
+| **W01** | [#28](https://github.com/criticaldata/PRIMED-AI/issues/28) | Writing | EchoingECG review and differentiation paragraph | High | Low | 1 | — | R3 |
+| **W02** | [#29](https://github.com/criticaldata/PRIMED-AI/issues/29) | Writing | Methods and data section draft | High | Medium | 2 | — | — |
+| **W03** | [#30](https://github.com/criticaldata/PRIMED-AI/issues/30) | Writing | Results figures (degradation + fairness) | High | Low | 1 | — | — |
+| **W04** | [#31](https://github.com/criticaldata/PRIMED-AI/issues/31) | Writing | Full paper draft (8pp research / 4pp fallback) | High | High | 3 | — | — |
+| **W05** | [#32](https://github.com/criticaldata/PRIMED-AI/issues/32) | Writing | Anonymization pass | High | Low | 1 | — | — |
+| **W06** | [#33](https://github.com/criticaldata/PRIMED-AI/issues/33) | Writing | OpenReview submission | High | Low | 1 | — | — |
 
 ---
 
@@ -135,13 +135,13 @@ flowchart TD
 
 Repo scaffolding, data access, compute, and model weight acquisition.
 
-**6 tasks** · I01 · I02 · I03 · I04 · I05 · I06
+**6 tasks** · [I01](https://github.com/criticaldata/PRIMED-AI/issues/13) · [I02](https://github.com/criticaldata/PRIMED-AI/issues/14) · [I03](https://github.com/criticaldata/PRIMED-AI/issues/15) · [I04](https://github.com/criticaldata/PRIMED-AI/issues/16) · [I05](https://github.com/criticaldata/PRIMED-AI/issues/17) · [I06](https://github.com/criticaldata/PRIMED-AI/issues/18)
 
 #### I01 — Repository scaffold and development environment
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#13](https://github.com/criticaldata/PRIMED-AI/issues/13) |
 | **Category** | Infrastructure |
 | **Features / method** | Project layout, `pyproject.toml`, dev deps, pre-commit, `CONTRIBUTING.md` |
 | **Priority** | High |
@@ -172,7 +172,7 @@ Set up the foundational repository structure for parallel work across 5–7 cont
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#14](https://github.com/criticaldata/PRIMED-AI/issues/14) |
 | **Category** | Infrastructure |
 | **Features / method** | Credentialing checklist for all 5–7 team members across three MIMIC datasets |
 | **Priority** | High |
@@ -200,7 +200,7 @@ Verify every active team member can access MIMIC-IV-Echo, MIMIC-IV-ECG, and MIMI
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#15](https://github.com/criticaldata/PRIMED-AI/issues/15) |
 | **Category** | Infrastructure |
 | **Features / method** | H200 (or equivalent) reservation, embedding cache disk budget |
 | **Priority** | High |
@@ -228,7 +228,7 @@ Reserve compute and confirm storage for embedding extraction on the paired cohor
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#16](https://github.com/criticaldata/PRIMED-AI/issues/16) |
 | **Category** | Infrastructure |
 | **Features / method** | Private weight retrieval from model authors pending PhysioNet release |
 | **Priority** | **Critical** |
@@ -257,7 +257,7 @@ Reserve compute and confirm storage for embedding extraction on the paired cohor
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#17](https://github.com/criticaldata/PRIMED-AI/issues/17) |
 | **Category** | Infrastructure |
 | **Features / method** | Hugging Face download, inference smoke test |
 | **Priority** | High |
@@ -285,7 +285,7 @@ Pull publicly available ECG-FM weights and verify inference on a sample 12-lead 
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#18](https://github.com/criticaldata/PRIMED-AI/issues/18) |
 | **Category** | Infrastructure |
 | **Features / method** | Hydra/YAML configs, seed control, run manifests |
 | **Priority** | Medium |
@@ -314,13 +314,13 @@ Ensure every extraction run and probe training run is traceable and reproducible
 
 Paired cohort construction, labels, splits, and cohort documentation.
 
-**6 tasks** · D01 · D02 · D03 · D04 · D05 · D06
+**6 tasks** · [D01](https://github.com/criticaldata/PRIMED-AI/issues/1) · [D02](https://github.com/criticaldata/PRIMED-AI/issues/2) · [D03](https://github.com/criticaldata/PRIMED-AI/issues/3) · [D04](https://github.com/criticaldata/PRIMED-AI/issues/4) · [D05](https://github.com/criticaldata/PRIMED-AI/issues/5) · [D06](https://github.com/criticaldata/PRIMED-AI/issues/6)
 
 #### D01 — Echo↔ECG temporal pairing (24–48h window)
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#1](https://github.com/criticaldata/PRIMED-AI/issues/1) |
 | **Category** | Data |
 | **Features / method** | Join on `subject_id` + nearest ECG within configurable time window |
 | **Priority** | High |
@@ -350,7 +350,7 @@ Build the paired cohort **before** any embedding extraction. Do not process all 
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#2](https://github.com/criticaldata/PRIMED-AI/issues/2) |
 | **Category** | Data |
 | **Features / method** | Structured LVEF from MIMIC-IV-Echo; range and missingness checks |
 | **Priority** | High |
@@ -378,7 +378,7 @@ Join continuous LVEF labels and validate label distribution for regression and E
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#3](https://github.com/criticaldata/PRIMED-AI/issues/3) |
 | **Category** | Data |
 | **Features / method** | MIMIC-IV Clinical demographics for fairness stratification |
 | **Priority** | High |
@@ -406,7 +406,7 @@ Join demographics needed for the fairness audit (E03).
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#4](https://github.com/criticaldata/PRIMED-AI/issues/4) |
 | **Category** | Data |
 | **Features / method** | Fixed split by `subject_id`; no patient leakage |
 | **Priority** | High |
@@ -434,7 +434,7 @@ Create a held-out test split partitioned by patient, not by study or record.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#5](https://github.com/criticaldata/PRIMED-AI/issues/5) |
 | **Category** | Data |
 | **Features / method** | CONSORT-style flow counts for paper Figure 1 |
 | **Priority** | Medium |
@@ -461,7 +461,7 @@ Produce exclusion counts at each cohort filter step for the paper data section.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#6](https://github.com/criticaldata/PRIMED-AI/issues/6) |
 | **Category** | Data |
 | **Features / method** | Prevalence check before locking AUROC results |
 | **Priority** | High |
@@ -488,13 +488,13 @@ Confirm EF≤40% prevalence in the paired cohort is high enough for stable AUROC
 
 Frozen embedding extraction and probe training.
 
-**9 tasks** · M01 · M02 · M03 · M04 · M05 · M06 · M07 · M08 · M09
+**9 tasks** · [M01](https://github.com/criticaldata/PRIMED-AI/issues/19) · [M02](https://github.com/criticaldata/PRIMED-AI/issues/20) · [M03](https://github.com/criticaldata/PRIMED-AI/issues/21) · [M04](https://github.com/criticaldata/PRIMED-AI/issues/22) · [M05](https://github.com/criticaldata/PRIMED-AI/issues/23) · [M06](https://github.com/criticaldata/PRIMED-AI/issues/24) · [M07](https://github.com/criticaldata/PRIMED-AI/issues/25) · [M08](https://github.com/criticaldata/PRIMED-AI/issues/26) · [M09](https://github.com/criticaldata/PRIMED-AI/issues/27)
 
 #### M01 — Frozen EchoJEPA-L encoder wrapper
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#19](https://github.com/criticaldata/PRIMED-AI/issues/19) |
 | **Category** | Model |
 | **Features / method** | `encode(echo_video) -> embedding` API with frozen weights |
 | **Priority** | High |
@@ -523,7 +523,7 @@ Wrap EchoJEPA-L as a frozen representation extractor for echo DICOM/video input.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#20](https://github.com/criticaldata/PRIMED-AI/issues/20) |
 | **Category** | Model |
 | **Features / method** | Batch encoding over paired cohort with resume support |
 | **Priority** | High |
@@ -552,7 +552,7 @@ Run frozen EchoJEPA-L forward passes on **paired cohort only** and cache embeddi
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#21](https://github.com/criticaldata/PRIMED-AI/issues/21) |
 | **Category** | Model |
 | **Features / method** | `encode(ecg_waveform) -> embedding` API with frozen weights |
 | **Priority** | High |
@@ -580,7 +580,7 @@ Wrap ECG-FM as a frozen representation extractor for 12-lead ECG input.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#22](https://github.com/criticaldata/PRIMED-AI/issues/22) |
 | **Category** | Model |
 | **Features / method** | Batch encoding over paired cohort ECG records |
 | **Priority** | High |
@@ -608,7 +608,7 @@ Run frozen ECG-FM forward passes on paired cohort ECG records and cache embeddin
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#23](https://github.com/criticaldata/PRIMED-AI/issues/23) |
 | **Category** | Model |
 | **Features / method** | Disk cache for echo + ECG embeddings keyed by study/record ID |
 | **Priority** | High |
@@ -636,7 +636,7 @@ Fast read/write storage so probe training never re-runs foundation models.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#24](https://github.com/criticaldata/PRIMED-AI/issues/24) |
 | **Category** | Model |
 | **Features / method** | Pooled ECG-FM embedding → LVEF regression head |
 | **Priority** | High |
@@ -664,7 +664,7 @@ Unimodal baseline for ECG-only LVEF prediction.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#25](https://github.com/criticaldata/PRIMED-AI/issues/25) |
 | **Category** | Model |
 | **Features / method** | Attentive pooling over EchoJEPA embeddings → LVEF head |
 | **Priority** | High |
@@ -692,7 +692,7 @@ Unimodal baseline for echo-only LVEF prediction. **Attentive pooling required** 
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#26](https://github.com/criticaldata/PRIMED-AI/issues/26) |
 | **Category** | Model |
 | **Features / method** | `concat(pool(echo), pool(ecg)) → MLP → LVEF` |
 | **Priority** | High |
@@ -720,7 +720,7 @@ Day 2 target — get a fused number on the board before cross-attention fusion i
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#27](https://github.com/criticaldata/PRIMED-AI/issues/27) |
 | **Category** | Model |
 | **Features / method** | Cross-attention over echo ⊕ ECG → LVEF head |
 | **Priority** | High |
@@ -749,13 +749,13 @@ Headline fusion model used for missing-modality deployment analysis (E01).
 
 Deployment analyses, metrics, and publication-ready outputs.
 
-**6 tasks** · E01 · E02 · E03 · E04 · E05 · E06
+**6 tasks** · [E01](https://github.com/criticaldata/PRIMED-AI/issues/7) · [E02](https://github.com/criticaldata/PRIMED-AI/issues/8) · [E03](https://github.com/criticaldata/PRIMED-AI/issues/9) · [E04](https://github.com/criticaldata/PRIMED-AI/issues/10) · [E05](https://github.com/criticaldata/PRIMED-AI/issues/11) · [E06](https://github.com/criticaldata/PRIMED-AI/issues/12)
 
 #### E01 — Missing-modality evaluation protocol
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#7](https://github.com/criticaldata/PRIMED-AI/issues/7) |
 | **Category** | Evaluation |
 | **Features / method** | Full / echo-dropped / ECG-dropped inference on fused probe |
 | **Priority** | **Critical** |
@@ -786,7 +786,7 @@ Deployment analyses, metrics, and publication-ready outputs.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#8](https://github.com/criticaldata/PRIMED-AI/issues/8) |
 | **Category** | Evaluation |
 | **Features / method** | MAE and AUROC degradation plots — **money figure 1** |
 | **Priority** | **Critical** |
@@ -814,7 +814,7 @@ Visualize accuracy loss when modalities are missing at inference.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#9](https://github.com/criticaldata/PRIMED-AI/issues/9) |
 | **Category** | Evaluation |
 | **Features / method** | Post-hoc EF error and AUROC by demographic stratum — **money figure 2** |
 | **Priority** | High |
@@ -842,7 +842,7 @@ Cheap post-hoc equity audit on test-set predictions from E01 (full-modality cond
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#10](https://github.com/criticaldata/PRIMED-AI/issues/10) |
 | **Category** | Evaluation |
 | **Features / method** | Reliability diagram / ECE for binary clinical gate |
 | **Priority** | Low |
@@ -869,7 +869,7 @@ Optional stretch — assess whether EF≤40% probabilities are calibrated for de
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#11](https://github.com/criticaldata/PRIMED-AI/issues/11) |
 | **Category** | Evaluation |
 | **Features / method** | Unified results JSON + Markdown/LaTeX tables |
 | **Priority** | High |
@@ -898,7 +898,7 @@ Aggregate all probe and deployment results into paper-ready tables.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#12](https://github.com/criticaldata/PRIMED-AI/issues/12) |
 | **Category** | Evaluation |
 | **Features / method** | Quick val-set comparison to resolve open pooling decision |
 | **Priority** | Medium |
@@ -925,13 +925,13 @@ Resolve open technical decision from [TECHNICAL.md §12](./TECHNICAL.md#12-open-
 
 Paper drafting, figures, anonymization, and OpenReview submission.
 
-**6 tasks** · W01 · W02 · W03 · W04 · W05 · W06
+**6 tasks** · [W01](https://github.com/criticaldata/PRIMED-AI/issues/28) · [W02](https://github.com/criticaldata/PRIMED-AI/issues/29) · [W03](https://github.com/criticaldata/PRIMED-AI/issues/30) · [W04](https://github.com/criticaldata/PRIMED-AI/issues/31) · [W05](https://github.com/criticaldata/PRIMED-AI/issues/32) · [W06](https://github.com/criticaldata/PRIMED-AI/issues/33)
 
 #### W01 — EchoingECG review and differentiation paragraph
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#28](https://github.com/criticaldata/PRIMED-AI/issues/28) |
 | **Category** | Writing |
 | **Features / method** | Read arXiv:2509.25791; write one-paragraph positioning vs this work |
 | **Priority** | High |
@@ -959,7 +959,7 @@ Do not let reviewers draw the novelty line. Explicitly differentiate frozen-embe
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#29](https://github.com/criticaldata/PRIMED-AI/issues/29) |
 | **Category** | Writing |
 | **Features / method** | COLM 2026 LaTeX template; cohort + frozen embedding + probe methods |
 | **Priority** | High |
@@ -987,7 +987,7 @@ Draft data and methods sections using [TECHNICAL.md](./TECHNICAL.md) and cohort 
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#30](https://github.com/criticaldata/PRIMED-AI/issues/30) |
 | **Category** | Writing |
 | **Features / method** | Integrate E02 + E03 figures into paper |
 | **Priority** | High |
@@ -1015,7 +1015,7 @@ Lock the two money figures into the paper draft.
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#31](https://github.com/criticaldata/PRIMED-AI/issues/31) |
 | **Category** | Writing |
 | **Features / method** | Complete draft per track decision at Day 3 go/no-go |
 | **Priority** | High |
@@ -1043,7 +1043,7 @@ Write toward **8-page Research Paper**; keep **4-page Case Report** as strict su
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#32](https://github.com/criticaldata/PRIMED-AI/issues/32) |
 | **Category** | Writing |
 | **Features / method** | Double-blind scrub of all submission artifacts |
 | **Priority** | High |
@@ -1071,7 +1071,7 @@ Desk-reject risk if deanonymizing details remain. Scrub all artifacts before sub
 
 | Field | Value |
 |-------|-------|
-| **GitHub Issue** | TBD |
+| **GitHub Issue** | [#33](https://github.com/criticaldata/PRIMED-AI/issues/33) |
 | **Category** | Writing |
 | **Features / method** | Submit before AoE wire; confirm track and template |
 | **Priority** | High |

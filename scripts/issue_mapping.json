@@ -1,0 +1,453 @@
+[
+  {
+    "id": "D01",
+    "category": "Data",
+    "title": "Echo\u2194ECG temporal pairing (24\u201348h window)",
+    "priority": "High",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [],
+    "features": "Join on `subject_id` + nearest ECG within configurable time window",
+    "description": "Build the paired cohort **before** any embedding extraction. Do not process all ~525K echos.\n\n**Steps:**\n1. Implement `scripts/build_cohort.py`: for each echo study, find nearest ECG on same `subject_id` within 24\u201348h.\n2. Resolve multi-match edge cases: when multiple ECGs fall in window, take nearest timestamp.\n3. Emit paired table: `subject_id`, `echo_study_id`, `ecg_record_id`, echo timestamp, ECG timestamp, `delta_hours`.\n4. Log exclusion counts at each filter step.\n5. Export to `cohort/paired.parquet` (or CSV).\n\n**Acceptance criteria:**\n- Cohort size in expected range (few thousand to tens of thousands).\n- No duplicate `(subject_id, echo_study_id)` rows unless explicitly allowed and documented.\n- Pairing script reruns deterministically from same inputs.",
+    "github_issue_id": 1,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/1"
+  },
+  {
+    "id": "D02",
+    "category": "Data",
+    "title": "LVEF label join and cohort validation",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Structured LVEF from MIMIC-IV-Echo; range and missingness checks",
+    "description": "Join continuous LVEF labels and validate label distribution for regression and EF\u226440% gate.\n\n**Steps:**\n1. Join structured LVEF from MIMIC-IV-Echo to paired cohort.\n2. Drop or flag rows with missing / out-of-range LVEF (document rules).\n3. Add derived column: `ef_le_40 = (lvef <= 40)`.\n4. Report LVEF summary stats (mean, std, min, max, missing rate).\n\n**Acceptance criteria:**\n- Final cohort table includes `lvef` and `ef_le_40` columns.\n- Summary stats logged to `logs/cohort_summary.json`.",
+    "github_issue_id": 2,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/2"
+  },
+  {
+    "id": "D03",
+    "category": "Data",
+    "title": "Demographics join (sex, age, race)",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "MIMIC-IV Clinical demographics for fairness stratification",
+    "description": "Join demographics needed for the fairness audit (E03).\n\n**Steps:**\n1. Join `subject_id` to MIMIC-IV patients table for sex, anchor age, race.\n2. Derive age bands for stratification (document bin edges).\n3. Flag known MIMIC gender-curation limitations in cohort metadata.\n4. Report demographic coverage (% non-missing per field).\n\n**Acceptance criteria:**\n- Cohort table includes `sex`, `age`, `age_band`, `race`.\n- Coverage report saved; missingness documented for paper limitations section.",
+    "github_issue_id": 3,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/3"
+  },
+  {
+    "id": "D04",
+    "category": "Data",
+    "title": "Subject-level train / val / test split",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Fixed split by `subject_id`; no patient leakage",
+    "description": "Create a held-out test split partitioned by patient, not by study or record.\n\n**Steps:**\n1. Split unique `subject_id` values into train / val / test (document ratios, e.g. 70/10/20).\n2. Assign split label to every cohort row via `subject_id` lookup.\n3. Verify zero `subject_id` overlap across splits.\n4. Save split manifest to `cohort/splits.json` with seed and hash.\n\n**Acceptance criteria:**\n- Assert no `subject_id` appears in more than one split.\n- Split reproducible from saved seed + manifest.",
+    "github_issue_id": 4,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/4"
+  },
+  {
+    "id": "D05",
+    "category": "Data",
+    "title": "Cohort flow diagram and exclusion statistics",
+    "priority": "Medium",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "CONSORT-style flow counts for paper Figure 1",
+    "description": "Produce exclusion counts at each cohort filter step for the paper data section.\n\n**Steps:**\n1. Tabulate: total echos \u2192 with LVEF \u2192 with ECG pair \u2192 final cohort \u2192 per split.\n2. Generate flow diagram (Mermaid, TikZ, or draw.io export).\n3. Save table to `results/cohort_flow.csv`.\n\n**Acceptance criteria:**\n- Every exclusion step has a count and brief rule description.\n- Figure ready for paper draft by Day 4.",
+    "github_issue_id": 5,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/5"
+  },
+  {
+    "id": "D06",
+    "category": "Data",
+    "title": "EF\u226440% prevalence sanity check",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Prevalence check before locking AUROC results",
+    "description": "Confirm EF\u226440% prevalence in the paired cohort is high enough for stable AUROC estimation.\n\n**Steps:**\n1. Report EF\u226440% prevalence overall and per split (train / val / test).\n2. If test-set prevalence is too low, document constraint or adjust reporting (e.g., bootstrap CIs).\n3. Block final AUROC numbers (E05) until this check passes review.\n\n**Acceptance criteria:**\n- Prevalence table in `results/ef40_prevalence.csv`.\n- Team sign-off that AUROC is reportable (or limitation noted).",
+    "github_issue_id": 6,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/6"
+  },
+  {
+    "id": "E01",
+    "category": "Evaluation",
+    "title": "Missing-modality evaluation protocol",
+    "priority": "Critical",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [],
+    "features": "Full / echo-dropped / ECG-dropped inference on fused probe",
+    "description": "**Centerpiece analysis.** Train fused probe on full modalities; evaluate under inference-time missing inputs.\n\n**Steps:**\n1. Load M09 checkpoint trained on full (echo + ECG) data.\n2. Evaluate on held-out test split under three conditions:\n   - **Full:** both modalities present\n   - **Echo dropped:** mask/zero echo branch \u2014 simulates ECG-only deployment\n   - **ECG dropped:** mask/zero ECG branch \u2014 simulates echo-only deployment\n3. Report MAE and EF\u226440% AUROC per condition.\n4. **Do not** retrain separate unimodal models for dropped conditions \u2014 test the deployed fused model.\n\n**Acceptance criteria:**\n- Test metrics table for all three conditions saved to `results/missing_modality.json`.\n- Results reproducible from checkpoint + config.",
+    "github_issue_id": 7,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/7"
+  },
+  {
+    "id": "E02",
+    "category": "Evaluation",
+    "title": "Degradation curve figures",
+    "priority": "Critical",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "MAE and AUROC degradation plots \u2014 **money figure 1**",
+    "description": "Visualize accuracy loss when modalities are missing at inference.\n\n**Steps:**\n1. Plot degradation curve: x = modality condition, y = MAE (and separate panel for EF\u226440% AUROC).\n2. Include error bars or bootstrap CIs if sample size allows.\n3. Export publication-ready PDF/PNG to `results/figures/degradation_curve.pdf`.\n4. Write 2\u20133 sentence caption draft for paper.\n\n**Acceptance criteria:**\n- Figure finalized by end of Day 4 (locked for paper).\n- Caption answers: graceful degradation vs silent failure?",
+    "github_issue_id": 8,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/8"
+  },
+  {
+    "id": "E03",
+    "category": "Evaluation",
+    "title": "Fairness stratification (sex, age, race)",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Post-hoc EF error and AUROC by demographic stratum \u2014 **money figure 2**",
+    "description": "Cheap post-hoc equity audit on test-set predictions from E01 (full-modality condition at minimum; extend to dropped conditions if time).\n\n**Steps:**\n1. Stratify test predictions by sex, age band, race (D03).\n2. Report per-stratum MAE and EF\u226440% AUROC.\n3. Flag strata with small sample size; note MIMIC gender-curation bias.\n4. Export table + bar/box plot to `results/fairness/`.\n\n**Acceptance criteria:**\n- Fairness table ready for paper by Day 4.\n- Limitations paragraph drafted for known demographic data issues.",
+    "github_issue_id": 9,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/9"
+  },
+  {
+    "id": "E04",
+    "category": "Evaluation",
+    "title": "EF\u226440% calibration (optional stretch)",
+    "priority": "Low",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Reliability diagram / ECE for binary clinical gate",
+    "description": "Optional stretch \u2014 assess whether EF\u226440% probabilities are calibrated for deployment.\n\n**Steps:**\n1. Convert continuous LVEF predictions to EF\u226440% probabilities (or use classification head).\n2. Plot reliability diagram on test set.\n3. Report expected calibration error (ECE).\n4. Include only if time permits after E01\u2013E03 locked.\n\n**Acceptance criteria:**\n- Calibration figure in `results/figures/calibration.pdf` OR explicitly deferred with note in paper.",
+    "github_issue_id": 10,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/10"
+  },
+  {
+    "id": "E05",
+    "category": "Evaluation",
+    "title": "Metrics aggregation and result tables",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Unified results JSON + Markdown/LaTeX tables",
+    "description": "Aggregate all probe and deployment results into paper-ready tables.\n\n**Steps:**\n1. Collect metrics from M06\u2013M09 (unimodal + fusion) and E01\u2013E03.\n2. Generate main results table: model \u00d7 MAE \u00d7 EF\u226440% AUROC.\n3. Generate missing-modality table and fairness table.\n4. Save `results/results.json` with config hashes and git SHA.\n5. Cross-check every number against training logs before paper lock.\n\n**Acceptance criteria:**\n- One script rebuilds all tables from raw result JSONs.\n- Internal review sign-off that numbers match logs.",
+    "github_issue_id": 11,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/11"
+  },
+  {
+    "id": "E06",
+    "category": "Evaluation",
+    "title": "ECG-FM pooling ablation (mean vs attentive)",
+    "priority": "Medium",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [
+      "R2"
+    ],
+    "features": "Quick val-set comparison to resolve open pooling decision",
+    "description": "Resolve open technical decision from [TECHNICAL.md \u00a712](./TECHNICAL.md#12-open-technical-decisions): ECG-FM mean vs attentive pooling.\n\n**Steps:**\n1. Train ECG-only probe (M06) with mean pooling and attentive pooling.\n2. Compare val MAE; pick winner for all downstream fused models.\n3. Document decision in config and methods draft.\n\n**Acceptance criteria:**\n- Decision logged in `logs/pooling_ablation.json`.\n- Winning pooling strategy used in M08 and M09.",
+    "github_issue_id": 12,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/12"
+  },
+  {
+    "id": "I01",
+    "category": "Infrastructure",
+    "title": "Repository scaffold and development environment",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 2,
+    "refs": [],
+    "features": "Project layout, `pyproject.toml`, dev deps, pre-commit, `CONTRIBUTING.md`",
+    "description": "Set up the foundational repository structure for parallel work across 5\u20137 contributors.\n\n**Steps:**\n1. Create standard layout: `src/primed_ai/`, `configs/`, `scripts/`, `tests/`, `data/README.md` (no raw MIMIC data in git).\n2. Add `pyproject.toml` with pinned core deps (PyTorch, numpy, pandas, hydra-core or similar).\n3. Add `Makefile` or `justfile` with `install`, `lint`, `test` targets.\n4. Configure pre-commit (ruff/black or equivalent).\n5. Document local setup in `CONTRIBUTING.md` (Python version, CUDA, MIMIC data paths on ORCD).\n\n**Acceptance criteria:**\n- Fresh clone \u2192 `pip install -e .` works.\n- `pytest` runs (even if empty).\n- Lint passes on scaffold files.\n- Directory layout matches [TECHNICAL.md \u00a713](./TECHNICAL.md#13-expected-artifacts).",
+    "github_issue_id": 13,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/13"
+  },
+  {
+    "id": "I02",
+    "category": "Infrastructure",
+    "title": "PhysioNet credentialing and DUA verification",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Credentialing checklist for all 5\u20137 team members across three MIMIC datasets",
+    "description": "Verify every active team member can access MIMIC-IV-Echo, MIMIC-IV-ECG, and MIMIC-IV before any data work begins.\n\n**Steps:**\n1. Maintain a shared checklist (spreadsheet or issue comment) of member \u2192 credentialing status.\n2. Confirm signed DUAs for MIMIC-IV-Echo 0.1, MIMIC-IV-ECG 1.0, MIMIC-IV 3.1.\n3. Document data paths on ORCD and who has read access.\n4. Block cohort construction (D01) until all active extractors are credentialed.\n\n**Acceptance criteria:**\n- Checklist shows \u2705 for all members who will touch data.\n- Data root paths documented in `configs/paths.yaml` or equivalent.",
+    "github_issue_id": 14,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/14"
+  },
+  {
+    "id": "I03",
+    "category": "Infrastructure",
+    "title": "ORCD GPU reservation and storage layout",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "H200 (or equivalent) reservation, embedding cache disk budget",
+    "description": "Reserve compute and confirm storage for embedding extraction on the paired cohort only.\n\n**Steps:**\n1. Reserve GPU on ORCD (H200 preferred; any capable GPU acceptable for subsetted cohort).\n2. Estimate disk for cached echo + ECG embeddings; allocate scratch or project storage.\n3. Document job submission template (Slurm or cluster-specific).\n4. Smoke-test one GPU job before Day 2 extraction batch.\n\n**Acceptance criteria:**\n- GPU reservation confirmed through Day 6.\n- Storage path for `embeddings/` documented and writable.",
+    "github_issue_id": 15,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/15"
+  },
+  {
+    "id": "I04",
+    "category": "Infrastructure",
+    "title": "EchoJEPA-L weights access (private)",
+    "priority": "Critical",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [
+      "R1"
+    ],
+    "features": "Private weight retrieval from model authors pending PhysioNet release",
+    "description": "**Single most important blocker.** EchoJEPA-L weights are pending public PhysioNet approval. Secure private access from Alif's team (email or private HF repo) by end of Day 1; pivot by end of Day 2 if unavailable.\n\n**Steps:**\n1. Email Alif's team for EchoJEPA-L weights \u2014 chase Day 1.\n2. Verify checkpoint loads and produces expected embedding dimension on one dummy echo clip.\n3. Document weight path, version hash, and loading instructions in `configs/encoder/echojepa.yaml`.\n4. If weights not received by end of Day 2, trigger fallback (ECG-FM-only study or Case Report \u2014 see [OVERVIEW.md \u00a75](./OVERVIEW.md#5-blockers--risk-register)).\n\n**Acceptance criteria:**\n- Checkpoint loads in `EchoJEPALEncoder` without error.\n- One forward pass on sample input returns stable embedding shape.\n- **Fallback documented** if weights unavailable.",
+    "github_issue_id": 16,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/16"
+  },
+  {
+    "id": "I05",
+    "category": "Infrastructure",
+    "title": "ECG-FM weights pull and smoke test",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [
+      "R2"
+    ],
+    "features": "Hugging Face download, inference smoke test",
+    "description": "Pull publicly available ECG-FM weights and verify inference on a sample 12-lead ECG.\n\n**Steps:**\n1. Download ECG-FM from Hugging Face.\n2. Run forward pass on one MIMIC-IV-ECG record (or synthetic waveform).\n3. Record embedding shape, dtype, and pooling options in `configs/encoder/ecg_fm.yaml`.\n4. Confirm frozen mode (no gradients into backbone).\n\n**Acceptance criteria:**\n- Weights cached on ORCD.\n- Smoke test log saved to `logs/ecg_fm_smoke.txt`.",
+    "github_issue_id": 17,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/17"
+  },
+  {
+    "id": "I06",
+    "category": "Infrastructure",
+    "title": "Experiment config, logging, and reproducibility",
+    "priority": "Medium",
+    "complexity": "Low",
+    "est_days": 2,
+    "refs": [],
+    "features": "Hydra/YAML configs, seed control, run manifests",
+    "description": "Ensure every extraction run and probe training run is traceable and reproducible.\n\n**Steps:**\n1. Choose config framework (recommended: Hydra + OmegaConf).\n2. Define base config: paths, seeds, device, batch size, pairing window (24h vs 48h).\n3. Add config groups: `encoder/`, `cohort/`, `probe/`, `eval/`.\n4. Standardize `set_seed()` across numpy/torch/python.\n5. Auto-save resolved config + git SHA with each run artifact.\n\n**Acceptance criteria:**\n- Single command launches cohort build, extraction, or probe train with named preset.\n- Config snapshot saved per run under `logs/`.",
+    "github_issue_id": 18,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/18"
+  },
+  {
+    "id": "M01",
+    "category": "Model",
+    "title": "Frozen EchoJEPA-L encoder wrapper",
+    "priority": "High",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [
+      "R1"
+    ],
+    "features": "`encode(echo_video) -> embedding` API with frozen weights",
+    "description": "Wrap EchoJEPA-L as a frozen representation extractor for echo DICOM/video input.\n\n**Steps:**\n1. Implement `EchoJEPALEncoder` loading checkpoint from I04.\n2. Freeze all parameters; eval mode + `torch.no_grad()` forward.\n3. Document input preprocessing (frame sampling, resolution, normalization).\n4. Return token-level or clip-level embeddings (configurable; default matches probe needs).\n5. Unit test: output dim matches config on dummy batch.\n\n**Acceptance criteria:**\n- Forward pass on dummy echo returns stable embedding shape.\n- No gradients flow into encoder when `frozen=true`.",
+    "github_issue_id": 19,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/19"
+  },
+  {
+    "id": "M02",
+    "category": "Model",
+    "title": "Echo embedding extraction pipeline",
+    "priority": "High",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [
+      "R1"
+    ],
+    "features": "Batch encoding over paired cohort with resume support",
+    "description": "Run frozen EchoJEPA-L forward passes on **paired cohort only** and cache embeddings.\n\n**Steps:**\n1. Read paired cohort manifest (D01\u2013D04).\n2. Load echo DICOM/video paths; batch for GPU throughput.\n3. Write embeddings incrementally to M05 cache with resume checkpoints.\n4. Log throughput (studies/sec) and failures.\n5. **Do not** encode the full 525K echo corpus.\n\n**Acceptance criteria:**\n- All paired-cohort echo studies encoded without duplicate keys.\n- Extraction resumable after interrupt.",
+    "github_issue_id": 20,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/20"
+  },
+  {
+    "id": "M03",
+    "category": "Model",
+    "title": "Frozen ECG-FM encoder wrapper",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [
+      "R2"
+    ],
+    "features": "`encode(ecg_waveform) -> embedding` API with frozen weights",
+    "description": "Wrap ECG-FM as a frozen representation extractor for 12-lead ECG input.\n\n**Steps:**\n1. Implement `ECGFMEncoder` loading Hugging Face weights from I05.\n2. Freeze backbone; document waveform preprocessing (length, leads, normalization).\n3. Return sequence embeddings before pooling (pooling deferred to probe).\n4. Unit test on synthetic 12-lead input.\n\n**Acceptance criteria:**\n- Stable embedding shape on dummy ECG batch.\n- Frozen mode verified.",
+    "github_issue_id": 21,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/21"
+  },
+  {
+    "id": "M04",
+    "category": "Model",
+    "title": "ECG embedding extraction pipeline",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 2,
+    "refs": [
+      "R2"
+    ],
+    "features": "Batch encoding over paired cohort ECG records",
+    "description": "Run frozen ECG-FM forward passes on paired cohort ECG records and cache embeddings.\n\n**Steps:**\n1. Read paired cohort manifest; map `ecg_record_id` to waveform files.\n2. Batch encode with dynamic batch sizing for OOM safety.\n3. Write to M05 cache keyed by `ecg_record_id`.\n4. Log failures and retry policy.\n\n**Acceptance criteria:**\n- All paired-cohort ECG records encoded.\n- Cache keys align 1:1 with cohort rows.",
+    "github_issue_id": 22,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/22"
+  },
+  {
+    "id": "M05",
+    "category": "Model",
+    "title": "Embedding cache storage layer",
+    "priority": "High",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [],
+    "features": "Disk cache for echo + ECG embeddings keyed by study/record ID",
+    "description": "Fast read/write storage so probe training never re-runs foundation models.\n\n**Steps:**\n1. Define schema: `record_id`, `modality`, `embedding`, `encoder_version`, `timestamp`.\n2. Implement read/write API (zarr, HDF5, or `.pt` shards \u2014 pick one).\n3. Support random access by ID for probe `Dataset` classes.\n4. Document expected disk usage for paired cohort.\n\n**Acceptance criteria:**\n- Load arbitrary embedding by ID in <50ms from SSD.\n- Probes read from cache only during training iteration.",
+    "github_issue_id": 23,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/23"
+  },
+  {
+    "id": "M06",
+    "category": "Model",
+    "title": "ECG-only probe (linear / MLP)",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [
+      "R2"
+    ],
+    "features": "Pooled ECG-FM embedding \u2192 LVEF regression head",
+    "description": "Unimodal baseline for ECG-only LVEF prediction.\n\n**Steps:**\n1. Pool ECG-FM embeddings (mean pooling default; compare in E06).\n2. Train linear probe first; upgrade to MLP if needed.\n3. Predict continuous LVEF; derive EF\u226440% gate.\n4. Report val MAE and EF\u226440% AUROC.\n\n**Acceptance criteria:**\n- Val metrics logged; beats naive mean-LVEF baseline.\n- Checkpoint saved to `probes/ecg_only/`.",
+    "github_issue_id": 24,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/24"
+  },
+  {
+    "id": "M07",
+    "category": "Model",
+    "title": "Echo-only attentive probe",
+    "priority": "High",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [
+      "R1"
+    ],
+    "features": "Attentive pooling over EchoJEPA embeddings \u2192 LVEF head",
+    "description": "Unimodal baseline for echo-only LVEF prediction. **Attentive pooling required** \u2014 linear probe on raw EchoJEPA embeddings is expected to underperform.\n\n**Steps:**\n1. Implement attentive pooling layer over spatial/token EchoJEPA embeddings.\n2. Train probe head for continuous LVEF regression.\n3. Compare attentive vs linear pooling on val set (brief ablation note).\n4. Report val MAE and EF\u226440% AUROC.\n\n**Acceptance criteria:**\n- Attentive probe outperforms linear probe on val MAE.\n- Checkpoint saved to `probes/echo_only/`.",
+    "github_issue_id": 25,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/25"
+  },
+  {
+    "id": "M08",
+    "category": "Model",
+    "title": "Quick-win concat-MLP fused probe",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "`concat(pool(echo), pool(ecg)) \u2192 MLP \u2192 LVEF`",
+    "description": "Day 2 target \u2014 get a fused number on the board before cross-attention fusion is ready.\n\n**Steps:**\n1. Pool echo (attentive) and ECG (mean/attentive) embeddings separately.\n2. Concatenate \u2192 MLP \u2192 continuous LVEF.\n3. Train on train split; select hyperparams on val.\n4. Report val MAE vs unimodal baselines (M06, M07).\n\n**Acceptance criteria:**\n- End-to-end fused result logged by end of Day 2.\n- Checkpoint saved to `probes/concat_mlp/`.",
+    "github_issue_id": 26,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/26"
+  },
+  {
+    "id": "M09",
+    "category": "Model",
+    "title": "Cross-attention fused probe",
+    "priority": "High",
+    "complexity": "High",
+    "est_days": 3,
+    "refs": [
+      "R3"
+    ],
+    "features": "Cross-attention over echo \u2295 ECG \u2192 LVEF head",
+    "description": "Headline fusion model used for missing-modality deployment analysis (E01).\n\n**Steps:**\n1. Implement cross-attention fusion module over echo and ECG token embeddings.\n2. Train for continuous LVEF on train; tune on val.\n3. Support inference-time masking of echo or ECG branch (for E01).\n4. Report val MAE and EF\u226440% AUROC vs M08 concat baseline.\n\n**Acceptance criteria:**\n- Fusion model supports masked inference (echo dropped / ECG dropped).\n- Checkpoint saved to `probes/cross_attn_fused/`.\n- Val metrics competitive with or better than M08.",
+    "github_issue_id": 27,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/27"
+  },
+  {
+    "id": "W01",
+    "category": "Writing",
+    "title": "EchoingECG review and differentiation paragraph",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [
+      "R3"
+    ],
+    "features": "Read arXiv:2509.25791; write one-paragraph positioning vs this work",
+    "description": "Do not let reviewers draw the novelty line. Explicitly differentiate frozen-embedding fusion + deployment-risk framing from EchoingECG.\n\n**Steps:**\n1. Read EchoingECG (arXiv:2509.25791) \u2014 assign one team member Day 1.\n2. Draft one paragraph: how this work differs (frozen embeddings, missing-modality eval, fairness audit).\n3. Cite own related arXiv papers (EchoJEPA, ECG-FM) in **third person**.\n4. Share draft in paper repo for intro/related-work integration.\n\n**Acceptance criteria:**\n- Differentiation paragraph approved by team lead.\n- Integrated into related work section draft.",
+    "github_issue_id": 28,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/28"
+  },
+  {
+    "id": "W02",
+    "category": "Writing",
+    "title": "Methods and data section draft",
+    "priority": "High",
+    "complexity": "Medium",
+    "est_days": 2,
+    "refs": [],
+    "features": "COLM 2026 LaTeX template; cohort + frozen embedding + probe methods",
+    "description": "Draft data and methods sections using [TECHNICAL.md](./TECHNICAL.md) and cohort outputs from D01\u2013D05.\n\n**Steps:**\n1. Set up paper repo with **COLM 2026 LaTeX template** (not NeurIPS/generic).\n2. Write \u00a7Data: MIMIC sources, pairing protocol, cohort flow, single-center caveat.\n3. Write \u00a7Method: frozen EchoJEPA-L + ECG-FM, probe architectures, missing-modality protocol.\n4. Draft intro framing: ECG ubiquity vs echo cost; deployment question as headline.\n\n**Acceptance criteria:**\n- Methods draft complete enough for Day 3 go/no-go review.\n- Template compiles without errors.",
+    "github_issue_id": 29,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/29"
+  },
+  {
+    "id": "W03",
+    "category": "Writing",
+    "title": "Results figures (degradation + fairness)",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Integrate E02 + E03 figures into paper",
+    "description": "Lock the two money figures into the paper draft.\n\n**Steps:**\n1. Include degradation curve (E02) as Figure 1.\n2. Include fairness stratification (E03) as Figure 2 or Table 2.\n3. Add fusion vs unimodal table (E05) as supporting evidence \u2014 not the thesis.\n4. Write results captions emphasizing deployment readiness, not benchmark delta.\n\n**Acceptance criteria:**\n- Both money figures in compiled PDF by Day 4.\n- Captions reviewed for DAIH framing alignment.",
+    "github_issue_id": 30,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/30"
+  },
+  {
+    "id": "W04",
+    "category": "Writing",
+    "title": "Full paper draft (8pp research / 4pp fallback)",
+    "priority": "High",
+    "complexity": "High",
+    "est_days": 3,
+    "refs": [],
+    "features": "Complete draft per track decision at Day 3 go/no-go",
+    "description": "Write toward **8-page Research Paper**; keep **4-page Case Report** as strict subset fallback.\n\n**Steps:**\n1. **If go (Day 3):** full 8pp draft \u2014 abstract, intro, related work, data, method, results (fusion supporting + missing-modality centerpiece + fairness), discussion, future work.\n2. **If no-go (Day 3):** collapse to 4pp Case Report \u2014 compressed intro, data, partial results, lessons learned / blockers narrative.\n3. Abstract leads with missing-modality deployment question, not fusion MAE delta.\n4. Page limits exclude references.\n\n**Acceptance criteria:**\n- Complete draft by Day 5.\n- Track choice (research vs case report) recorded in submission checklist.",
+    "github_issue_id": 31,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/31"
+  },
+  {
+    "id": "W05",
+    "category": "Writing",
+    "title": "Anonymization pass",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Double-blind scrub of all submission artifacts",
+    "description": "Desk-reject risk if deanonymizing details remain. Scrub all artifacts before submit.\n\n**Steps:**\n1. Remove: repo names (`sebasmos/EchoJEPA-VE`), PhysioNet usernames, lab/institution names, cluster paths.\n2. Cite own related arXiv papers in third person throughout.\n3. Anonymize supplementary code/logs if uploaded.\n4. Second reviewer pass on PDF + supplementary.\n\n**Acceptance criteria:**\n- Anonymization checklist in [OVERVIEW.md \u00a79](./OVERVIEW.md#9-submission-checklist-each-item-can-desk-reject) fully checked.\n- No identifying strings found by grep pass on LaTeX source.",
+    "github_issue_id": 32,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/32"
+  },
+  {
+    "id": "W06",
+    "category": "Writing",
+    "title": "OpenReview submission",
+    "priority": "High",
+    "complexity": "Low",
+    "est_days": 1,
+    "refs": [],
+    "features": "Submit before AoE wire; confirm track and template",
+    "description": "Submit early \u2014 do not aim for the June 23 AoE wire.\n\n**Steps:**\n1. Create OpenReview submission for DAIH @ COLM 2026.\n2. Upload PDF, supplementary (if any), declare track (Research Paper or Case Report).\n3. Confirm COLM 2026 template used; page limit met.\n4. Confirm LLM usage policy compliance.\n5. Archive submission confirmation + timestamp.\n\n**Acceptance criteria:**\n- Submission confirmed on OpenReview before deadline.\n- Team notified with submission ID and PDF snapshot.",
+    "github_issue_id": 33,
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/33"
+  }
+]
