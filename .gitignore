@@ -1,0 +1,15 @@
+# Environment variables
+.env
+
+# Lock files
+uv.lock
+
+# Data
+cohort/
+
+# Logs
+logs/
+
+# Results
+results/
+notebooks/
