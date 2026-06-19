@@ -34,9 +34,15 @@ requested BigQuery access on the MIMIC-IV, MIMIC-IV-ECG and MIMIC-IV-Echo
 PhysioNet project pages.
 
 Outputs (written to cohort/):
-- paired.parquet (or paired.csv)  - one row per paired echo study
+- paired.parquet (or paired.csv)  - one row per paired echo study, including the
+                                    continuous `lvef` label and the `ef_le_40` gate
 - cohort_funnel.json / .csv       - inclusion/exclusion counts per step
 - cohort_flowchart.md             - Mermaid CONSORT-style flow diagram
+- cohort_lvef_sources.json / .csv - which LVEF measurement variant was used
+
+Outputs (written to logs/):
+- cohort_summary.json             - LVEF distribution (mean/std/min/max/missing
+                                    rate) and EF<=40% prevalence for label validation
 
 Note: the lead's brief allows a 24-48h window; the cohort definition here uses a
 symmetric +/-24h window by default. Override with --window-hours.
@@ -276,7 +282,7 @@ final AS (
     p.echo_datetime,
     p.ecg_time AS ecg_datetime,
     ROUND(p.delta_hours, 4) AS delta_hours,
-    p.lvef_value,
+    p.lvef_value AS lvef,
     p.lvef_measurement,
     (p.lvef_value <= 40) AS ef_le_40,
     p.ecg_file_name,
@@ -341,7 +347,7 @@ final AS (
     p.echo_datetime,
     p.ecg_time AS ecg_datetime,
     ROUND(p.delta_hours, 4) AS delta_hours,
-    p.lvef_value,
+    p.lvef_value AS lvef,
     p.lvef_measurement,
     (p.lvef_value <= 40) AS ef_le_40,
     p.ecg_file_name,
@@ -411,6 +417,61 @@ ORDER BY CASE lvef_measurement {order} ELSE {len(LVEF_PRIORITY)} END
     return df
 
 
+def write_cohort_summary(cohort: pd.DataFrame, path: Path,
+                         lvef_min: float, lvef_max: float,
+                         ef_threshold: float = 40.0) -> dict:
+    """Compute the LVEF label distribution and write it to JSON (task D02).
+
+    Validates the continuous regression label and the EF<=40% gate.
+
+    Drop / range rules (enforced upstream in SQL, restated here for provenance):
+      - A row needs a structured LVEF measurement linked to its echo study;
+        echo studies without one are dropped at the `echo_with_lvef` join.
+      - LVEF is parsed from `result` (the trailing '%' is stripped), must be
+        numeric, and must lie within [lvef_min, lvef_max]; non-numeric or
+        out-of-range values are dropped at that same stage.
+      - Consequently the final cohort's `lvef` column is non-null by
+        construction, so the in-cohort missing rate is expected to be 0. It is
+        still computed and reported here so any regression is caught.
+    """
+    lvef = pd.to_numeric(cohort["lvef"], errors="coerce")
+    n_rows = int(len(cohort))
+    n_missing = int(lvef.isna().sum())
+    n_valid = n_rows - n_missing
+    ef_le = cohort["ef_le_40"].astype("boolean")
+    n_ef_le = int(ef_le.sum())
+
+    summary = {
+        "n_rows": n_rows,
+        "n_unique_subjects": int(cohort["subject_id"].nunique()),
+        "lvef": {
+            "n_valid": n_valid,
+            "n_missing": n_missing,
+            "missing_rate": round(n_missing / n_rows, 6) if n_rows else None,
+            "mean": round(float(lvef.mean()), 4) if n_valid else None,
+            "std": round(float(lvef.std()), 4) if n_valid else None,
+            "min": round(float(lvef.min()), 4) if n_valid else None,
+            "max": round(float(lvef.max()), 4) if n_valid else None,
+        },
+        "ef_le_40": {
+            "threshold": ef_threshold,
+            "n_positive": n_ef_le,
+            "prevalence": round(n_ef_le / n_valid, 6) if n_valid else None,
+        },
+        "drop_rules": {
+            "require_linked_structured_lvef": True,
+            "lvef_valid_range": [lvef_min, lvef_max],
+            "out_of_range_or_nonnumeric": "dropped",
+            "note": ("Missing / out-of-range LVEF is dropped upstream in SQL, "
+                     "so the in-cohort missing rate is 0 by construction."),
+        },
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        json.dump(summary, f, indent=2)
+    return summary
+
+
 def write_flowchart(funnel: pd.DataFrame, path: Path, pairing_desc: str) -> None:
     """Write a Mermaid CONSORT-style inclusion/exclusion flow diagram."""
     lines = [
@@ -470,6 +531,8 @@ def main() -> None:
                     help="Keep pairs without a matching admission (race may be null).")
     ap.add_argument("--output-dir", default=str(repo_root / "cohort"),
                     help="Directory for cohort outputs (default: <repo>/cohort).")
+    ap.add_argument("--logs-dir", default=str(repo_root / "logs"),
+                    help="Directory for run logs / summaries (default: <repo>/logs).")
     ap.add_argument("--format", choices=["parquet", "csv"], default="csv",
                     help="Paired cohort output format (default: csv).")
     ap.add_argument("--dry-run", action="store_true",
@@ -542,6 +605,20 @@ def main() -> None:
         out_path = out_dir / "paired.csv"
         cohort.to_csv(out_path, index=False)
     log.info("Wrote %s", out_path)
+
+    logs_dir = Path(args.logs_dir)
+    summary_path = logs_dir / "cohort_summary.json"
+    summary = write_cohort_summary(cohort, summary_path,
+                                   args.lvef_min, args.lvef_max)
+    s = summary["lvef"]
+    log.info("LVEF summary: n=%d mean=%.2f std=%.2f min=%.1f max=%.1f "
+             "missing_rate=%.4f",
+             s["n_valid"], s["mean"], s["std"], s["min"], s["max"],
+             s["missing_rate"])
+    log.info("EF<=40 gate: prevalence=%.4f (%d/%d positive)",
+             summary["ef_le_40"]["prevalence"],
+             summary["ef_le_40"]["n_positive"], s["n_valid"])
+    log.info("Wrote LVEF summary to %s", summary_path)
 
 
 if __name__ == "__main__":
