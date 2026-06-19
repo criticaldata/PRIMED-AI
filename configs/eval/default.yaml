@@ -1,0 +1,6 @@
+metrics:
+  - mae
+  - auroc_ef_le_40
+
+bootstrap_ci: false
+n_bootstrap: 1000

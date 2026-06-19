@@ -1,0 +1,16 @@
+defaults:
+  - paths: default
+  - encoder: echojepa
+  - cohort: default
+  - probe: default
+  - eval: default
+  - _self_
+
+seed: 42
+device: cuda
+batch_size: 32
+
+run:
+  output_dir: logs/runs
+  save_git_sha: true
+  save_resolved_config: true
