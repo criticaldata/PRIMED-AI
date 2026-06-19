@@ -1,0 +1,46 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+
+# Local environment variables / secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Logs and run outputs
+logs/
+outputs/
+multirun/
+
+# Data and generated artifacts
+data/
+/cohort/
+embeddings/
+results/
+artifacts/
+
+# Model weights / checkpoints
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/

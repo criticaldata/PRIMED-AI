@@ -1,0 +1,4 @@
+name: ecg_fm
+checkpoint_path: /path/to/ecg_fm
+frozen: true
+pooling: mean

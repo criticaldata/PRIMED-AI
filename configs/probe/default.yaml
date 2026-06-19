@@ -1,0 +1,5 @@
+name: default_probe
+learning_rate: 0.001
+weight_decay: 0.0001
+epochs: 50
+early_stopping_patience: 5
