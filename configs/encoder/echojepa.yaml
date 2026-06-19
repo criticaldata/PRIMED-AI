@@ -1,0 +1,4 @@
+name: echojepa
+checkpoint_path: /path/to/echojepa.pt
+frozen: true
+embedding_type: token
