@@ -1,0 +1,5 @@
+pairing_window_hours: 48
+split_seed: 42
+train_frac: 0.70
+val_frac: 0.10
+test_frac: 0.20

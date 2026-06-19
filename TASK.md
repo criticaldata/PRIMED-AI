@@ -16,7 +16,7 @@
 | EchoJEPA paper | https://arxiv.org/abs/2602.02603 |
 | ECG-FM paper | https://arxiv.org/abs/2408.05178 |
 | EchoingECG (prior work) | https://arxiv.org/abs/2509.25791 |
-| MIMIC-IV-Echo | https://physionet.org/content/mimic-iv-echo/0.1/ |
+| MIMIC-IV-Echo | https://physionet.org/content/mimic-iv-echo/1.0/ |
 | MIMIC-IV-ECG | https://physionet.org/content/mimic-iv-ecg/1.0/ |
 | MIMIC-IV | https://physionet.org/content/mimic-iv/3.1/ |
 

@@ -1,0 +1,5 @@
+data_root: /path/to/mimic
+cohort_dir: cohort
+embedding_dir: embeddings
+results_dir: results
+logs_dir: logs
