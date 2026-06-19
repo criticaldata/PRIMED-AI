@@ -26,7 +26,7 @@ multirun/
 
 # Data and generated artifacts
 data/
-cohort/
+/cohort/
 embeddings/
 results/
 artifacts/
