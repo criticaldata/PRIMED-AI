@@ -21,16 +21,17 @@ dist/
 *.pem
 
 # Logs and run outputs
-logs/
-outputs/
-multirun/
+/logs/
+/outputs/
+/multirun/
 
 # Data and generated artifacts
-data/
+/data/
 /cohort/
-embeddings/
-results/
-artifacts/
+/embeddings/
+/results/
+/artifacts/
+/tmp/
 
 # Model weights / checkpoints
 *.pt
