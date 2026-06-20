@@ -1,5 +1,5 @@
 install:
-	pip install -e .
+	pip install -e ".[dev]"
 
 lint:
 	pre-commit run --all-files
