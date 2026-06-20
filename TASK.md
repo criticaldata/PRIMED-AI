@@ -6,13 +6,13 @@
 >
 > See [OVERVIEW.md](./OVERVIEW.md) for submission strategy and [TECHNICAL.md](./TECHNICAL.md) for pipeline details.
 
-## Status tracker — updated Jun 20, 2026 (Day 4)
+## Status tracker — updated Jun 20, 2026 (Day 4, EOD)
 
 | ID | Status | Notes |
 |----|--------|-------|
 | **I01** | ✅ Done | Repo scaffold complete — `pyproject.toml`, `Makefile` (pip + uv), `CONTRIBUTING.md`, pytest + ruff config. Issue #13 closed. |
 | **I04** | ✅ Unblocked | EchoJEPA weights downloaded from Alif's Google Drive to ORCD (`/orcd/pool/006/lceli_shared/weights/`): `vjepa21_vitl_mimic_pt117.pt`, `vitl-scratch-pt-210-c25.pt`, `vjepa2_1_vitb_mimic_pt169_c60.pt`. M01 wrapper can proceed. |
-| **D03** | 🔄 In review | PR #38 open (@tigerkrittaphas) — merge conflict in `pyproject.toml`. Author pinged to rebase. |
+| **D03** | ✅ Done | PR #38 merged — adds `add_age_bands()`, `write_demographics_coverage()`, SQL aliases `pt.gender AS sex` / `pt.anchor_age AS age`. Issue #3 closed. PR #41 (fix make install) closed as superseded by audit commit. |
 | **D04** | ✅ Done | `scripts/make_splits.py` merged (PR #39). Subject-level 70/10/20 split with zero-leakage check and reproducible manifest. Issue #4 closed. |
 | **D06** | ✅ Done | `scripts/check_ef40_prevalence.py` merged (PR #40). Reports prevalence overall + per split, flags AUROC reportability. Issue #6 closed. |
 | **M05** | ✅ Done | `src/primed_ai/embeddings/cache.py` merged (PR #42). On-disk `.npy` cache with atomic writes, resume support, JSONL manifest. Issue #23 closed. |
