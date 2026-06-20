@@ -114,7 +114,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("cohort/paired_with_splits.csv"),
+        default=Path("cohort/paired_with_splits.parquet"),
         help="Output cohort file with split column: CSV or Parquet.",
     )
     parser.add_argument(
