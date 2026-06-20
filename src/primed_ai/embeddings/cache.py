@@ -10,7 +10,7 @@ study/record ID and an append-only metadata manifest::
 Cached IDs are determined from the files on disk, so incomplete manifests do not
 hide existing embeddings.
 
-Expcted disk usage ~= n_records * prod(shape) * 4 bytes → ~5 MB per modality
+Expected disk usage ~= n_records * prod(shape) * 4 bytes → ~5 MB per modality
 """
 
 from __future__ import annotations
@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Iterator
 
 import numpy as np
+
+__all__ = ["EmbeddingCache"]
 
 _ARRAY_SUFFIX = ".npy"
 _MANIFEST_NAME = "manifest.jsonl"

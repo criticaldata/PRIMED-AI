@@ -32,7 +32,7 @@ def normalize_ef_le_40(series: pd.Series) -> pd.Series:
         return series
 
     if str(series.dtype) == "boolean":
-        return series.astype(bool)
+        return series.fillna(False).astype(bool)
 
     if pd.api.types.is_numeric_dtype(series):
         return series.astype(int).astype(bool)
@@ -139,6 +139,9 @@ def main() -> None:
         raise KeyError(f"Input cohort is missing required columns: {sorted(missing)}")
 
     cohort = cohort.copy()
+    n_null_splits = cohort["split"].isna().sum()
+    if n_null_splits:
+        raise ValueError(f"Input cohort has {n_null_splits} rows with missing split labels.")
     cohort["split"] = cohort["split"].astype(str).str.lower().str.strip()
     cohort["ef_le_40_bool"] = normalize_ef_le_40(cohort["ef_le_40"])
 
