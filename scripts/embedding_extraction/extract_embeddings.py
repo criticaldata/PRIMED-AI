@@ -22,9 +22,8 @@ import torch
 from decord import VideoReader, cpu
 from torch.utils.data import Dataset, DataLoader
 
-# Add project root to path so we can import src.*
-# scripts/extract-embeddings/extract_embeddings.py → need 3 dirname calls to reach project root
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# src/ is bundled alongside this script in scripts/embedding_extraction/src/
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import src.datasets.utils.video.transforms as video_transforms
 import src.datasets.utils.video.volume_transforms as volume_transforms
