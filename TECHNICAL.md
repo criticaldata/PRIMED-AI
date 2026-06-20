@@ -94,7 +94,7 @@ Both models run in inference mode only. Weights are frozen; gradients do not flo
 | Config | [`configs/encoder/echojepa.yaml`](configs/encoder/echojepa.yaml) |
 | Reference | arXiv:2602.02603 |
 
-Five EchoJEPA checkpoints are available (ViT-L and ViT-B variants, various MIMIC fine-tune epochs). Pre-extracted embeddings for `vitl` (natural pretrain) are already on ORCD; EchoJEPA fine-tuned runs are in progress. See [`docs/embeddings.md`](docs/embeddings.md) for paths, loading code, and extraction instructions.
+Five EchoJEPA checkpoints are available (ViT-L and ViT-B variants, various MIMIC fine-tune epochs). Pre-extracted embeddings for `vitl` (natural pretrain) are already on ORCD; EchoJEPA fine-tuned runs are in progress. See [`docs/embeddings.md`](docs/embeddings.md) for paths, loading code, and [`scripts/embedding_extraction/`](scripts/embedding_extraction/) for the full pipeline.
 
 EchoJEPA embeddings preserve spatial structure across frames. This matters for probe design — a simple linear head is insufficient; an **attentive probe** is required (see §5.2).
 

@@ -2,8 +2,6 @@
 
 How to access pre-extracted embeddings on the MIT ORCD cluster, load them in your pipeline, and reproduce extraction from scratch.
 
-**Extraction code lives in a separate repo:** [`sebasmos/EchoJEPA-VE`](https://github.com/sebasmos/EchoJEPA-VE). Do not duplicate it here. This document covers paths, formats, and loading only.
-
 See [TECHNICAL.md](../TECHNICAL.md) for the full pipeline context and [OVERVIEW.md](../OVERVIEW.md) for scope decisions.
 
 ---
@@ -172,21 +170,21 @@ pooling: mean
 
 ## 5. Reproducing extraction from scratch
 
-Extraction is handled by [`sebasmos/EchoJEPA-VE`](https://github.com/sebasmos/EchoJEPA-VE). Follow that repo's [`readme-embeddings.md`](https://github.com/sebasmos/EchoJEPA-VE/blob/main/readme-embeddings.md) for the full pipeline.
+All extraction scripts live in [`scripts/embedding_extraction/`](../scripts/embedding_extraction/).
 
-**Summary of the 3-stage pipeline:**
+**3-stage pipeline:**
 
 ```
 MIMIC-IV-Echo DICOMs
         │
-        ▼  [Stage 1] data/convert_dicom.py
+        ▼  [Stage 1]  scripts/embedding_extraction/convert_dicom.py
 /orcd/pool/006/lceli_shared/mimic-iv-echo-mp4/   (~525K MP4 files, 256×256)
         │
-        ▼  [Stage 2] scripts/extract-embeddings/extract_embeddings.py
-             (SLURM array: 10 folders × 1 L40S GPU, mit_preemptable partition)
+        ▼  [Stage 2]  scripts/embedding_extraction/extract_embeddings.py
+             (SLURM array via extract_echo_slurm.sh: 10 folders × 1 L40S GPU)
 /orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/  (.pt per folder)
         │
-        ▼  [Stage 3] scripts/extract-embeddings/to_parquet.py
+        ▼  [Stage 3]  scripts/embedding_extraction/to_parquet.py
              (joins MIMIC metadata, writes sharded Parquet)
 /orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/  (Parquet shards)
 ```
@@ -194,19 +192,18 @@ MIMIC-IV-Echo DICOMs
 ### Submitting a new extraction run (ORCD)
 
 ```bash
-# Clone EchoJEPA-VE
-git clone https://github.com/sebasmos/EchoJEPA-VE
-cd EchoJEPA-VE
-
 # Load environment
 module load miniforge/24.3.0-0
 conda activate vjepa2-312
 
-# Submit SLURM array for an EchoJEPA model
-sbatch scripts/extract-embeddings/extract_echo_slurm.sh echo-vitl-mimic117
+# Stage 2 — submit SLURM array (10-folder array, 1 L40S GPU per task)
+sbatch scripts/embedding_extraction/extract_echo_slurm.sh echo-vitl-mimic117
 
-# Merge per-folder outputs once all tasks complete
-python scripts/extract-embeddings/merge_embeddings.py --model echo-vitl-mimic117
+# Stage 2b — merge per-folder outputs once all tasks complete
+python scripts/embedding_extraction/merge_embeddings.py --model echo-vitl-mimic117
+
+# Stage 3 — convert to Parquet (joins MIMIC metadata)
+python scripts/embedding_extraction/to_parquet.py --model echo-vitl-mimic117
 ```
 
 Available model aliases: `vitl`, `vith`, `vitg`, `vitg-384`, `echo-vitl-scratch`, `echo-vitl-mimic100`, `echo-vitl-mimic117`, `echo-vitl-vmix22m`, `echo-vitb-mimic169`.

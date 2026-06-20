@@ -4,7 +4,7 @@ Reference documents for the PRIMED-AI pipeline.
 
 | Document | Contents |
 |----------|----------|
-| [embeddings.md](embeddings.md) | Pre-extracted embedding paths, loading code, model weights, and how to re-run extraction via EchoJEPA-VE |
+| [embeddings.md](embeddings.md) | Pre-extracted embedding paths, loading code, model weights, and how to re-run extraction |
 
 For higher-level context see the root-level docs:
 
