@@ -2,7 +2,7 @@
 
 ## Local Setup
 1. Clone the repository.
-2. Run `pip install -e .` or `make install`.
+2. Run `pip install -e ".[dev]"` or `make install`.
 3. Ensure Python 3.10+ and PyTorch with CUDA are installed.
 
 ## Data Access
