@@ -38,11 +38,8 @@ Outputs (written to cohort/):
                                     continuous `lvef` label and the `ef_le_40` gate
 - cohort_funnel.json / .csv       - inclusion/exclusion counts per step
 - cohort_flowchart.md             - Mermaid CONSORT-style flow diagram
-- cohort_lvef_sources.json / .csv - which LVEF measurement variant was used
-
-Outputs (written to logs/):
-- cohort_summary.json             - LVEF distribution (mean/std/min/max/missing
-                                    rate) and EF<=40% prevalence for label validation
+- demographics_coverage.json      - % non-missing per demographic field (sex, age,
+                                    age_band, race) + documented MIMIC limitations
 
 Note: the lead's brief allows a 24-48h window; the cohort definition here uses a
 symmetric +/-24h window by default. Override with --window-hours.
@@ -109,6 +106,31 @@ LVEF_PRIORITY_SQL = (
     "CASE measurement "
     + " ".join(f"WHEN '{m}' THEN {i}" for i, m in enumerate(LVEF_PRIORITY))
     + f" ELSE {len(LVEF_PRIORITY)} END"
+)
+
+# Age-band edges for fairness stratification (E03). Right-open bins [lo, hi):
+# adult clinical strata. The top "90+" bin captures MIMIC's age aggregation,
+# where patients older than 89 have anchor_age set to 91 (a de-identification
+# artifact), so they must not be read as literally 91 years old.
+AGE_BAND_EDGES = [18, 40, 55, 65, 75, 90, float("inf")]
+AGE_BAND_LABELS = ["18-39", "40-54", "55-64", "65-74", "75-89", "90+"]
+
+# MIMIC-IV `gender` is a curated binary administrative field (M/F), surfaced as
+# `sex` here. It is NOT self-reported gender identity. Recorded in cohort
+# metadata so the paper limitations section can cite it directly.
+GENDER_CURATION_NOTE = (
+    "MIMIC-IV `gender` is a curated binary administrative field (M/F), surfaced "
+    "here as `sex`. It is not self-reported gender identity and may misclassify "
+    "transgender / nonbinary patients; interpret sex-stratified fairness results "
+    "with this limitation in mind."
+)
+
+# Race strings MIMIC uses for non-responses; counted as missing for coverage.
+RACE_MISSING_VALUES = (
+    "UNKNOWN",
+    "UNABLE TO OBTAIN",
+    "PATIENT DECLINED TO ANSWER",
+    "",
 )
 
 def funnel_stages(pair_by: str, require_admission: bool = True
@@ -289,7 +311,7 @@ final AS (
     p.ecg_path,
     COALESCE(dc.n_dicom_files, 0) AS n_dicom_files,
     p.hadm_id, p.admittime, p.dischtime,
-    pt.gender, pt.anchor_age,
+    pt.gender AS sex, pt.anchor_age AS age,
     p.race, p.insurance, p.marital_status, p.language
   FROM ecg_pairs p
   LEFT JOIN `{HOSP_PATIENTS}` pt ON pt.subject_id = p.subject_id
@@ -354,7 +376,7 @@ final AS (
     p.ecg_path,
     COALESCE(dc.n_dicom_files, 0) AS n_dicom_files,
     am.hadm_id, am.admittime, am.dischtime,
-    pt.gender, pt.anchor_age,
+    pt.gender AS sex, pt.anchor_age AS age,
     am.race, am.insurance, am.marital_status, am.language
   FROM ecg_pairs p
   {adm_join} adm_match am USING (echo_study_id)
@@ -470,6 +492,82 @@ def write_cohort_summary(cohort: pd.DataFrame, path: Path,
     with path.open("w") as f:
         json.dump(summary, f, indent=2)
     return summary
+
+
+def add_age_bands(cohort: pd.DataFrame) -> pd.DataFrame:
+    """Add the `age_band` stratification column in place (task D03).
+
+    Right-open bins defined by AGE_BAND_EDGES / AGE_BAND_LABELS. `age` is the
+    MIMIC `anchor_age`; patients >89 are aggregated to 91 upstream and land in
+    the top "90+" band. Missing ages remain NaN (and so does their band).
+    """
+    age = pd.to_numeric(cohort["age"], errors="coerce")
+    cohort["age_band"] = pd.cut(
+        age, bins=AGE_BAND_EDGES, labels=AGE_BAND_LABELS, right=False
+    )
+    return cohort
+
+
+def write_demographics_coverage(cohort: pd.DataFrame, path: Path) -> dict:
+    """Report demographic coverage (% non-missing per field) to JSON (task D03).
+
+    Coverage is reported for the fairness-audit fields `sex`, `age`, `age_band`
+    and `race`. MIMIC encodes unknown race as literal strings (not NULL), so
+    those are treated as missing for an honest figure. Known MIMIC demographic
+    limitations are embedded so they can be lifted into the paper's limitations
+    section.
+    """
+    n_rows = int(len(cohort))
+    coverage = {}
+    for field in ["sex", "age", "age_band", "race"]:
+        col = cohort[field]
+        if field == "race":
+            present = col.notna() & ~col.astype("string").str.upper().isin(
+                RACE_MISSING_VALUES
+            )
+        else:
+            present = col.notna()
+        n_present = int(present.sum())
+        coverage[field] = {
+            "n_present": n_present,
+            "n_missing": n_rows - n_present,
+            "coverage": round(n_present / n_rows, 6) if n_rows else None,
+        }
+
+    def _counts(series: pd.Series) -> dict:
+        return {str(k): int(v)
+                for k, v in series.value_counts(dropna=False).items()}
+
+    report = {
+        "n_rows": n_rows,
+        "fields": coverage,
+        "value_counts": {
+            "sex": _counts(cohort["sex"]),
+            "race": _counts(cohort["race"]),
+            "age_band": _counts(cohort["age_band"]),
+        },
+        "age_bands": {
+            # Report finite edges + "inf" so the JSON stays standards-compliant.
+            "edges": AGE_BAND_EDGES[:-1] + ["inf"],
+            "labels": AGE_BAND_LABELS,
+            "rule": "right-open bins [lo, hi); age = MIMIC anchor_age.",
+        },
+        "limitations": {
+            "gender_curation": GENDER_CURATION_NOTE,
+            "race_missing_values": (
+                "Race values " + ", ".join(v for v in RACE_MISSING_VALUES if v)
+                + " are counted as missing for coverage."
+            ),
+            "age_aggregation": (
+                "MIMIC sets anchor_age to 91 for patients older than 89; these "
+                "fall in the 90+ band and are not literal ages."
+            ),
+        },
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        json.dump(report, f, indent=2)
+    return report
 
 
 def write_flowchart(funnel: pd.DataFrame, path: Path, pairing_desc: str) -> None:
@@ -598,6 +696,8 @@ def main() -> None:
     log.info("Paired cohort: %d rows | %d unique patients | dupes=0",
              len(cohort), cohort["subject_id"].nunique())
 
+    add_age_bands(cohort)
+
     if args.format == "parquet":
         out_path = out_dir / "paired.parquet"
         cohort.to_parquet(out_path, index=False)
@@ -619,6 +719,14 @@ def main() -> None:
              summary["ef_le_40"]["prevalence"],
              summary["ef_le_40"]["n_positive"], s["n_valid"])
     log.info("Wrote LVEF summary to %s", summary_path)
+
+    coverage_path = logs_dir / "demographics_coverage.json"
+    coverage = write_demographics_coverage(cohort, coverage_path)
+    log.info("Demographic coverage (%% non-missing):")
+    for field, c in coverage["fields"].items():
+        log.info("  %-9s %6.2f%% (%d/%d present)",
+                 field, c["coverage"] * 100, c["n_present"], coverage["n_rows"])
+    log.info("Wrote demographic coverage to %s", coverage_path)
 
 
 if __name__ == "__main__":
