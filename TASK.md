@@ -6,6 +6,20 @@
 >
 > See [OVERVIEW.md](./OVERVIEW.md) for submission strategy and [TECHNICAL.md](./TECHNICAL.md) for pipeline details.
 
+## Status tracker — updated Jun 20, 2026 (Day 4)
+
+| ID | Status | Notes |
+|----|--------|-------|
+| **I01** | ✅ Done | Repo scaffold complete — `pyproject.toml`, `Makefile` (pip + uv), `CONTRIBUTING.md`, pytest + ruff config. Issue #13 closed. |
+| **I04** | ✅ Unblocked | EchoJEPA weights downloaded from Alif's Google Drive to ORCD (`/orcd/pool/006/lceli_shared/weights/`): `vjepa21_vitl_mimic_pt117.pt`, `vitl-scratch-pt-210-c25.pt`, `vjepa2_1_vitb_mimic_pt169_c60.pt`. M01 wrapper can proceed. |
+| **D03** | 🔄 In review | PR #38 open (@tigerkrittaphas) — merge conflict in `pyproject.toml`. Author pinged to rebase. |
+| **D04** | ✅ Done | `scripts/make_splits.py` merged (PR #39). Subject-level 70/10/20 split with zero-leakage check and reproducible manifest. Issue #4 closed. |
+| **D06** | ✅ Done | `scripts/check_ef40_prevalence.py` merged (PR #40). Reports prevalence overall + per split, flags AUROC reportability. Issue #6 closed. |
+| **M05** | ✅ Done | `src/primed_ai/embeddings/cache.py` merged (PR #42). On-disk `.npy` cache with atomic writes, resume support, JSONL manifest. Issue #23 closed. |
+| **All others** | ⬜ Not started | — |
+
+---
+
 ## Quick links
 
 | Resource | URL |
@@ -93,41 +107,41 @@ flowchart TD
 
 ## Task index
 
-| ID | GitHub Issue | Category | Title | Priority | Complexity | Est. days | Owner | References |
-|----|--------------|----------|-------|----------|------------|-----------|-------|------------|
-| **I01** | [#13](https://github.com/criticaldata/PRIMED-AI/issues/13) | Infrastructure | Repository scaffold and development environment | High | Low | 2 | — | — |
-| **I02** | [#14](https://github.com/criticaldata/PRIMED-AI/issues/14) | Infrastructure | PhysioNet credentialing and DUA verification | High | Low | 1 | — | — |
-| **I03** | [#15](https://github.com/criticaldata/PRIMED-AI/issues/15) | Infrastructure | ORCD GPU reservation and storage layout | High | Low | 1 | — | — |
-| **I04** | [#16](https://github.com/criticaldata/PRIMED-AI/issues/16) | Infrastructure | EchoJEPA-L weights access (private) | **Critical** | Medium | 2 | — | R1 |
-| **I05** | [#17](https://github.com/criticaldata/PRIMED-AI/issues/17) | Infrastructure | ECG-FM weights pull and smoke test | High | Low | 1 | — | R2 |
-| **I06** | [#18](https://github.com/criticaldata/PRIMED-AI/issues/18) | Infrastructure | Experiment config, logging, and reproducibility | Medium | Low | 2 | — | — |
-| **D01** | [#1](https://github.com/criticaldata/PRIMED-AI/issues/1) | Data | Echo↔ECG temporal pairing (24–48h window) | High | Medium | 2 | — | — |
-| **D02** | [#2](https://github.com/criticaldata/PRIMED-AI/issues/2) | Data | LVEF label join and cohort validation | High | Low | 1 | — | — |
-| **D03** | [#3](https://github.com/criticaldata/PRIMED-AI/issues/3) | Data | Demographics join (sex, age, race) | High | Low | 1 | — | — |
-| **D04** | [#4](https://github.com/criticaldata/PRIMED-AI/issues/4) | Data | Subject-level train / val / test split | High | Low | 1 | — | — |
-| **D05** | [#5](https://github.com/criticaldata/PRIMED-AI/issues/5) | Data | Cohort flow diagram and exclusion statistics | Medium | Low | 1 | — | — |
-| **D06** | [#6](https://github.com/criticaldata/PRIMED-AI/issues/6) | Data | EF≤40% prevalence sanity check | High | Low | 1 | — | — |
-| **M01** | [#19](https://github.com/criticaldata/PRIMED-AI/issues/19) | Model | Frozen EchoJEPA-L encoder wrapper | High | Medium | 2 | — | R1 |
-| **M02** | [#20](https://github.com/criticaldata/PRIMED-AI/issues/20) | Model | Echo embedding extraction pipeline | High | Medium | 2 | — | R1 |
-| **M03** | [#21](https://github.com/criticaldata/PRIMED-AI/issues/21) | Model | Frozen ECG-FM encoder wrapper | High | Low | 1 | — | R2 |
-| **M04** | [#22](https://github.com/criticaldata/PRIMED-AI/issues/22) | Model | ECG embedding extraction pipeline | High | Low | 2 | — | R2 |
-| **M05** | [#23](https://github.com/criticaldata/PRIMED-AI/issues/23) | Model | Embedding cache storage layer | High | Medium | 2 | — | — |
-| **M06** | [#24](https://github.com/criticaldata/PRIMED-AI/issues/24) | Model | ECG-only probe (linear / MLP) | High | Low | 1 | — | R2 |
-| **M07** | [#25](https://github.com/criticaldata/PRIMED-AI/issues/25) | Model | Echo-only attentive probe | High | Medium | 2 | — | R1 |
-| **M08** | [#26](https://github.com/criticaldata/PRIMED-AI/issues/26) | Model | Quick-win concat-MLP fused probe | High | Low | 1 | — | — |
-| **M09** | [#27](https://github.com/criticaldata/PRIMED-AI/issues/27) | Model | Cross-attention fused probe | High | High | 3 | — | R3 |
-| **E01** | [#7](https://github.com/criticaldata/PRIMED-AI/issues/7) | Evaluation | Missing-modality evaluation protocol | **Critical** | Medium | 2 | — | — |
-| **E02** | [#8](https://github.com/criticaldata/PRIMED-AI/issues/8) | Evaluation | Degradation curve figures | **Critical** | Low | 1 | — | — |
-| **E03** | [#9](https://github.com/criticaldata/PRIMED-AI/issues/9) | Evaluation | Fairness stratification (sex, age, race) | High | Low | 1 | — | — |
-| **E04** | [#10](https://github.com/criticaldata/PRIMED-AI/issues/10) | Evaluation | EF≤40% calibration (optional stretch) | Low | Low | 1 | — | — |
-| **E05** | [#11](https://github.com/criticaldata/PRIMED-AI/issues/11) | Evaluation | Metrics aggregation and result tables | High | Low | 1 | — | — |
-| **E06** | [#12](https://github.com/criticaldata/PRIMED-AI/issues/12) | Evaluation | ECG-FM pooling ablation (mean vs attentive) | Medium | Low | 1 | — | R2 |
-| **W01** | [#28](https://github.com/criticaldata/PRIMED-AI/issues/28) | Writing | EchoingECG review and differentiation paragraph | High | Low | 1 | — | R3 |
-| **W02** | [#29](https://github.com/criticaldata/PRIMED-AI/issues/29) | Writing | Methods and data section draft | High | Medium | 2 | — | — |
-| **W03** | [#30](https://github.com/criticaldata/PRIMED-AI/issues/30) | Writing | Results figures (degradation + fairness) | High | Low | 1 | — | — |
-| **W04** | [#31](https://github.com/criticaldata/PRIMED-AI/issues/31) | Writing | Full paper draft (8pp research / 4pp fallback) | High | High | 3 | — | — |
-| **W05** | [#32](https://github.com/criticaldata/PRIMED-AI/issues/32) | Writing | Anonymization pass | High | Low | 1 | — | — |
-| **W06** | [#33](https://github.com/criticaldata/PRIMED-AI/issues/33) | Writing | OpenReview submission | High | Low | 1 | — | — |
+| ID | Status | GitHub Issue | Category | Title | Priority | Complexity | Est. days | Owner | References |
+|----|--------|--------------|----------|-------|----------|------------|-----------|-------|------------|
+| **I01** | ✅ Done | [#13](https://github.com/criticaldata/PRIMED-AI/issues/13) | Infrastructure | Repository scaffold and development environment | High | Low | 2 | — | — |
+| **I02** | ⬜ | [#14](https://github.com/criticaldata/PRIMED-AI/issues/14) | Infrastructure | PhysioNet credentialing and DUA verification | High | Low | 1 | — | — |
+| **I03** | ⬜ | [#15](https://github.com/criticaldata/PRIMED-AI/issues/15) | Infrastructure | ORCD GPU reservation and storage layout | High | Low | 1 | — | — |
+| **I04** | ✅ Unblocked | [#16](https://github.com/criticaldata/PRIMED-AI/issues/16) | Infrastructure | EchoJEPA-L weights access (private) | **Critical** | Medium | 2 | — | R1 |
+| **I05** | ⬜ | [#17](https://github.com/criticaldata/PRIMED-AI/issues/17) | Infrastructure | ECG-FM weights pull and smoke test | High | Low | 1 | — | R2 |
+| **I06** | ⬜ | [#18](https://github.com/criticaldata/PRIMED-AI/issues/18) | Infrastructure | Experiment config, logging, and reproducibility | Medium | Low | 2 | — | — |
+| **D01** | ⬜ | [#1](https://github.com/criticaldata/PRIMED-AI/issues/1) | Data | Echo↔ECG temporal pairing (24–48h window) | High | Medium | 2 | — | — |
+| **D02** | ⬜ | [#2](https://github.com/criticaldata/PRIMED-AI/issues/2) | Data | LVEF label join and cohort validation | High | Low | 1 | — | — |
+| **D03** | 🔄 In review | [#3](https://github.com/criticaldata/PRIMED-AI/issues/3) | Data | Demographics join (sex, age, race) | High | Low | 1 | — | — |
+| **D04** | ✅ Done | [#4](https://github.com/criticaldata/PRIMED-AI/issues/4) | Data | Subject-level train / val / test split | High | Low | 1 | — | — |
+| **D05** | ⬜ | [#5](https://github.com/criticaldata/PRIMED-AI/issues/5) | Data | Cohort flow diagram and exclusion statistics | Medium | Low | 1 | — | — |
+| **D06** | ✅ Done | [#6](https://github.com/criticaldata/PRIMED-AI/issues/6) | Data | EF≤40% prevalence sanity check | High | Low | 1 | — | — |
+| **M01** | ⬜ | [#19](https://github.com/criticaldata/PRIMED-AI/issues/19) | Model | Frozen EchoJEPA-L encoder wrapper | High | Medium | 2 | — | R1 |
+| **M02** | ⬜ | [#20](https://github.com/criticaldata/PRIMED-AI/issues/20) | Model | Echo embedding extraction pipeline | High | Medium | 2 | — | R1 |
+| **M03** | ⬜ | [#21](https://github.com/criticaldata/PRIMED-AI/issues/21) | Model | Frozen ECG-FM encoder wrapper | High | Low | 1 | — | R2 |
+| **M04** | ⬜ | [#22](https://github.com/criticaldata/PRIMED-AI/issues/22) | Model | ECG embedding extraction pipeline | High | Low | 2 | — | R2 |
+| **M05** | ✅ Done | [#23](https://github.com/criticaldata/PRIMED-AI/issues/23) | Model | Embedding cache storage layer | High | Medium | 2 | — | — |
+| **M06** | ⬜ | [#24](https://github.com/criticaldata/PRIMED-AI/issues/24) | Model | ECG-only probe (linear / MLP) | High | Low | 1 | — | R2 |
+| **M07** | ⬜ | [#25](https://github.com/criticaldata/PRIMED-AI/issues/25) | Model | Echo-only attentive probe | High | Medium | 2 | — | R1 |
+| **M08** | ⬜ | [#26](https://github.com/criticaldata/PRIMED-AI/issues/26) | Model | Quick-win concat-MLP fused probe | High | Low | 1 | — | — |
+| **M09** | ⬜ | [#27](https://github.com/criticaldata/PRIMED-AI/issues/27) | Model | Cross-attention fused probe | High | High | 3 | — | R3 |
+| **E01** | ⬜ | [#7](https://github.com/criticaldata/PRIMED-AI/issues/7) | Evaluation | Missing-modality evaluation protocol | **Critical** | Medium | 2 | — | — |
+| **E02** | ⬜ | [#8](https://github.com/criticaldata/PRIMED-AI/issues/8) | Evaluation | Degradation curve figures | **Critical** | Low | 1 | — | — |
+| **E03** | ⬜ | [#9](https://github.com/criticaldata/PRIMED-AI/issues/9) | Evaluation | Fairness stratification (sex, age, race) | High | Low | 1 | — | — |
+| **E04** | ⬜ | [#10](https://github.com/criticaldata/PRIMED-AI/issues/10) | Evaluation | EF≤40% calibration (optional stretch) | Low | Low | 1 | — | — |
+| **E05** | ⬜ | [#11](https://github.com/criticaldata/PRIMED-AI/issues/11) | Evaluation | Metrics aggregation and result tables | High | Low | 1 | — | — |
+| **E06** | ⬜ | [#12](https://github.com/criticaldata/PRIMED-AI/issues/12) | Evaluation | ECG-FM pooling ablation (mean vs attentive) | Medium | Low | 1 | — | R2 |
+| **W01** | ⬜ | [#28](https://github.com/criticaldata/PRIMED-AI/issues/28) | Writing | EchoingECG review and differentiation paragraph | High | Low | 1 | — | R3 |
+| **W02** | ⬜ | [#29](https://github.com/criticaldata/PRIMED-AI/issues/29) | Writing | Methods and data section draft | High | Medium | 2 | — | — |
+| **W03** | ⬜ | [#30](https://github.com/criticaldata/PRIMED-AI/issues/30) | Writing | Results figures (degradation + fairness) | High | Low | 1 | — | — |
+| **W04** | ⬜ | [#31](https://github.com/criticaldata/PRIMED-AI/issues/31) | Writing | Full paper draft (8pp research / 4pp fallback) | High | High | 3 | — | — |
+| **W05** | ⬜ | [#32](https://github.com/criticaldata/PRIMED-AI/issues/32) | Writing | Anonymization pass | High | Low | 1 | — | — |
+| **W06** | ⬜ | [#33](https://github.com/criticaldata/PRIMED-AI/issues/33) | Writing | OpenReview submission | High | Low | 1 | — | — |
 
 ---
 
