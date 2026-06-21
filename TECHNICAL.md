@@ -87,10 +87,14 @@ Both models run in inference mode only. Weights are frozen; gradients do not flo
 | Property | Detail |
 |---|---|
 | Architecture | Video JEPA (Joint Embedding Predictive Architecture) |
-| Input | Echo video (DICOM) |
-| Output | High-dimensional, spatially structured embeddings |
-| Weights | Pending public PhysioNet release; private access required from model authors |
+| Input | Echo video (DICOM → MP4) |
+| Output | 1024-dim mean-pooled embedding per study (ViT-L) |
+| Weights | **Available** on ORCD — see [`docs/embeddings.md §2`](docs/embeddings.md#2-model-weights) |
+| Primary checkpoint | `vjepa21_vitl_mimic_pt117.pt` (ViT-L, 117-epoch MIMIC fine-tune) |
+| Config | [`configs/encoder/echojepa.yaml`](configs/encoder/echojepa.yaml) |
 | Reference | arXiv:2602.02603 |
+
+Five EchoJEPA checkpoints are available (ViT-L and ViT-B variants, various MIMIC fine-tune epochs). Pre-extracted embeddings for `vitl` (natural pretrain) are already on ORCD; EchoJEPA fine-tuned runs are in progress. See [`docs/embeddings.md`](docs/embeddings.md) for paths, loading code, and [`scripts/embedding_extraction/`](scripts/embedding_extraction/) for the full pipeline.
 
 EchoJEPA embeddings preserve spatial structure across frames. This matters for probe design — a simple linear head is insufficient; an **attentive probe** is required (see §5.2).
 
