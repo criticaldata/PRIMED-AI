@@ -32,6 +32,8 @@ dist/
 /results/
 /artifacts/
 /tmp/
+/probes/
+*.joblib
 
 # Model weights / checkpoints
 *.pt
