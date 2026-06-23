@@ -2,8 +2,11 @@
 
 import numpy as np
 import pandas as pd
+import torch
 
+from primed_ai.evaluation.missing_modality import run as run_missing_modality_eval
 from primed_ai.probes.concat_mlp import run as run_concat
+from primed_ai.probes.cross_attn import CrossAttnFusedProbe
 from primed_ai.probes.cross_attn import run as run_cross
 
 
@@ -60,3 +63,52 @@ def test_cross_attn_missing_modality(tmp_path):
     assert "echo_dropped" in res["test"]
     assert "ecg_dropped" in res["test"]
     assert (out / "cross_attn_fused.pt").is_file()
+
+
+def test_cross_attn_projects_mismatched_modalities():
+    model = CrossAttnFusedProbe(embed_dim=8, echo_dim=10, ecg_dim=6)
+    pred = model(torch.randn(4, 3, 10), torch.randn(4, 2, 6))
+    assert pred.shape == (4,)
+
+
+def test_e01_missing_modality_eval_loads_checkpoint(tmp_path):
+    cpath, echo_path, ecg_path = _synthetic(tmp_path)
+    echo_df = pd.read_parquet(echo_path)
+    echo_cols = [c for c in echo_df.columns if c.startswith("echo_ve")]
+    echo_df = pd.DataFrame({
+        "echo_study_id": echo_df["echo_study_id"],
+        "echo_embedding": list(echo_df[echo_cols].to_numpy()),
+    })
+    echo_df.to_parquet(echo_path)
+
+    ecg_df = pd.read_parquet(ecg_path)
+    ecg_cols = [c for c in ecg_df.columns if c.startswith("ve")]
+    ecg_df = pd.DataFrame({
+        "ecg_study_id": ecg_df["ecg_record_id"],
+        "ecg_embedding": list(ecg_df[ecg_cols].to_numpy()),
+    })
+    ecg_df.to_parquet(ecg_path)
+
+    probe_dir = tmp_path / "probes" / "cross_attn"
+    run_cross(cpath, echo_path, ecg_path, out_dir=probe_dir, embed_dim=8, epochs=5)
+
+    output = tmp_path / "results" / "missing_modality.json"
+    res = run_missing_modality_eval(
+        cpath,
+        echo_path,
+        ecg_path,
+        probe_dir / "cross_attn_fused.pt",
+        output,
+        embed_dim=8,
+        batch_size=32,
+        device="cpu",
+    )
+
+    assert output.is_file()
+    assert res["task"] == "E01_missing_modality_evaluation"
+    assert [row["condition"] for row in res["metrics_table"]] == [
+        "full",
+        "echo_dropped",
+        "ecg_dropped",
+    ]
+    assert set(res["test"]) == {"full", "echo_dropped", "ecg_dropped"}

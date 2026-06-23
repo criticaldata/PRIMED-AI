@@ -19,6 +19,7 @@ from primed_ai.probes.common import (
     save_results,
 )
 from primed_ai.probes.echo_only import _ensure_tokens
+from primed_ai.probes.echo_only import _embedding_to_tokens
 from primed_ai.probes.layers import AttentivePool, MLPHead
 
 
@@ -39,9 +40,15 @@ class ConcatMLPProbe(nn.Module):
 def _ensure_ecg_tokens(df: pd.DataFrame, prefix: str = "ve", n_tokens: int = 4) -> pd.DataFrame:
     if "ecg_tokens" in df.columns:
         return df
+    if "ecg_embedding" in df.columns:
+        out = df.copy()
+        out["ecg_tokens"] = [
+            _embedding_to_tokens(value, n_tokens=n_tokens) for value in out["ecg_embedding"]
+        ]
+        return out
     cols = [c for c in df.columns if c.startswith(prefix)]
     if not cols:
-        raise ValueError(f"need ecg_tokens or columns prefixed {prefix!r}")
+        raise ValueError(f"need ecg_tokens, ecg_embedding, or columns prefixed {prefix!r}")
     dim = len(cols)
     tokens = [np.tile(row, (n_tokens, 1)).reshape(n_tokens, dim) for row in df[cols].to_numpy()]
     out = df.copy()
