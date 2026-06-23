@@ -32,7 +32,9 @@ def main() -> None:
     caption_path = write_caption(payload, args.caption_output)
 
     png_path = Path(figure_path).with_suffix(".png")
+    svg_path = Path(figure_path).with_suffix(".svg")
     print(f"Wrote figure PDF: {figure_path}")
+    print(f"Wrote figure SVG: {svg_path}")
     print(f"Wrote figure PNG: {png_path}")
     print(f"Wrote caption draft: {caption_path}")
 

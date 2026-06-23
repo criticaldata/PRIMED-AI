@@ -12,6 +12,13 @@ CONDITION_LABELS = {
     "echo_dropped": "Echo dropped",
     "ecg_dropped": "ECG dropped",
 }
+PALETTE = {
+    "mae": "#0072B2",
+    "auroc": "#D55E00",
+    "baseline": "#4B5563",
+    "grid": "#E5E7EB",
+    "axis": "#111827",
+}
 
 
 def load_metrics(path: str | Path) -> dict:
@@ -105,68 +112,99 @@ def plot_degradation_curve(payload: dict, output_pdf: str | Path) -> Path:
     output_pdf = Path(output_pdf)
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
     output_png = output_pdf.with_suffix(".png")
+    output_svg = output_pdf.with_suffix(".svg")
 
     plt.rcParams.update(
         {
-            "font.size": 9,
-            "axes.titlesize": 10,
-            "axes.labelsize": 9,
-            "xtick.labelsize": 8,
-            "ytick.labelsize": 8,
-            "legend.fontsize": 8,
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+            "font.size": 8,
+            "axes.titlesize": 8.5,
+            "axes.labelsize": 8,
+            "xtick.labelsize": 7,
+            "ytick.labelsize": 7,
+            "legend.fontsize": 7,
+            "axes.linewidth": 0.8,
             "pdf.fonttype": 42,
             "ps.fonttype": 42,
+            "svg.fonttype": "none",
         }
     )
-    colors = {"mae": "#2F6F73", "auroc": "#8A5A44", "baseline": "#6B7280"}
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.4), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=(6.6, 2.6), constrained_layout=True)
+    fig.get_layout_engine().set(w_pad=0.03, h_pad=0.02, wspace=0.08, hspace=0.02)
 
     axes[0].errorbar(
         x,
         mae,
         yerr=mae_yerr,
         marker="o",
-        linewidth=2,
-        markersize=5,
-        capsize=4 if mae_yerr is not None else 0,
-        color=colors["mae"],
+        markerfacecolor="white",
+        markeredgewidth=1.2,
+        linewidth=1.5,
+        markersize=4.2,
+        capsize=3 if mae_yerr is not None else 0,
+        capthick=0.9,
+        elinewidth=1.0,
+        color=PALETTE["mae"],
     )
     if baseline_mae is not None:
         axes[0].axhline(
             baseline_mae,
-            color=colors["baseline"],
+            color=PALETTE["baseline"],
             linestyle="--",
-            linewidth=1,
+            linewidth=0.9,
             label="Mean-LVEF baseline",
         )
-        axes[0].legend(frameon=False, loc="upper left")
+        axes[0].legend(frameon=False, loc="upper right", handlelength=2.4)
     axes[0].set_title("LVEF regression")
     axes[0].set_ylabel("MAE")
     axes[0].set_xticks(x, labels, rotation=20, ha="right")
-    axes[0].grid(axis="y", color="#E5E7EB", linewidth=0.8)
-    axes[0].spines["top"].set_visible(False)
-    axes[0].spines["right"].set_visible(False)
+    axes[0].set_xlim(-0.1, len(rows) - 0.9)
+    axes[0].grid(axis="y", color=PALETTE["grid"], linewidth=0.55)
+    _apply_ci_ylim(axes[0], rows, "mae", extra_values=[baseline_mae])
 
     axes[1].errorbar(
         x,
         auroc,
         yerr=auroc_yerr,
-        marker="o",
-        linewidth=2,
-        markersize=5,
-        capsize=4 if auroc_yerr is not None else 0,
-        color=colors["auroc"],
+        marker="s",
+        markerfacecolor="white",
+        markeredgewidth=1.2,
+        linestyle="--",
+        linewidth=1.5,
+        markersize=4.0,
+        capsize=3 if auroc_yerr is not None else 0,
+        capthick=0.9,
+        elinewidth=1.0,
+        color=PALETTE["auroc"],
     )
     axes[1].set_title("EF <= 40% classification")
     axes[1].set_ylabel("AUROC")
     axes[1].set_xticks(x, labels, rotation=20, ha="right")
-    axes[1].set_ylim(max(0.0, min(auroc) - 0.08), min(1.0, max(auroc) + 0.08))
-    axes[1].grid(axis="y", color="#E5E7EB", linewidth=0.8)
-    axes[1].spines["top"].set_visible(False)
-    axes[1].spines["right"].set_visible(False)
+    axes[1].set_xlim(-0.1, len(rows) - 0.9)
+    axes[1].grid(axis="y", color=PALETTE["grid"], linewidth=0.55)
+    _apply_ci_ylim(axes[1], rows, "ef40_auroc", lower_bound=0.0, upper_bound=1.0)
 
-    fig.suptitle("Inference-time missing-modality degradation", fontsize=11)
+    for label, ax in zip(("(a)", "(b)"), axes):
+        ax.text(
+            -0.16,
+            1.06,
+            label,
+            transform=ax.transAxes,
+            ha="left",
+            va="bottom",
+            fontsize=8.5,
+            fontweight="bold",
+            color=PALETTE["axis"],
+        )
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_color(PALETTE["axis"])
+        ax.spines["bottom"].set_color(PALETTE["axis"])
+        ax.tick_params(axis="both", colors=PALETTE["axis"], width=0.8, length=3)
+
     fig.savefig(output_pdf, bbox_inches="tight")
+    fig.savefig(output_svg, bbox_inches="tight")
     fig.savefig(output_png, dpi=300, bbox_inches="tight")
     plt.close(fig)
     return output_pdf
@@ -181,6 +219,37 @@ def _asymmetric_yerr(rows: list[dict], metric: str):
     lows = [max(0.0, value - row[low_key]) for value, row in zip(values, rows)]
     highs = [max(0.0, row[high_key] - value) for value, row in zip(values, rows)]
     return [lows, highs]
+
+
+def _apply_ci_ylim(
+    ax,
+    rows: list[dict],
+    metric: str,
+    *,
+    lower_bound: float | None = None,
+    upper_bound: float | None = None,
+    extra_values: list[float | None] | None = None,
+) -> None:
+    low_key = f"{metric}_ci_low"
+    high_key = f"{metric}_ci_high"
+    lows = [row.get(low_key, row[metric]) for row in rows]
+    highs = [row.get(high_key, row[metric]) for row in rows]
+    for value in extra_values or []:
+        if value is not None:
+            lows.append(value)
+            highs.append(value)
+    y_min = min(lows)
+    y_max = max(highs)
+    pad = max((y_max - y_min) * 0.12, 0.02 if metric == "ef40_auroc" else 0.2)
+    if lower_bound is not None:
+        y_min = max(lower_bound, y_min - pad)
+    else:
+        y_min = y_min - pad
+    if upper_bound is not None:
+        y_max = min(upper_bound, y_max + pad)
+    else:
+        y_max = y_max + pad
+    ax.set_ylim(y_min, y_max)
 
 
 def write_caption(payload: dict, output_path: str | Path) -> Path:
