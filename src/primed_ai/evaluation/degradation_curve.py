@@ -116,8 +116,9 @@ def plot_degradation_curve(payload: dict, output_pdf: str | Path) -> Path:
 
     plt.rcParams.update(
         {
-            "font.family": "sans-serif",
-            "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman", "DejaVu Serif"],
+            "mathtext.fontset": "cm",
             "font.size": 8,
             "axes.titlesize": 8.5,
             "axes.labelsize": 8,
