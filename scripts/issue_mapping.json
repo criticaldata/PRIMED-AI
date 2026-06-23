@@ -10,7 +10,10 @@
     "features": "Join on `subject_id` + nearest ECG within configurable time window",
     "description": "Build the paired cohort **before** any embedding extraction. Do not process all ~525K echos.\n\n**Steps:**\n1. Implement `scripts/build_cohort.py`: for each echo study, find nearest ECG on same `subject_id` within 24\u201348h.\n2. Resolve multi-match edge cases: when multiple ECGs fall in window, take nearest timestamp.\n3. Emit paired table: `subject_id`, `echo_study_id`, `ecg_record_id`, echo timestamp, ECG timestamp, `delta_hours`.\n4. Log exclusion counts at each filter step.\n5. Export to `cohort/paired.parquet` (or CSV).\n\n**Acceptance criteria:**\n- Cohort size in expected range (few thousand to tens of thousands).\n- No duplicate `(subject_id, echo_study_id)` rows unless explicitly allowed and documented.\n- Pairing script reruns deterministically from same inputs.",
     "github_issue_id": 1,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/1"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/1",
+    "sprint_status": "done",
+    "sprint_status_note": "scripts/build_cohort.py pairing",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "D02",
@@ -23,7 +26,10 @@
     "features": "Structured LVEF from MIMIC-IV-Echo; range and missingness checks",
     "description": "Join continuous LVEF labels and validate label distribution for regression and EF\u226440% gate.\n\n**Steps:**\n1. Join structured LVEF from MIMIC-IV-Echo to paired cohort.\n2. Drop or flag rows with missing / out-of-range LVEF (document rules).\n3. Add derived column: `ef_le_40 = (lvef <= 40)`.\n4. Report LVEF summary stats (mean, std, min, max, missing rate).\n\n**Acceptance criteria:**\n- Final cohort table includes `lvef` and `ef_le_40` columns.\n- Summary stats logged to `logs/cohort_summary.json`.",
     "github_issue_id": 2,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/2"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/2",
+    "sprint_status": "done",
+    "sprint_status_note": "scripts/build_cohort.py LVEF join",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "D03",
@@ -62,7 +68,10 @@
     "features": "CONSORT-style flow counts for paper Figure 1",
     "description": "Produce exclusion counts at each cohort filter step for the paper data section.\n\n**Steps:**\n1. Tabulate: total echos \u2192 with LVEF \u2192 with ECG pair \u2192 final cohort \u2192 per split.\n2. Generate flow diagram (Mermaid, TikZ, or draw.io export).\n3. Save table to `results/cohort_flow.csv`.\n\n**Acceptance criteria:**\n- Every exclusion step has a count and brief rule description.\n- Figure ready for paper draft by Day 4.",
     "github_issue_id": 5,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/5"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/5",
+    "sprint_status": "done",
+    "sprint_status_note": "scripts/build_cohort.py funnel/flowchart",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "D06",
@@ -224,7 +233,10 @@
     "features": "Hugging Face download, inference smoke test",
     "description": "Pull publicly available ECG-FM weights and verify inference on a sample 12-lead ECG.\n\n**Steps:**\n1. Download ECG-FM from Hugging Face.\n2. Run forward pass on one MIMIC-IV-ECG record (or synthetic waveform).\n3. Record embedding shape, dtype, and pooling options in `configs/encoder/ecg_fm.yaml`.\n4. Confirm frozen mode (no gradients into backbone).\n\n**Acceptance criteria:**\n- Weights cached on ORCD.\n- Smoke test log saved to `logs/ecg_fm_smoke.txt`.",
     "github_issue_id": 17,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/17"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/17",
+    "sprint_status": "done",
+    "sprint_status_note": "ECGFMEncoder + scripts/smoke_test_ecg_fm.py",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "I06",
@@ -252,7 +264,10 @@
     "features": "`encode(echo_video) -> embedding` API with frozen weights",
     "description": "Wrap EchoJEPA-L as a frozen representation extractor for echo DICOM/video input.\n\n**Steps:**\n1. Implement `EchoJEPALEncoder` loading checkpoint from I04.\n2. Freeze all parameters; eval mode + `torch.no_grad()` forward.\n3. Document input preprocessing (frame sampling, resolution, normalization).\n4. Return token-level or clip-level embeddings (configurable; default matches probe needs).\n5. Unit test: output dim matches config on dummy batch.\n\n**Acceptance criteria:**\n- Forward pass on dummy echo returns stable embedding shape.\n- No gradients flow into encoder when `frozen=true`.",
     "github_issue_id": 19,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/19"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/19",
+    "sprint_status": "done",
+    "sprint_status_note": "src/primed_ai/encoders/echojepa.py",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M02",
@@ -267,7 +282,10 @@
     "features": "Batch encoding over paired cohort with resume support",
     "description": "Run frozen EchoJEPA-L forward passes on **paired cohort only** and cache embeddings.\n\n**Steps:**\n1. Read paired cohort manifest (D01\u2013D04).\n2. Load echo DICOM/video paths; batch for GPU throughput.\n3. Write embeddings incrementally to M05 cache with resume checkpoints.\n4. Log throughput (studies/sec) and failures.\n5. **Do not** encode the full 525K echo corpus.\n\n**Acceptance criteria:**\n- All paired-cohort echo studies encoded without duplicate keys.\n- Extraction resumable after interrupt.",
     "github_issue_id": 20,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/20"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/20",
+    "sprint_status": "done",
+    "sprint_status_note": "scripts/extract_echo_embeddings.py + embedding_extraction/",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M03",
@@ -282,7 +300,10 @@
     "features": "`encode(ecg_waveform) -> embedding` API with frozen weights",
     "description": "Wrap ECG-FM as a frozen representation extractor for 12-lead ECG input.\n\n**Steps:**\n1. Implement `ECGFMEncoder` loading Hugging Face weights from I05.\n2. Freeze backbone; document waveform preprocessing (length, leads, normalization).\n3. Return sequence embeddings before pooling (pooling deferred to probe).\n4. Unit test on synthetic 12-lead input.\n\n**Acceptance criteria:**\n- Stable embedding shape on dummy ECG batch.\n- Frozen mode verified.",
     "github_issue_id": 21,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/21"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/21",
+    "sprint_status": "done",
+    "sprint_status_note": "src/primed_ai/encoders/ecg_fm.py",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M04",
@@ -297,7 +318,10 @@
     "features": "Batch encoding over paired cohort ECG records",
     "description": "Run frozen ECG-FM forward passes on paired cohort ECG records and cache embeddings.\n\n**Steps:**\n1. Read paired cohort manifest; map `ecg_record_id` to waveform files.\n2. Batch encode with dynamic batch sizing for OOM safety.\n3. Write to M05 cache keyed by `ecg_record_id`.\n4. Log failures and retry policy.\n\n**Acceptance criteria:**\n- All paired-cohort ECG records encoded.\n- Cache keys align 1:1 with cohort rows.",
     "github_issue_id": 22,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/22"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/22",
+    "sprint_status": "done",
+    "sprint_status_note": "scripts/extract_ecg_embeddings.py + HuBERT parquet path",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M05",
@@ -310,7 +334,10 @@
     "features": "Disk cache for echo + ECG embeddings keyed by study/record ID",
     "description": "Fast read/write storage so probe training never re-runs foundation models.\n\n**Steps:**\n1. Define schema: `record_id`, `modality`, `embedding`, `encoder_version`, `timestamp`.\n2. Implement read/write API (zarr, HDF5, or `.pt` shards \u2014 pick one).\n3. Support random access by ID for probe `Dataset` classes.\n4. Document expected disk usage for paired cohort.\n\n**Acceptance criteria:**\n- Load arbitrary embedding by ID in <50ms from SSD.\n- Probes read from cache only during training iteration.",
     "github_issue_id": 23,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/23"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/23",
+    "sprint_status": "done",
+    "sprint_status_note": "embeddings/cache.py PR #42",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M06",
@@ -325,7 +352,10 @@
     "features": "Pooled ECG-FM embedding \u2192 LVEF regression head",
     "description": "Unimodal baseline for ECG-only LVEF prediction.\n\n**Steps:**\n1. Pool ECG-FM embeddings (mean pooling default; compare in E06).\n2. Train linear probe first; upgrade to MLP if needed.\n3. Predict continuous LVEF; derive EF\u226440% gate.\n4. Report val MAE and EF\u226440% AUROC.\n\n**Acceptance criteria:**\n- Val metrics logged; beats naive mean-LVEF baseline.\n- Checkpoint saved to `probes/ecg_only/`.",
     "github_issue_id": 24,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/24"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/24",
+    "sprint_status": "done",
+    "sprint_status_note": "probes/ecg_only.py PR #44",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M07",
@@ -340,7 +370,10 @@
     "features": "Attentive pooling over EchoJEPA embeddings \u2192 LVEF head",
     "description": "Unimodal baseline for echo-only LVEF prediction. **Attentive pooling required** \u2014 linear probe on raw EchoJEPA embeddings is expected to underperform.\n\n**Steps:**\n1. Implement attentive pooling layer over spatial/token EchoJEPA embeddings.\n2. Train probe head for continuous LVEF regression.\n3. Compare attentive vs linear pooling on val set (brief ablation note).\n4. Report val MAE and EF\u226440% AUROC.\n\n**Acceptance criteria:**\n- Attentive probe outperforms linear probe on val MAE.\n- Checkpoint saved to `probes/echo_only/`.",
     "github_issue_id": 25,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/25"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/25",
+    "sprint_status": "done",
+    "sprint_status_note": "src/primed_ai/probes/echo_only.py",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M08",
@@ -353,7 +386,10 @@
     "features": "`concat(pool(echo), pool(ecg)) \u2192 MLP \u2192 LVEF`",
     "description": "Day 2 target \u2014 get a fused number on the board before cross-attention fusion is ready.\n\n**Steps:**\n1. Pool echo (attentive) and ECG (mean/attentive) embeddings separately.\n2. Concatenate \u2192 MLP \u2192 continuous LVEF.\n3. Train on train split; select hyperparams on val.\n4. Report val MAE vs unimodal baselines (M06, M07).\n\n**Acceptance criteria:**\n- End-to-end fused result logged by end of Day 2.\n- Checkpoint saved to `probes/concat_mlp/`.",
     "github_issue_id": 26,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/26"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/26",
+    "sprint_status": "done",
+    "sprint_status_note": "src/primed_ai/probes/echo_only.py",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "M09",
@@ -368,7 +404,10 @@
     "features": "Cross-attention over echo \u2295 ECG \u2192 LVEF head",
     "description": "Headline fusion model used for missing-modality deployment analysis (E01).\n\n**Steps:**\n1. Implement cross-attention fusion module over echo and ECG token embeddings.\n2. Train for continuous LVEF on train; tune on val.\n3. Support inference-time masking of echo or ECG branch (for E01).\n4. Report val MAE and EF\u226440% AUROC vs M08 concat baseline.\n\n**Acceptance criteria:**\n- Fusion model supports masked inference (echo dropped / ECG dropped).\n- Checkpoint saved to `probes/cross_attn_fused/`.\n- Val metrics competitive with or better than M08.",
     "github_issue_id": 27,
-    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/27"
+    "github_issue_url": "https://github.com/criticaldata/PRIMED-AI/issues/27",
+    "sprint_status": "done",
+    "sprint_status_note": "src/primed_ai/probes/echo_only.py",
+    "sprint_status_updated": "2026-06-23"
   },
   {
     "id": "W01",

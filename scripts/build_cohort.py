@@ -672,7 +672,11 @@ def main() -> None:
     funnel.to_json(out_dir / "cohort_funnel.json", orient="records", indent=2)
     funnel.to_csv(out_dir / "cohort_funnel.csv", index=False)
     write_flowchart(funnel, out_dir / "cohort_flowchart.md", pairing_desc)
-    log.info("Wrote funnel + flowchart to %s", out_dir)
+    # D05 also expects a paper-ready table under results/
+    results_dir = repo_root / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    funnel.to_csv(results_dir / "cohort_flow.csv", index=False)
+    log.info("Wrote funnel + flowchart to %s (and results/cohort_flow.csv)", out_dir)
 
     log.info("LVEF source breakdown (at LVEF-selection stage):")
     lvef_src = run_lvef_breakdown(client, cte_sql)
