@@ -9,3 +9,6 @@ lint:
 
 test:
 	pytest tests/
+
+smoke-ecg-fm:
+	python scripts/smoke_test_ecg_fm.py --skip-download

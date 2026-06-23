@@ -23,6 +23,13 @@ dev = [
     "pre-commit",
     "ruff",
 ]
+ecg = [
+    "huggingface_hub>=0.23",
+    "wfdb>=4.1",
+]
+echo = [
+    "decord>=0.6",
+]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
