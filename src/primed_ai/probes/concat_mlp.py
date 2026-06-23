@@ -18,8 +18,7 @@ from primed_ai.probes.common import (
     regression_metrics,
     save_results,
 )
-from primed_ai.probes.echo_only import _ensure_tokens
-from primed_ai.probes.echo_only import _embedding_to_tokens
+from primed_ai.probes.echo_only import _embedding_to_tokens, _ensure_tokens
 from primed_ai.probes.layers import AttentivePool, MLPHead
 
 

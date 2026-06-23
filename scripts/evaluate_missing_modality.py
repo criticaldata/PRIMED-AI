@@ -27,7 +27,7 @@ def main() -> None:
     )
     parser.add_argument("--ecg-embeddings", default="data/interim/hubert_ecg_embeddings.parquet")
     parser.add_argument("--checkpoint", default="probes/cross_attn_fused/cross_attn_fused.pt")
-    parser.add_argument("--output", default="results/missing_modality.json")
+    parser.add_argument("--output", "--out", dest="output", default="results/missing_modality.json")
     parser.add_argument("--embed-dim", type=int, default=16, help="Shared fusion dimension.")
     parser.add_argument("--echo-dim", type=int, default=None)
     parser.add_argument("--ecg-dim", type=int, default=None)

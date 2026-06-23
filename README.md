@@ -97,6 +97,24 @@ All MIMIC datasets require PhysioNet credentialing and signed Data Use Agreement
 | **Missing-modality degradation** | Δ MAE / Δ AUROC when echo or ECG is dropped at inference |
 | **Fairness gap** | Per-stratum error across sex, age band, and race |
 
+## Missing-modality evaluation
+
+Evaluate the trained M09 cross-attention checkpoint under full, echo-dropped, and ECG-dropped inference conditions:
+
+```bash
+python scripts/evaluate_missing_modality.py \
+  --cohort data/raw/cohort/paired_with_splits.parquet \
+  --echo-embeddings data/interim/echo_study_embeddings_vjepa2.1-vitl-mimic-pt-100.parquet \
+  --ecg-embeddings data/interim/hubert_ecg_embeddings.parquet \
+  --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
+  --embed-dim 256 \
+  --echo-dim 1024 \
+  --ecg-dim 768 \
+  --out results/missing_modality_real.json
+```
+
+The `--embed-dim`, `--echo-dim`, and `--ecg-dim` flags must match the checkpoint architecture.
+
 ---
 
 ## E01 missing-modality evaluation
