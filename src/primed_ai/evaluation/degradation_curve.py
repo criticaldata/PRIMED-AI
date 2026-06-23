@@ -59,6 +59,13 @@ def caption_text(payload: dict, rows: list[dict]) -> str:
     else:
         larger_drop = "Both dropped-modality conditions produced similar MAE changes"
 
+    has_ci = all("mae_ci_low" in row and "mae_ci_high" in row for row in rows)
+    ci_sentence = (
+        " Error bars show 95% bootstrap confidence intervals."
+        if has_ci
+        else " Bootstrap confidence intervals require per-example predictions."
+    )
+
     return (
         "Missing-modality degradation curve for the held-out test set "
         f"(n={n_test}), using aggregate metrics from {source_task}. "
@@ -66,9 +73,8 @@ def caption_text(payload: dict, rows: list[dict]) -> str:
         f"EF <= 40% AUROC {full_auroc:.2f}), echo-dropped inference reached "
         f"MAE {echo_mae:.2f} and AUROC {echo_auroc:.2f}, while ECG-dropped inference "
         f"reached MAE {ecg_mae:.2f} and AUROC {ecg_auroc:.2f}. {larger_drop}. "
-        "This pattern supports graceful degradation rather than silent failure, although "
-        "bootstrap confidence intervals require per-example predictions and are not "
-        "recoverable from the aggregate JSON alone."
+        "This pattern supports graceful degradation rather than silent failure."
+        f"{ci_sentence}"
     )
 
 
@@ -93,6 +99,8 @@ def plot_degradation_curve(payload: dict, output_pdf: str | Path) -> Path:
     mae = [row["mae"] for row in rows]
     auroc = [row["ef40_auroc"] for row in rows]
     baseline_mae = rows[0].get("baseline_mae")
+    mae_yerr = _asymmetric_yerr(rows, "mae")
+    auroc_yerr = _asymmetric_yerr(rows, "ef40_auroc")
 
     output_pdf = Path(output_pdf)
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
@@ -113,7 +121,16 @@ def plot_degradation_curve(payload: dict, output_pdf: str | Path) -> Path:
     colors = {"mae": "#2F6F73", "auroc": "#8A5A44", "baseline": "#6B7280"}
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.4), constrained_layout=True)
 
-    axes[0].plot(x, mae, marker="o", linewidth=2, markersize=5, color=colors["mae"])
+    axes[0].errorbar(
+        x,
+        mae,
+        yerr=mae_yerr,
+        marker="o",
+        linewidth=2,
+        markersize=5,
+        capsize=4 if mae_yerr is not None else 0,
+        color=colors["mae"],
+    )
     if baseline_mae is not None:
         axes[0].axhline(
             baseline_mae,
@@ -130,7 +147,16 @@ def plot_degradation_curve(payload: dict, output_pdf: str | Path) -> Path:
     axes[0].spines["top"].set_visible(False)
     axes[0].spines["right"].set_visible(False)
 
-    axes[1].plot(x, auroc, marker="o", linewidth=2, markersize=5, color=colors["auroc"])
+    axes[1].errorbar(
+        x,
+        auroc,
+        yerr=auroc_yerr,
+        marker="o",
+        linewidth=2,
+        markersize=5,
+        capsize=4 if auroc_yerr is not None else 0,
+        color=colors["auroc"],
+    )
     axes[1].set_title("EF <= 40% classification")
     axes[1].set_ylabel("AUROC")
     axes[1].set_xticks(x, labels, rotation=20, ha="right")
@@ -144,6 +170,17 @@ def plot_degradation_curve(payload: dict, output_pdf: str | Path) -> Path:
     fig.savefig(output_png, dpi=300, bbox_inches="tight")
     plt.close(fig)
     return output_pdf
+
+
+def _asymmetric_yerr(rows: list[dict], metric: str):
+    low_key = f"{metric}_ci_low"
+    high_key = f"{metric}_ci_high"
+    if not all(low_key in row and high_key in row for row in rows):
+        return None
+    values = [row[metric] for row in rows]
+    lows = [max(0.0, value - row[low_key]) for value, row in zip(values, rows)]
+    highs = [max(0.0, row[high_key] - value) for value, row in zip(values, rows)]
+    return [lows, highs]
 
 
 def write_caption(payload: dict, output_path: str | Path) -> Path:

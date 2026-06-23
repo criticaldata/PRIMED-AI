@@ -79,7 +79,7 @@ def _train_epoch(model, loader, optim, device) -> None:
 
 
 @torch.no_grad()
-def _eval_condition(
+def _condition_arrays(
     model: CrossAttnFusedProbe,
     loader: DataLoader,
     device: str,
@@ -102,9 +102,23 @@ def _eval_condition(
     y = np.concatenate(ys)
     p = np.concatenate(preds)
     ef = np.concatenate(ef).astype(bool)
-    metrics = regression_metrics(y, p)
-    metrics["ef40_auroc"] = round(auroc(ef, -p), 4)
+    return {"lvef": y, "prediction": p, "ef_le_40": ef}
+
+
+def _metrics_from_arrays(arrays: dict) -> dict:
+    metrics = regression_metrics(arrays["lvef"], arrays["prediction"])
+    metrics["ef40_auroc"] = round(auroc(arrays["ef_le_40"], -arrays["prediction"]), 4)
     return metrics
+
+
+@torch.no_grad()
+def _eval_condition(
+    model: CrossAttnFusedProbe,
+    loader: DataLoader,
+    device: str,
+    condition: ModalityMask,
+) -> dict:
+    return _metrics_from_arrays(_condition_arrays(model, loader, device, condition))
 
 
 def prepare_fused_probe_data(cohort_path, echo_embedding_path, ecg_embedding_path) -> dict[str, pd.DataFrame]:
@@ -161,6 +175,18 @@ def evaluate_missing_modality(
     """Evaluate one fused checkpoint under full and inference-time dropped inputs."""
     return {
         condition: _eval_condition(model, loader, device, condition)
+        for condition in MISSING_MODALITY_CONDITIONS
+    }
+
+
+def predict_missing_modality(
+    model: CrossAttnFusedProbe,
+    loader: DataLoader,
+    device: str,
+) -> dict[ModalityMask, dict]:
+    """Collect labels and predictions for each missing-modality condition."""
+    return {
+        condition: _condition_arrays(model, loader, device, condition)
         for condition in MISSING_MODALITY_CONDITIONS
     }
 
