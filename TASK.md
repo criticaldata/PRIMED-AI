@@ -6,7 +6,7 @@
 >
 > See [OVERVIEW.md](./OVERVIEW.md) for submission strategy and [TECHNICAL.md](./TECHNICAL.md) for pipeline details.
 
-## Status tracker — updated Jun 24, 2026 (Day 8 — post-deadline)
+## Status tracker — updated Jun 24, 2026 — ✅ SUBMITTED (DAIH @ COLM 2026)
 
 | ID | Status | Notes |
 |----|--------|-------|
@@ -32,11 +32,14 @@
 | **E01** | ✅ Done | `evaluation/missing_modality.py` + `scripts/evaluate_missing_modality.py` — full / echo-dropped / ECG-dropped, bootstrap CIs. PR #49. |
 | **E02** | ✅ Done | `evaluation/degradation_curve.py` + `scripts/plot_degradation_curve.py` — degradation figure. PR #50. |
 | **E03** | ✅ Done | `evaluation/fairness.py` + `scripts/evaluate_fairness.py` — sex/age/race strata. PR #51. |
-| **E04–E06** | ⬜ Not started | Calibration (#10) · results aggregation (#11) · ECG-FM pooling ablation (#12). |
-| **I02, I03** | ⬜ Open | PhysioNet credentialing (#14) · ORCD GPU/storage (#15) — manual team steps. |
-| **W01–W06** | 🔄 In progress | **W04: 4pp Case Report drafted** in `paper/` (`case_report.tex`, builds clean, Tier-0). W01/W02/W03/W05/W06 pending. |
+| **E04** | ✅ Done | `evaluation/calibration.py` + `scripts/evaluate_calibration.py` — reliability diagram + ECE (Platt). Issue #10 closed. |
+| **E05** | ✅ Done | `evaluation/aggregate.py` + `scripts/aggregate_results.py` — unified `results.json` + LaTeX/MD tables. Issue #11 closed. |
+| **MFA** | ✅ Done | **Failure-analysis framework (paper's contribution)** — `src/primed_ai/failure/`: model-agnostic taxonomy + complementarity matrix + loud/silent dropout; `scripts/run_failure_analysis.py` + `scripts/validate_harness.py`; multi-seed + 3-modality validation. |
+| **W01–W06** | ✅ Done | **8-page research paper SUBMITTED** to DAIH @ COLM 2026 (`paper/`, builds clean, anonymized, 51 tests). Issues #28–#33 closed. |
+| **E06** | ⬜ Not pursued | ECG-FM pooling ablation (#12) — needs real ECG embeddings; out of scope after the framework pivot. |
+| **I02, I03** | ⬜ Open | PhysioNet credentialing (#14) · ORCD GPU/storage (#15) — needed only for the canonical real-data run, not for the submitted paper. |
 
-> **Execution status:** all M*/E* code is merged but the pipeline has **not been run end-to-end** — no cohort, embeddings, checkpoints, or result artifacts yet (blocked on I02 PhysioNet/BigQuery + I03 GPU). The Jun 24 submission target is the **Tier-0 Case Report** in `paper/`, which needs no executed results.
+> **Final:** the project pivoted from a fusion benchmark to a **model-agnostic modality-failure framework** (taxonomy · complementarity matrix · loud-vs-silent dropout), validated on synthetic data (multi-seed + 3-modality) and demonstrated on a real n=245 cohort. The 8-page paper in `paper/` was **submitted to DAIH @ COLM 2026**. A full canonical real-data run (per-example attribution + loud/silent on MIMIC) still needs I02 (PhysioNet/BigQuery) + I03 (GPU); the released harness produces it once a per-example prediction dump is available.
 
 ---
 

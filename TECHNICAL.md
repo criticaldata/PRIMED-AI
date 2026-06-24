@@ -1,5 +1,10 @@
 # Technical Pipeline — EchoJEPA + ECG-FM LVEF Estimation
 
+> **Note (Jun 24, 2026):** this pipeline is the **substrate** for the submitted paper, whose
+> contribution is a model-agnostic **modality-failure analysis framework**
+> (`src/primed_ai/failure/`; see [`paper/`](./paper/)). The pipeline description below remains
+> accurate and is what the framework is instantiated on.
+
 Frozen-embedding, multimodal pipeline for estimating left ventricular ejection fraction (LVEF) from paired echocardiogram and ECG data. Foundation models are used as fixed feature extractors; all task-specific learning happens in lightweight probes on top of cached embeddings.
 
 See [OVERVIEW.md](./OVERVIEW.md) for submission strategy, scope decisions, and timeline.

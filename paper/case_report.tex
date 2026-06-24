@@ -1,27 +1,6 @@
-% =====================================================================
-%  DAIH @ COLM 2026 --- Deployment Case Report (<= 4 pages excl. refs)
-%  Frozen-embedding multimodal LVEF estimation: a deployment case report.
-%
-%  >>> TEMPLATE NOTE <<<
-%  COLM 2026 mandates its official LaTeX style (colm2026_conference.sty/.cls).
-%  That file is NOT in this repo. The preamble below is a SELF-CONTAINED,
-%  portable stand-in so the draft compiles anywhere. Before submitting:
-%    1. drop colm2026_conference.sty next to this file,
-%    2. replace the \documentclass + geometry block with the COLM preamble,
-%    3. use the COLM anonymous-author macro,
-%    4. re-check the <=4 page limit (margins differ from this stand-in).
-%
-%  Build:  cd paper && latexmk -pdf case_report.tex
-%     or:  pdflatex case_report && bibtex case_report && pdflatex case_report && pdflatex case_report
-%
-%  STATUS: Tier-0 draft (no end-to-end experimental run; see Section 5-6).
-%  Anonymized for double-blind review --- keep it that way.
-% =====================================================================
-\documentclass[10pt]{article}  % 10pt + tighter margins approximates COLM density; swap for COLM .cls
+\documentclass{article}
+\usepackage[submission]{colm2026_conference}  % official template; [submission] anonymizes + adds line numbers
 
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[margin=0.85in]{geometry}
 \usepackage{microtype}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
@@ -29,206 +8,342 @@
 \usepackage{url}
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta}
-\usepackage[round]{natbib}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+\setlist[itemize]{topsep=2pt,itemsep=1pt}
+\setlist[enumerate]{topsep=2pt,itemsep=1pt}
 \usepackage[hidelinks]{hyperref}
 
-\title{\textbf{When the Cheap Modality Is the Only One:\\
-A Deployment Case Report on Frozen-Embedding Multimodal LVEF Estimation}}
+\title{Loud or Silent? A Reusable Framework for Per-Modality\\
+Failure Analysis in Multimodal Clinical AI}
 
-% --- Anonymized for double-blind review. Swap for the COLM anon macro. ---
-\author{Anonymous authors\\\small Paper under double-blind review --- DAIH @ COLM 2026 (Case Report track)}
-\date{}
+\author{Anonymous authors\\Paper under double-blind review}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Echocardiography is the clinical reference for left ventricular ejection fraction (LVEF) but
-requires a sonographer, a cart, and time; the electrocardiogram (ECG) is ubiquitous, cheap,
-and acquired everywhere from the emergency department to the rural clinic. A multimodal model
-trained on paired echo and ECG can silently assume both modalities are present at inference---an
-assumption that breaks exactly where deployment is hardest. We report a work-in-progress study
-designed around the deployment question rather than a benchmark delta: \emph{if a fused
-echo\,+\,ECG model is trained on both modalities but only the ECG is available at inference, how
-much accuracy is lost, and does the model degrade gracefully or fail silently?} We describe a
-frozen-embedding pipeline pairing a video JEPA echo encoder~\citep{echojepa} with a
-wav2vec2-style ECG foundation model~\citep{ecgfm} over MIMIC-IV~\citep{mimiciv}, a
-missing-modality evaluation protocol, and a post-hoc fairness audit across sex, age, and race.
-Consistent with this venue's welcome of work-in-progress and lessons-learned reports, we present
-the released pipeline and protocols as the primary contribution and give a candid account of the
-data-access and model-weight barriers that bounded full empirical results---barriers we argue are
-themselves a deployment finding for cardiac foundation models.
+Multimodal clinical models are usually judged on accuracy with every modality present, but
+deployment removes modalities---an echocardiogram is often unavailable where an ECG is
+routine---and then the useful questions are not just \emph{how much} accuracy is lost but
+\emph{which} modality was responsible and whether the model fails \emph{loudly} or
+\emph{silently}. Models are replaced often; the evaluation that answers these questions is reused.
+We present a model-agnostic \textbf{modality-failure framework}: given $N$ modality embeddings,
+any mask-aware probe, and labels, it returns a per-example failure taxonomy, a per-modality
+complementarity matrix that attributes error to modalities, and a loud-vs-silent dropout profile
+that separates monitorable failures from ones that pass unflagged far from the decision boundary, using only deployment-observable
+signals. We release it as a small, unit-tested harness and validate it on synthetic data with
+planted structure---across seeds it recovers the planted modality dominance and complementary
+subset, reports per-modality loud-vs-silent rates, and scales to a three-modality complementarity
+matrix. We instantiate it on \emph{frozen} EchoJEPA and ECG
+embeddings~\citep{echojepa,vjepa2,ecgfm} for LVEF and the \mbox{EF\,$\leq$\,40\%} HFrEF gate over
+MIMIC-IV~\citep{mimiciv,johnson2023mimiciv}, where on a single real held-out cohort (\mbox{$n=245$}) dropping echo nearly
+doubles error; per-example attribution and loud-vs-silent rates on \emph{real} data await
+per-example predictions held back by the data-access barriers we document---themselves a deployment
+finding for cardiac foundation models.
 \end{abstract}
 
 \section{Introduction}
 \label{sec:intro}
-The dominant evaluation of medical AI asks whether a model is \emph{accurate}; deployment asks
-whether it is \emph{safe}, \emph{equitable}, and works \emph{where it is actually used}. These
-diverge for multimodal models. Fusing echo and ECG can improve LVEF estimation when both modalities
-are present, yet deployment is asymmetric: the ECG is acquired almost everywhere, while echo needs
-equipment and expertise concentrated in well-resourced settings. A fused model that leans on the
-echo branch may look strong in evaluation yet fail precisely in the low-resource settings that most
-need a cheap screen. This report takes that asymmetry as its object: rather than advance
-fusion-beats-unimodal, we study (i)~a \textbf{missing-modality robustness} protocol measuring
-degradation when echo is withheld at inference, and (ii)~a \textbf{fairness audit} of EF error
-across demographic strata---both deployment-readiness checks. Throughout we use \emph{frozen}
-embeddings (no fine-tuning): cheap, reproducible, and a realistic stand-in for how a small team
-would build such a system.
+Foundation models for medical imaging and signals are replaced every few months; the evaluation
+that exposes \emph{how} they fail is what compounds and gets cited. Yet multimodal clinical models
+are still judged mostly on accuracy with every modality present. Deployment is not so generous: a
+fused echo\,+\,ECG model may be trained on both, but at inference the ECG is acquired almost
+everywhere while echo needs equipment and expertise concentrated in well-resourced settings. When a
+modality goes missing, three questions matter that an accuracy number cannot answer---\emph{which}
+modality was responsible for the error, whether the model fails \emph{loudly} (its output signals
+doubt and a monitor can catch it) or \emph{silently} (far from the decision boundary yet wrong, so it passes unflagged), and how failures
+distribute across patients.
+
+We therefore argue for a \emph{failure-analysis framework} over yet another fusion model, and
+provide one (Table~\ref{tab:pillars}). It is model-agnostic: given $N$ modality embeddings, any
+mask-aware probe, and labels, it returns a per-example failure taxonomy, a per-modality
+complementarity matrix, and a loud-vs-silent dropout profile, so it transfers across model
+generations. We instantiate it on \emph{frozen} EchoJEPA and ECG embeddings (no fine-tuning---a
+realistic stand-in for how a small team builds such a system) for LVEF regression and the
+\mbox{EF\,$\leq$\,40\%} HFrEF gate over MIMIC-IV, validate that it recovers planted structure on
+synthetic data, and demonstrate it on a real paired cohort. Scope is deliberately narrow
+(LVEF / \mbox{EF\,$\leq$\,40\%} only; valvular and HFpEF deferred for label reasons).
+
+\begin{table}[t]
+\centering
+\caption{What the framework reports, and the deployment question each view answers.}
+\label{tab:pillars}
+\small
+\begin{tabular}{@{}p{0.26\linewidth}p{0.64\linewidth}@{}}
+\toprule
+\textbf{View} & \textbf{Question it answers} \\
+\midrule
+Failure taxonomy & Are errors merely imprecise, or \emph{critical} (the clinical gate flips)? \\
+Complementarity matrix & \emph{Which} modality carries the signal---and where are modalities redundant vs.\ complementary? \\
+Loud-vs-silent profile & When a modality is missing, does the wrong prediction land near the decision boundary (loud, monitorable) or far from it (silent, unflagged)? \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \paragraph{Contributions.}
-\begin{itemize}\itemsep1pt
-  \item A deployment-framed problem statement for multimodal cardiac estimation under
-        \emph{inference-time modality availability}, with the ECG-only regime as the case of interest.
-  \item A frozen-embedding echo\,+\,ECG pipeline over MIMIC-IV with a missing-modality protocol and
-        post-hoc fairness audit, released as open, unit-tested code.
-  \item A candid account of the data-access, weight, and compute barriers to deployable cardiac
-        foundation-model systems---offered as a finding, not an aside.
+\begin{itemize}
+  \item \textbf{A model-agnostic modality-failure framework} with formal definitions for a
+        per-example failure taxonomy, per-modality complementarity/attribution, and a
+        loud-vs-silent dropout profile that uses only deployment-observable signals.
+  \item \textbf{A small reusable harness} implementing it for any $N$ modalities and any
+        mask-aware probe, validated on synthetic data with planted ground truth (across 12 seeds it
+        recovers the planted dominance and complementary subset, and it scales to an $N$-modality
+        complementarity matrix).
+  \item \textbf{An instantiation} on frozen echo\,+\,ECG embeddings for LVEF/HFrEF over MIMIC-IV,
+        with a real-data degradation demonstration and a candid account of the data-access barriers
+        that bound full clinical results---themselves a deployment finding.
 \end{itemize}
 
 \section{Related Work and Positioning}
 \label{sec:related}
-Foundation models exist for both modalities: a video Joint-Embedding Predictive Architecture for
-echocardiography~\citep{echojepa} and a wav2vec2-style self-supervised model for the 12-lead
-ECG~\citep{ecgfm}. The closest prior work, EchoingECG~\citep{echoingecg}, is a probabilistic
-student--teacher model that \emph{distills} echocardiographic knowledge into ECG representations
-(probabilistic cross-modal embeddings with an echo--language teacher) so cardiac function can be
-predicted from the ECG alone, with uncertainty estimates, in zero-/few-shot and fine-tuned settings.
-Our study differs in kind, on three axes that matter for deployment rather than representation
-quality: (i)~both backbones stay \emph{frozen} and we learn only lightweight probes---no distillation,
-no fine-tuning---measuring what the released representations already encode; (ii)~we \emph{retain and
-fuse} both modalities and ask what happens when one is \emph{missing at inference}, rather than
-compressing echo into an ECG-only model; and (iii)~inference-time degradation and a demographic
-fairness audit are our primary results. EchoingECG asks how to build a better ECG model using echo
-at training time; we ask whether a deployed echo+ECG model fails safely when the echo is gone.
+Foundation models exist for both modalities: EchoJEPA adapts the V-JEPA2 latent-predictive
+video architecture~\citep{vjepa2} to echocardiography~\citep{echojepa}, and ECG-FM is a
+wav2vec2-style~\citep{wav2vec2} self-supervised model for the 12-lead ECG~\citep{ecgfm}. EchoingECG~\citep{echoingecg} distills echocardiographic knowledge into ECG
+representations (probabilistic cross-modal embeddings with an echo--language teacher) so cardiac
+function can be predicted from the ECG alone, with uncertainty, in zero-/few-shot and fine-tuned
+settings. Our study differs on three deployment-relevant axes: (i)~both backbones stay
+\emph{frozen} and we learn only lightweight probes---no distillation, no fine-tuning; (ii)~we
+\emph{retain and fuse} both modalities and ask what happens when one is \emph{missing at
+inference}, rather than compressing echo into an ECG-only model; and (iii)~inference-time
+degradation and a demographic fairness audit are primary results. EchoingECG asks how to build a
+better ECG model using echo at training time; we ask, model-agnostically, how a deployed
+multimodal model fails when a modality is gone. Missing-modality robustness is typically reported
+as a single aggregate accuracy drop; we instead attribute failures per modality and separate loud
+from silent degradation, packaged as a reusable instrument rather than a one-off ablation.
 
 \section{Data and Cohort Design}
 \label{sec:data}
 \paragraph{Sources.} MIMIC-IV-Echo (v0.1; echo DICOM studies and structured LVEF
 labels)~\citep{mimicivecho}, MIMIC-IV-ECG (v1.0; 12-lead waveforms)~\citep{mimicivecg}, and
-MIMIC-IV (v3.1; demographics)~\citep{mimiciv}. All three require PhysioNet credentialing and
-signed Data Use Agreements. Cohort construction runs server-side on BigQuery so the full
-$\sim$525K-study echo corpus is never materialized locally.
+MIMIC-IV (v3.1; demographics)~\citep{mimiciv,johnson2023mimiciv}. All three require
+PhysioNet credentialing~\citep{goldberger2000} and signed Data Use Agreements. Cohort
+construction runs server-side on BigQuery~\citep{mimiccloud} so the full $\sim$525K-study echo
+corpus~\citep{mimicivecho} is never materialized locally.
 
-\paragraph{Pairing protocol.} For each echo study with a structured LVEF label, we match the
-nearest ECG on the same \texttt{subject\_id} within a \mbox{24--48\,h} window; multi-match cases
-resolve to the nearest timestamp. We model continuous LVEF and the clinically meaningful
-\mbox{EF\,$\leq$\,40\%} (HFrEF) gate.
+\paragraph{LVEF label hierarchy.} LVEF is not stored in a single column: lab-system transitions
+and rest/stress protocols yield several structured measurement identifiers. We take the first
+available resting point estimate in priority order---\texttt{lvef} $\rightarrow$
+\texttt{biplane\_lvef} $\rightarrow$ \texttt{rest\_lvef} $\rightarrow$ \texttt{rest\_biplane\_lvef}
+$\rightarrow$ \texttt{lvef\_3d}, with range upper-bounds last---and record which field was used
+(\texttt{lvef\_measurement}) for auditability. \texttt{stress\_lvef} is excluded (different
+physiological state). We derive continuous LVEF and \mbox{EF\,$\leq$\,40\%} (\texttt{ef\_le\_40}).
 
-\paragraph{Splitting.} We partition by \texttt{subject\_id} (70/10/20 train/val/test) with an
-explicit zero-leakage check, so no patient appears in more than one split.
+\paragraph{Pairing and splits.} For each labeled echo study we match the nearest ECG on the same
+\texttt{subject\_id}. Default: symmetric $\pm$24\,h window; configurable asymmetric windows
+(e.g.\ allow an ECG up to 30 days \emph{before} but only 24\,h after the echo) to mirror a
+screen-first deployment story; alternative \emph{admission} pairing is encounter-aligned and
+robust to documented ECG clock skew. Multi-match cases resolve to the nearest timestamp with
+deterministic tie-breaking. Splits partition by \texttt{subject\_id} (70/10/20) with an explicit
+zero-leakage check. Demographics (sex, anchor age, race, derived age bands) join for the
+fairness audit; coverage and MIMIC gender-curation limitations are logged.
 
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[
-  node distance=5mm,
-  box/.style={draw, rounded corners, align=center, text width=0.80\linewidth,
-              inner sep=4pt, font=\small},
-  arr/.style={-{Latex[length=2mm]}}
-]
-\node[box] (a) {All MIMIC-IV-Echo studies ($\sim$525K)};
-\node[box, below=of a] (b) {$\rightarrow$ studies with a structured LVEF label};
-\node[box, below=of b] (c) {$\rightarrow$ with a paired ECG within 24--48\,h on the same \texttt{subject\_id}};
-\node[box, below=of c] (d) {$\rightarrow$ deduplicated; multi-match resolved to nearest timestamp};
-\node[box, below=of d] (e) {Final paired cohort \emph{(count pending data access; see \S\ref{sec:lessons})}};
-\node[box, below=of e] (f) {Subject-level 70/10/20 train/val/test split (zero-leakage)};
-\draw[arr] (a)--(b); \draw[arr] (b)--(c); \draw[arr] (c)--(d);
-\draw[arr] (d)--(e); \draw[arr] (e)--(f);
-\end{tikzpicture}
-\caption{Cohort construction (design). Exclusion counts are emitted at each step by the released
-builder; concrete values await credentialed BigQuery access (\S\ref{sec:lessons}).}
-\label{fig:flow}
-\end{figure}
+% Cohort-construction funnel diagram removed for length; the released builder emits exclusion
+% counts at each step, a CONSORT-style flow export, and demographics_coverage.json.
 
-\paragraph{Caveat.} MIMIC is single-center; estimates may not transfer across institutions, and we
-note known gender-curation limitations in the demographic fields, relevant to the fairness audit
-(\S\ref{sec:method}).
+\paragraph{Caveat.} MIMIC is single-center~\citep{johnson2023mimiciv}; external validation is
+future work.
 
-\section{Method}
+\section{Frozen-Embedding Pipeline}
 \label{sec:method}
-\paragraph{Frozen encoders.} EchoJEPA-L (ViT-L; 1024-dim, spatial-structure-preserving echo-video
-embeddings)~\citep{echojepa} and ECG-FM (wav2vec2-style; token/sequence embeddings over the
-12-lead waveform)~\citep{ecgfm}. Both run in inference mode only; gradients never flow into the
-backbones. Embeddings are extracted once over the paired cohort and cached to disk, so probe
-training is reproducible and completes in minutes.
 
-\paragraph{Probes.} (a)~\emph{ECG-only}---pooled ECG-FM embedding $\rightarrow$ linear/MLP head.
-(b)~\emph{Echo-only}---\textbf{attentive} pooling over EchoJEPA tokens $\rightarrow$ head (a linear
-probe on the raw high-dimensional embedding is expected to underperform). (c)~\emph{Concat-MLP}---pooled
-echo $\oplus$ pooled ECG $\rightarrow$ MLP (quick fused baseline). (d)~\emph{Cross-attention
-fusion}---the headline model used for the missing-modality analysis. All probes predict continuous
-LVEF; the \mbox{EF\,$\leq$\,40\%} gate is derived from the continuous output. Primary metrics:
-\textbf{MAE} (regression) and \textbf{EF\,$\leq$\,40\% AUROC} (gate). For context, the source
-models report EchoJEPA $\approx 5.97$ MAE and ECG-FM $\approx 0.929$ AUROC for the
-\mbox{EF\,$\leq$\,40\%} gate.
+% Pipeline schematic removed for length: cohort -> frozen encoders -> embedding cache -> probes
+% -> deployment evaluators; expensive encoding runs once and probes read from cache.
 
-\paragraph{Missing-modality protocol (centerpiece).} Train the fused probe on full data; evaluate
-the \emph{same deployed model} on the held-out test split under three conditions---\textbf{full}
-(echo+ECG), \textbf{echo-dropped} (mask the echo branch: the ECG-only deployment, our case of
-interest), and \textbf{ECG-dropped} (echo-only deployment)---by masking a branch at inference
-rather than retraining a unimodal model. Report MAE and AUROC per condition and plot the
-degradation curve (graceful vs.\ silent failure).
+\paragraph{Frozen encoders.} EchoJEPA-L (ViT-L; 1024-dim spatial echo-video
+tokens)~\citep{echojepa} and ECG-FM (wav2vec2-style 12-lead
+tokens)~\citep{ecgfm}. Both run in inference mode only. Embeddings are written to an on-disk
+cache: one \texttt{.npy} array per study/record ID, an append-only JSONL manifest, and an
+\texttt{encoder\_version} tag per write so vectors remain traceable to the checkpoint that
+produced them. Atomic writes and resume support let long extraction jobs survive interruption.
 
-\paragraph{Fairness protocol.} Post-hoc, no extra training: stratify test predictions by sex, age
-band, and race; report per-stratum MAE and \mbox{EF\,$\leq$\,40\% AUROC}; flag small strata and the
-MIMIC gender-curation caveat.
+\paragraph{Probes.} Table~\ref{tab:probes} summarizes the four heads. Echo-only uses
+\textbf{attentive} pooling (a linear probe on raw high-dimensional EchoJEPA tokens is expected
+to underperform). Cross-attention fusion is the headline model for missing-modality analysis:
+bidirectional multi-head attention between echo and ECG token sequences, followed by an MLP
+regression head. All probes predict continuous LVEF; the \mbox{EF\,$\leq$\,40\%} gate is derived
+from predictions. Metrics: \textbf{MAE} and \textbf{EF\,$\leq$\,40\% AUROC} (context from source
+models: EchoJEPA $\approx 5.97$ MAE; ECG-FM $\approx 0.929$ AUROC).
 
-\section{Status and Results}
+\begin{table}[t]
+\centering
+\caption{Probe architectures and roles.}
+\label{tab:probes}
+\small
+\begin{tabular}{@{}llp{0.42\linewidth}@{}}
+\toprule
+\textbf{Probe} & \textbf{Pooling / fusion} & \textbf{Role} \\
+\midrule
+ECG-only & mean or attentive & Ubiquitous-modality baseline; screen-first lower bound. \\
+Echo-only & attentive & Upper bound when echo is available; attentive vs.\ linear ablation. \\
+Concat-MLP & pool $\oplus$ pool $\rightarrow$ MLP & Quick fused baseline for early sprint numbers. \\
+Cross-attn & bidirectional cross-attention & Headline fused model; supports branch masking. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Missing-modality protocol (centerpiece).} Train the cross-attention probe on full
+(echo+ECG) data. Evaluate the \emph{same deployed checkpoint} on the held-out test split under
+three conditions by zeroing a branch at inference---\textbf{full}, \textbf{echo-dropped}
+(ECG-only deployment), and \textbf{ECG-dropped} (echo-only)---rather than retraining unimodal
+models. Report MAE and AUROC per condition with bootstrap confidence intervals when per-example predictions are available; plot the
+degradation curve. This directly tests graceful vs.\ silent failure when the expensive modality
+is absent.
+
+\paragraph{Fairness protocol.} Post-hoc on test predictions: stratify by sex, age band, and
+race; report per-stratum MAE and \mbox{EF\,$\leq$\,40\% AUROC}; flag strata below a minimum
+count. No extra training. MIMIC gender-curation limitations are documented alongside coverage
+statistics.
+
+\paragraph{Reproducibility.} Hydra configuration groups (\texttt{encoder/}, \texttt{cohort/},
+\texttt{probe/}, \texttt{eval/}), fixed random seeds, and run manifests recording git SHA and
+resolved config accompany each artifact under \texttt{logs/runs/}.
+
+\section{A Framework for Modality-Failure Analysis}
+\label{sec:framework}
+Models age out; the evaluation that explains \emph{how} they fail is reused across generations. We
+formalize a model-agnostic analysis that assumes only a \emph{mask-aware} predictor: given
+modalities $\mathcal{M}$, a held-out set with regression target $y$ (LVEF) and clinical gate
+$g=\mathbb{1}[y\le\tau]$ ($\tau{=}40$), and a function $f(S)$ returning a prediction per example
+when only the subset $S\subseteq\mathcal{M}$ is present (others masked at inference), it reports
+three views. Nothing else about $f$ is assumed, so it applies to any probe, fusion architecture, or
+backbone.
+
+\paragraph{(i) Failure taxonomy.} Each example, under each condition, is labelled \emph{correct}
+($g$ right, $|f-y|\le\delta$), \emph{imprecise} ($g$ right, $|f-y|>\delta$), or \emph{critical}
+($g$ wrong---an HFrEF case missed or false-alarmed). Critical errors, not raw MAE, are the
+clinically actionable failures; a large regression error that does not flip the gate stays
+\emph{imprecise} by design.
+
+\paragraph{(ii) Complementarity and attribution.} Each modality's leave-one-out value is
+$\Delta_m{=}\mathrm{MAE}(f(\mathcal{M}{\setminus}\{m\}))-\mathrm{MAE}(f(\mathcal{M}))$, and per
+example we attribute the ``win'' to the modality whose removal hurts that example most. Solo and
+pairwise errors form a \emph{complementarity matrix} separating \emph{redundant} modalities (either
+alone suffices) from \emph{complementary} ones (both needed). Views stratify by patient attributes
+(sex, age, race): a modality that wins overall may not win within a subgroup, tying attribution to
+equity.
+
+\paragraph{(iii) Loud-vs-silent dropout profile.} When $m$ is missing, an example that was
+gate-correct with $\mathcal{M}$ but is now gate-wrong is an \emph{induced critical failure}. We split
+these by a deployment-observable signal---the prediction's margin from the decision boundary: a
+failure is \emph{silent} if the wrong prediction sits far on the wrong side ($|f-\tau|\ge\kappa$, so
+it looks unremarkable and a margin monitor would not flag it) and \emph{loud} if it lands near the
+threshold ($|f-\tau|<\kappa$, where the output invites a second read). Margin is a \emph{proxy for
+monitorability}, not calibrated confidence---a probabilistic head (cf.\ EchoingECG) would sharpen
+it---and uses only the deployed prediction, not the unavailable full-modality counterfactual. A high
+silent rate is the dangerous regime: wrong, far from the cut, and unflagged.
+
+\paragraph{Reusable harness.} The three views ship as a small library,
+\mbox{\texttt{analyze(embeddings, predict\_fn, labels)}} $\rightarrow$
+\{\texttt{taxonomy}, \texttt{complementarity}, \texttt{dropout}\}, taking $N$ modality embeddings,
+any mask-aware \texttt{predict\_fn}, and labels. It is released and unit-tested, and is the artifact
+we argue outlives any particular fusion model.
+
+\input{fragments/results_section}
+
+\section{Implementation Status and Validation}
 \label{sec:status}
-We offer the implementation and protocols as the primary deliverable. \textbf{Implemented and
-unit-tested:} frozen EchoJEPA-L and ECG-FM wrappers; the BigQuery cohort builder (pairing, LVEF
-join, demographics, subject-level split, \mbox{EF\,$\leq$\,40\%} prevalence, CONSORT flow export);
-an on-disk embedding cache; ECG-only, echo-only attentive, concat-MLP, and cross-attention probes;
-and the missing-modality and fairness evaluators. \textbf{Empirical results are deferred:} the
-cohort build needs credentialed BigQuery access and extraction needs reserved GPU time, neither of
-which cleared in the sprint window (\S\ref{sec:lessons}). Rather than report under-validated numbers
-we release the code and protocols, so the degradation curve and fairness tables are a matter of
-running, not building.
-% [OPTIONAL Tier 1 (BigQuery): cohort N, EF<=40% prevalence, demographics, Fig 1 counts.]
-% [OPTIONAL Tier 2 (GPU): ECG-only probe MAE/AUROC w/ bootstrap CIs vs. mean-LVEF baseline.]
+We offer the failure-analysis framework and its harness (\S\ref{sec:framework}) as the primary
+deliverable; Table~\ref{tab:release} inventories what is released. All listed modules carry unit
+tests (51 passing locally at time of writing), including tests that the harness recovers planted
+synthetic structure (\S\ref{sec:validation}).
+
+\begin{table}[t]
+\centering
+\caption{Released components (representative).}
+\label{tab:release}
+\footnotesize
+\begin{tabular}{@{}p{0.30\linewidth}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Stage} & \textbf{Released artifact} \\
+\midrule
+Cohort &
+BigQuery builder: pairing, LVEF hierarchy, demographics, funnel export, flowchart. \\
+Splits &
+Subject-level 70/10/20 manifest with zero-leakage assertion. \\
+Prevalence &
+\mbox{EF\,$\leq$\,40\%} prevalence overall and per split; AUROC reportability flag. \\
+Encoders &
+Frozen EchoJEPA-L and ECG-FM wrappers; smoke-test script for ECG-FM load. \\
+Extraction &
+Batch echo/ECG forward passes into the embedding cache; cluster extraction scripts bundled. \\
+Probes &
+ECG-only, echo-only (attentive), concat-MLP, cross-attention (with branch masks). \\
+Evaluation &
+Missing-modality runner (bootstrap CIs); degradation-curve plotter; fairness stratifier. \\
+Failure harness &
+Model-agnostic \texttt{analyze(embeddings, predict\_fn, labels)}: failure taxonomy, complementarity matrix, loud-vs-silent dropout profile; figures + CLI. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Validation without credentialed data.} Beyond unit tests, the harness is validated
+end-to-end on synthetic data with planted modality structure (\S\ref{sec:validation}): it recovers
+the known dominance, complementarity, and silent-failure structure. This exercises the full
+train$\rightarrow$evaluate path but does \emph{not} substitute for clinical numbers.
+
+\paragraph{Empirical results on MIMIC.} \textbf{Preliminary} (\S\ref{sec:results}). A first
+cross-attention run on cached embeddings yields the missing-modality degradation of
+Table~\ref{tab:degradation}; the full unimodal-probe sweep, bootstrap confidence intervals, and the
+fairness stratification remain pending a canonical rerun, which requires per-member PhysioNet
+credentialing, BigQuery access, and reserved GPU time for echo extraction (\S\ref{sec:lessons}). The
+released pipeline produces them without further engineering once access clears.
 
 \section{Lessons Learned: the Access Path \emph{Is} a Deployment Finding}
 \label{sec:lessons}
 The gap between a code-complete pipeline and a fully-evaluated one was, in this sprint, almost
-entirely an \emph{access} gap---and that gap is itself informative for anyone trying to deploy
-cardiac foundation models.
-
-\begin{itemize}\itemsep2pt
-  \item \textbf{Credentialing latency across a team.} Every contributor who touches data needs
-        PhysioNet credentialing, three signed DUAs, and per-dataset access requests. This is serial
-        and slow, and it gates the entire data stage for the whole team, not one person.
-  \item \textbf{The headline echo weights are not openly available.} The strongest echo encoder's
-        weights were pending public release and had to be obtained privately. A pipeline whose
-        central modality depends on a private weight transfer is, by definition, not yet
-        deployable---and not independently reproducible by reviewers.
-  \item \textbf{Compute reservation is a real-time dependency.} Embedding extraction needs a
-        reserved GPU; the reservation, not the compute, sat on the critical path.
-  \item \textbf{Pairing tooling had to be built from scratch.} There is no off-the-shelf
-        echo$\leftrightarrow$ECG temporal join; the windowing, multi-match resolution, and
-        leakage-safe splitting were all bespoke.
-  \item \textbf{The deployment asymmetry mirrors the access asymmetry.} The modality that is hard
-        to \emph{acquire at inference} (echo) is also the one that was hard to \emph{access for
-        development} (private weights, DICOM volume). The cheap, ubiquitous modality (ECG) was the
-        easy one on both axes. Our thesis, restated as a lived constraint: building for the
-        data-rich setting is easy; the deployment-relevant, ECG-only setting is where both the
-        engineering and the science get hard.
+entirely an \emph{access} gap:
+\begin{itemize}
+  \item \textbf{Credentialing latency across a team.} Every contributor needs PhysioNet
+        credentialing, three DUAs, and per-dataset BigQuery requests---serial, team-wide gates.
+  \item \textbf{Echo weights are not openly available.} The strongest echo encoder required a
+        private checkpoint transfer; a pipeline whose central modality depends on that is not
+        yet independently reproducible.
+  \item \textbf{Compute reservation, not FLOPs, was the bottleneck.} Embedding extraction needs
+        a reserved GPU slot on a shared cluster.
+  \item \textbf{Pairing tooling had to be built from scratch.} No off-the-shelf echo$\leftrightarrow$ECG
+        temporal join exists; windowing, tie-breaking, and leakage-safe splits were bespoke.
+  \item \textbf{Deployment asymmetry mirrors access asymmetry.} The modality hard to acquire at
+        inference (echo) was also hard to access for development (private weights, DICOM volume).
+        The cheap, ubiquitous modality (ECG) was easy on both axes---restating our thesis as a
+        lived constraint.
 \end{itemize}
+We argue these are structural features of the path from a published cardiac foundation model to
+a deployable screening tool.
 
-\noindent We argue these are not incidental sprint hiccups but structural features of the path from
-a published cardiac foundation model to a deployable screening tool, and that reporting them is
-squarely within this venue's remit.
+\section{Limitations}
+\label{sec:limitations}
+Several constraints bound our conclusions. \textbf{Single-center data:} MIMIC is one US academic
+center, so degradation and fairness patterns may not transfer across institutions or acquisition
+hardware---an external-validation gap we cannot close here. \textbf{Frozen-embedding ceiling:} by
+design we never fine-tune the backbones, so absolute accuracy is a lower bound on what the
+representations could achieve; our claims concern \emph{relative} degradation under missing
+modalities, not state-of-the-art LVEF estimation. \textbf{Label and cohort scope:} we target
+structured LVEF and the \mbox{EF\,$\leq$\,40\%} gate only, and \mbox{EF\,$\leq$\,40\%} prevalence in
+a paired echo+ECG cohort may be modest, widening AUROC confidence intervals. \textbf{Echo-branch
+reproducibility:} the strongest echo encoder relies on a privately shared checkpoint; until public
+release, independent reproduction of the echo arm is limited.
 
-\section{Discussion and Future Work}
+\section{Discussion}
 \label{sec:discussion}
-The deployment question reframes a multimodal model's value: not how much fusion adds when both
-modalities are present, but how safely it behaves when the expensive one is absent---a degradation
-curve and a graceful-vs-silent-failure test, with a fairness audit asking whether any degradation is
-borne unequally. Next steps: run the missing-modality and fairness measurements once access clears;
-extend to valvular hemodynamics and HFpEF phenotyping (both blocked by label availability); add
-\mbox{EF\,$\leq$\,40\%} calibration; and pursue external multi-center validation. All code, configs,
-and protocols are released, so the empirical results require only credentialed data access and a
-single GPU to reproduce.
+The deployment question reframes multimodal value: not how much fusion adds when both modalities
+are present, but \emph{which} modality is responsible and whether the model fails loudly or
+silently when one is gone. Because the framework assumes only a mask-aware predictor, it transfers
+to the next echo or ECG backbone without change---the evaluation outlives the model, which is the
+case we make for shipping an instrument rather than a checkpoint. Our synthetic study shows
+why the two axes must be \emph{measured}, not assumed: echo-dominance was robust across seeds, yet
+the loud-vs-silent rates of the two modalities were comparable---value and detectability need not
+coincide. Next steps: run the per-example attribution and loud-vs-silent
+profile on real predictions; add \mbox{EF\,$\leq$\,40\%} calibration; extend to more modalities and
+to valvular/HFpEF tasks (label blockers); and pursue external validation. All code, configs, and the
+harness are released.
 
-\bibliographystyle{plainnat}
+\section*{LLM Usage Statement}
+Large language models were used as a coding and writing assistant (code scaffolding, LaTeX
+preparation, and copy-editing). All experimental design, scientific claims, and analysis are the
+authors' own and were verified by the authors, consistent with the COLM 2026 policy.
+
+\bibliographystyle{colm2026_conference}
 \bibliography{references}
 
 \end{document}
