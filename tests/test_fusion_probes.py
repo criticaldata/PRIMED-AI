@@ -101,6 +101,7 @@ def test_e01_missing_modality_eval_loads_checkpoint(tmp_path):
         output,
         embed_dim=8,
         batch_size=32,
+        n_bootstrap=20,
         device="cpu",
     )
 
@@ -112,3 +113,6 @@ def test_e01_missing_modality_eval_loads_checkpoint(tmp_path):
         "ecg_dropped",
     ]
     assert set(res["test"]) == {"full", "echo_dropped", "ecg_dropped"}
+    assert set(res["predictions"]) == {"full", "echo_dropped", "ecg_dropped"}
+    assert "mae_ci_low" in res["metrics_table"][0]
+    assert "ef40_auroc_ci_high" in res["metrics_table"][0]

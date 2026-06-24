@@ -39,7 +39,7 @@
 | Resource | URL |
 |----------|-----|
 | Repository | https://github.com/criticaldata/PRIMED-AI |
-| DAIH @ COLM 2026 CFP | https://colmweb.org/workshops.html *(verify current URL)* |
+| DAIH @ COLM 2026 CFP | https://daih2026.github.io/ |
 | ECG-FM (Hugging Face) | https://huggingface.co/bowang-lab/ECG-FM |
 | EchoJEPA paper | https://arxiv.org/abs/2602.02603 |
 | ECG-FM paper | https://arxiv.org/abs/2408.05178 |
