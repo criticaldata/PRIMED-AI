@@ -44,13 +44,28 @@ class LinearEchoProbe(nn.Module):
         return self.head(echo_tokens.mean(dim=1)).squeeze(-1)
 
 
+def _embedding_to_tokens(value, *, n_tokens: int) -> np.ndarray:
+    arr = np.asarray(value, dtype=np.float32)
+    if arr.ndim == 1:
+        return np.tile(arr, (n_tokens, 1)).reshape(n_tokens, arr.shape[0])
+    if arr.ndim == 2:
+        return arr
+    raise ValueError(f"embedding must be 1D or 2D, got shape {arr.shape}")
+
+
 def _ensure_tokens(df: pd.DataFrame, prefix: str = "echo_ve", n_tokens: int = 8) -> pd.DataFrame:
     """Build synthetic token arrays from flat embedding columns if needed."""
     if "echo_tokens" in df.columns:
         return df
+    if "echo_embedding" in df.columns:
+        out = df.copy()
+        out["echo_tokens"] = [
+            _embedding_to_tokens(value, n_tokens=n_tokens) for value in out["echo_embedding"]
+        ]
+        return out
     cols = [c for c in df.columns if c.startswith(prefix)]
     if not cols:
-        raise ValueError(f"need echo_tokens or columns prefixed {prefix!r}")
+        raise ValueError(f"need echo_tokens, echo_embedding, or columns prefixed {prefix!r}")
     mat = df[cols].to_numpy(np.float64)
     dim = len(cols)
     tokens = []
