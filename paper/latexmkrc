@@ -1,0 +1,8 @@
+# Build from paper/:  latexmk -pdf case_report.tex
+# PDF and intermediates land in build/
+
+$out_dir = 'build';
+$bibtex_use = 2;
+
+ensure_path( 'TEXINPUTS', './template//' );
+ensure_path( 'BSTINPUTS', './template//' );

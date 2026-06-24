@@ -1,58 +1,131 @@
-% References for the DAIH / COLM 2026 case report.
-% TODO before submission: complete author lists and verify venue/year from the
-% source pages (arXiv / PhysioNet). Placeholders below are wrapped in {{...}} so
-% they print literally and are easy to catch.
+% References for the COLM 2026 case report.
+% Metadata verified from arXiv, PhysioNet, and publisher pages (Jun 2026).
 
 @misc{echojepa,
-  title         = {{EchoJEPA: A Video Joint-Embedding Predictive Architecture for Echocardiography}},
-  author        = {{[author list --- complete from arXiv:2602.02603]}},
+  title         = {{EchoJEPA: A Latent Predictive Foundation Model for Echocardiography}},
+  author        = {Munim, Alif and Fallahpour, Adibvafa and Szasz, Teodora and Attarpour, Ahmadreza and Jiang, River and Sooriyakanthan, Brana and Sooriyakanthan, Maala and Whitney, Heather and Slivnick, Jeremy and Rubin, Barry and Tsang, Wendy and Wang, Bo},
   year          = {2026},
   eprint        = {2602.02603},
   archiveprefix = {arXiv},
-  howpublished  = {arXiv preprint arXiv:2602.02603},
+  primaryclass  = {eess.IV},
   url           = {https://arxiv.org/abs/2602.02603}
 }
 
 @misc{ecgfm,
-  title         = {{ECG-FM: A Self-Supervised Foundation Model for the Electrocardiogram}},
-  author        = {{[author list --- complete from arXiv:2408.05178]}},
+  title         = {{ECG-FM: An Open Electrocardiogram Foundation Model}},
+  author        = {McKeen, Kaden and Masood, Sameer and Toma, Augustin and Rubin, Barry and Wang, Bo},
   year          = {2024},
   eprint        = {2408.05178},
   archiveprefix = {arXiv},
-  howpublished  = {arXiv preprint arXiv:2408.05178},
+  primaryclass  = {cs.LG},
   url           = {https://arxiv.org/abs/2408.05178}
 }
 
 @misc{echoingecg,
-  title         = {{EchoingECG: Cross-Modal Representation Learning between Echocardiography and Electrocardiography}},
-  author        = {{[author list --- complete from arXiv:2509.25791]}},
+  title         = {{EchoingECG: An Electrocardiogram Cross-Modal Model for Echocardiogram Tasks}},
+  author        = {Gao, Yuan and Kim, Sangwook and McIntosh, Chris},
   year          = {2025},
   eprint        = {2509.25791},
   archiveprefix = {arXiv},
-  howpublished  = {arXiv preprint arXiv:2509.25791},
+  primaryclass  = {cs.CV},
+  doi           = {10.1007/978-3-032-04971-1_17},
   url           = {https://arxiv.org/abs/2509.25791}
 }
 
-@misc{mimiciv,
-  title        = {{MIMIC-IV (version 3.1)}},
-  author       = {{[Johnson, A. E. W. et al. --- verify on PhysioNet]}},
-  year         = {2024},
-  howpublished = {PhysioNet},
-  url          = {https://physionet.org/content/mimiciv/3.1/}
+@misc{vjepa2,
+  title         = {{V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning}},
+  author        = {Assran, Mido and Bardes, Adrien and Fan, David and Garrido, Quentin and Howes, Russell and Komeili, Mojtaba and Muckley, Matthew and Rizvi, Ammar and Roberts, Claire and Sinha, Koustuv and Zholus, Artem and Arnaud, Sergio and Gejji, Abha and Martin, Ada and Hogan, Francois Robert and Dugas, Daniel and Bojanowski, Piotr and Khalidov, Vasil and Labatut, Patrick and Massa, Francisco and Szafraniec, Marc and Krishnakumar, Kapil and Li, Yong and Ma, Xiaodong and Chandar, Sarath and Meier, Franziska and LeCun, Yann and Rabbat, Michael and Ballas, Nicolas},
+  year          = {2025},
+  eprint        = {2506.09985},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2506.09985}
 }
 
-@misc{mimicivecho,
-  title        = {{MIMIC-IV-ECHO: Echocardiogram Matched Subset (version 0.1)}},
-  author       = {{[verify contributor list on PhysioNet]}},
-  year         = {2024},
-  howpublished = {PhysioNet},
-  url          = {https://physionet.org/content/mimic-iv-echo/0.1/}
+@misc{wav2vec2,
+  title         = {{wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations}},
+  author        = {Baevski, Alexei and Zhou, Henry and Mohamed, Abdelrahman and Auli, Michael},
+  year          = {2020},
+  eprint        = {2006.11477},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2006.11477}
 }
 
-@misc{mimicivecg,
-  title        = {{MIMIC-IV-ECG: Diagnostic Electrocardiogram Matched Subset (version 1.0)}},
-  author       = {{[verify contributor list on PhysioNet]}},
-  year         = {2023},
-  howpublished = {PhysioNet},
-  url          = {https://physionet.org/content/mimic-iv-ecg/1.0/}
+@article{mimiciv,
+  author  = {Johnson, Alistair and Bulgarelli, Lucas and Pollard, Tom and Gow, Brian and Moody, Benjamin and Horng, Steven and Celi, Leo Anthony and Mark, Roger},
+  title   = {{MIMIC-IV}},
+  journal = {PhysioNet},
+  year    = {2024},
+  month   = oct,
+  note    = {Version 3.1},
+  doi     = {10.13026/kpb9-mt58},
+  url     = {https://doi.org/10.13026/kpb9-mt58}
+}
+
+@article{johnson2023mimiciv,
+  author  = {Johnson, Alistair E.~W. and Bulgarelli, Lucas and Shen, Lu and Gow, Brian and Moody, Benjamin and Horng, Steven and Celi, Leo Anthony and Pollard, Tom J. and Mark, Roger G.},
+  title   = {{MIMIC-IV}, a freely accessible electronic health record dataset},
+  journal = {Scientific Data},
+  volume  = {10},
+  number  = {1},
+  pages   = {1},
+  year    = {2023},
+  doi     = {10.1038/s41597-022-01899-x},
+  url     = {https://doi.org/10.1038/s41597-022-01899-x}
+}
+
+@article{mimicivecho,
+  author  = {Gow, Brian and Pollard, Tom and Greenbaum, Nathaniel and Moody, Benjamin and Johnson, Alistair and Herbst, Elizabeth and Waks, Jonathan W. and Eslami, Parastou and Chaudhari, Ashish and Carbonati, Tanner and Berkowitz, Seth and Mark, Roger and Horng, Steven},
+  title   = {{MIMIC-IV-ECHO: Echocardiogram Matched Subset}},
+  journal = {PhysioNet},
+  year    = {2023},
+  month   = jul,
+  note    = {Version 0.1},
+  doi     = {10.13026/ef48-v217},
+  url     = {https://doi.org/10.13026/ef48-v217}
+}
+
+@article{mimicivecg,
+  author  = {Gow, Brian and Pollard, Tom and Nathanson, Larry A. and Johnson, Alistair and Moody, Benjamin and Fernandes, Chrystinne and Greenbaum, Nathaniel and Waks, Jonathan W. and Eslami, Parastou and Carbonati, Tanner and Chaudhari, Ashish and Herbst, Elizabeth and Moukheiber, Dana and Berkowitz, Seth and Mark, Roger and Horng, Steven},
+  title   = {{MIMIC-IV-ECG: Diagnostic Electrocardiogram Matched Subset}},
+  journal = {PhysioNet},
+  year    = {2023},
+  month   = sep,
+  note    = {Version 1.0},
+  doi     = {10.13026/4nqg-sb35},
+  url     = {https://doi.org/10.13026/4nqg-sb35}
+}
+
+@article{goldberger2000,
+  author  = {Goldberger, Ary L. and Amaral, Luis A.~N. and Glass, Leon and Hausdorff, Jeffrey M. and Ivanov, Plamen Ch. and Mark, Roger G. and Mietus, Joseph E. and Moody, George B. and Peng, Chung-Kang and Stanley, H.~Eugene},
+  title   = {{PhysioBank}, {PhysioToolkit}, and {PhysioNet}: Components of a new research resource for complex physiologic signals},
+  journal = {Circulation},
+  volume  = {101},
+  number  = {23},
+  pages   = {e215--e220},
+  year    = {2000},
+  doi     = {10.1161/01.CIR.101.23.e215},
+  url     = {https://doi.org/10.1161/01.CIR.101.23.e215}
+}
+
+@article{lang2015,
+  author  = {Lang, Roberto M. and Badano, Luigi P. and Mor-Avi, Victor and Afilalo, Jonathan and Armstrong, Andrea and Ernande, Laura and Flachskampf, Frank A. and Foster, Elyse and Goldstein, Steven A. and Kuznetsova, Tatiana and Lancellotti, Patrizio and Muraru, Denisa and Picard, Michael H. and Rietzschel, Ernst R. and Rudski, Lawrence and Spencer, Kirk T. and Tsang, Wendy and Voigt, Jens-Uwe},
+  title   = {Recommendations for cardiac chamber quantification by echocardiography in adults: an update from the {American Society of Echocardiography} and the {European Association of Cardiovascular Imaging}},
+  journal = {Journal of the American Society of Echocardiography},
+  volume  = {28},
+  number  = {1},
+  pages   = {1--39},
+  year    = {2015},
+  doi     = {10.1016/j.echo.2014.10.003},
+  url     = {https://doi.org/10.1016/j.echo.2014.10.003}
+}
+
+@misc{mimiccloud,
+  title        = {{MIMIC} on {BigQuery}},
+  author       = {{MIT Laboratory for Computational Physiology}},
+  howpublished = {MIMIC documentation},
+  year         = {2024},
+  url          = {https://mimic.mit.edu/docs/gettingstarted/cloud/},
+  note         = {Accessed June 2026}
 }

@@ -1,10 +1,6 @@
-# LaTeX build intermediates
-*.aux
-*.log
-*.bbl
-*.blg
-*.out
-*.toc
-*.fls
-*.fdb_latexmk
-*.synctex.gz
+# LaTeX build output (see latexmkrc)
+build/
+
+# Editor / OS
+.DS_Store
+*.swp
