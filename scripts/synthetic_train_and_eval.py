@@ -1,7 +1,7 @@
-"""Train a tiny synthetic cross-attn probe and run the missing-modality evaluation.
+"""Train a tiny synthetic cross-attn probe and run missing-modality + fairness evaluation.
 
-This script is for local testing to produce a checkpoint and a results file
-without access to actual MIMIC data. It writes outputs under `artifacts/`.
+This script is for local testing to produce a checkpoint and result files
+without access to actual MIMIC data. It writes outputs under `artifacts/` and `results/`.
 """
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import pandas as pd
 from pathlib import Path
 
 from primed_ai.probes.cross_attn import run as train_cross
-from primed_ai.probes import cross_attn
 
 
 def _synthetic(root: Path, n=200, dim=8, seed=2):
@@ -56,10 +55,37 @@ def main():
     # small epochs to keep runtime short
     res = train_cross(cpath, echo_path, ecg_path, out_dir=out, embed_dim=16, epochs=6, batch_size=64)
     print("Training done. Results summary:", res["test"]["full"]) 
-    # run evaluation using the new script
+    
+    # Add demographic data to cohort for fairness eval
+    coh = pd.read_parquet(cpath)
+    rng = np.random.default_rng(42)
+    coh["sex"] = rng.choice(["M", "F"], size=len(coh))
+    coh["age_band"] = rng.choice(["18-40", "40-60", "60-80", "80+"], size=len(coh))
+    coh["race"] = rng.choice(["White", "Black", "Asian", "Other"], size=len(coh))
+    coh.to_parquet(cpath)
+    print("Added demographics to cohort")
+    
+    # Run E01 evaluation using the new script
     ckpt = out / "cross_attn_fused.pt"
     from subprocess import run
-    run(["python", "scripts/evaluate_missing_modality.py", "--cohort", str(cpath), "--echo-embeddings", str(echo_path), "--ecg-embeddings", str(ecg_path), "--checkpoint", str(ckpt), "--out", "results/missing_modality.json"], check=True)
+    run([
+        "python", "scripts/evaluate_missing_modality.py",
+        "--cohort", str(cpath),
+        "--echo-embeddings", str(echo_path),
+        "--ecg-embeddings", str(ecg_path),
+        "--checkpoint", str(ckpt),
+        "--out", "results/missing_modality.json"
+    ], check=True)
+    
+    # Run E03 fairness eval
+    run([
+        "python", "scripts/evaluate_fairness.py",
+        "--cohort", str(cpath),
+        "--echo-embeddings", str(echo_path),
+        "--ecg-embeddings", str(ecg_path),
+        "--checkpoint", str(ckpt),
+        "--out", "results/fairness"
+    ], check=True)
 
 
 if __name__ == "__main__":
