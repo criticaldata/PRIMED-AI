@@ -34,6 +34,7 @@ def main() -> None:
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--n-bootstrap", type=int, default=1000)
     parser.add_argument("--device", default=None)
     args = parser.parse_args()
 
@@ -49,6 +50,7 @@ def main() -> None:
         hidden=args.hidden,
         batch_size=args.batch_size,
         seed=args.seed,
+        n_bootstrap=args.n_bootstrap,
         device=args.device,
     )
     for row in results["metrics_table"]:

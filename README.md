@@ -117,6 +117,53 @@ The `--embed-dim`, `--echo-dim`, and `--ecg-dim` flags must match the checkpoint
 
 ---
 
+## E01 missing-modality evaluation
+
+Branch `e01-missing-modality-eval` adds the checkpoint-only E01 evaluator for the M09 cross-attention fused probe. The evaluator loads a fused checkpoint trained with both modalities, then evaluates the held-out test split under three inference-time conditions:
+
+| Condition | Inference input |
+|-----------|-----------------|
+| `full` | Echo + ECG present |
+| `echo_dropped` | Echo branch masked/zeroed, ECG present |
+| `ecg_dropped` | ECG branch masked/zeroed, echo present |
+
+Run:
+
+```bash
+python scripts/evaluate_missing_modality.py \
+  --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
+  --cohort data/raw/cohort/paired_with_splits.parquet \
+  --echo-embeddings data/interim/echo_study_embeddings_vjepa2.1-vitl-mimic-pt-100.parquet \
+  --ecg-embeddings data/interim/hubert_ecg_embeddings.parquet \
+  --embed-dim 256 \
+  --echo-dim 1024 \
+  --ecg-dim 768 \
+  --batch-size 64 \
+  --seed 42 \
+  --device cpu \
+  --output results/missing_modality.json
+```
+
+Current local E01 output:
+
+| Condition | MAE | EF<=40 AUROC |
+|-----------|----:|-------------:|
+| `full` | 10.2846 | 0.7661 |
+| `echo_dropped` | 18.5736 | 0.6930 |
+| `ecg_dropped` | 15.1344 | 0.7501 |
+
+The result is saved to `results/missing_modality.json` with checkpoint path, input data paths, seed, model dimensions, test-set size, and a machine-readable `metrics_table`. No separate unimodal models are trained for the dropped conditions.
+
+Notes for this branch:
+
+- No pre-existing M09 checkpoint was present in this checkout, so `probes/cross_attn_fused/cross_attn_fused.pt` was trained from the provided full echo+ECG train/val split before running E01.
+- The real cached embeddings use EchoJEPA dimension 1024 and ECG HuBERT dimension 768; M09 now projects them into a shared fusion dimension before cross-attention.
+- The joined data preparation filters non-finite LVEF/embedding rows. The current E01 test split has `n=245`.
+- `results/` and `probes/` are ignored by `.gitignore`, so generated JSON/checkpoint artifacts exist locally but require force-add if they should be committed.
+- If a canonical external M09 checkpoint is supplied, rerun the command above with `--checkpoint` pointing to that file.
+
+---
+
 ## Repository guide
 
 | Document | Contents |
