@@ -6,7 +6,7 @@
 >
 > See [OVERVIEW.md](./OVERVIEW.md) for submission strategy and [TECHNICAL.md](./TECHNICAL.md) for pipeline details.
 
-## Status tracker — updated Jun 23, 2026 (Day 6)
+## Status tracker — updated Jun 24, 2026 (Day 8 — post-deadline)
 
 | ID | Status | Notes |
 |----|--------|-------|
@@ -29,8 +29,14 @@
 | **M07** | ✅ Done | `src/primed_ai/probes/echo_only.py` — attentive vs linear ablation. Issue #25 closed. |
 | **M08** | ✅ Done | `src/primed_ai/probes/concat_mlp.py`. Issue #26 closed. |
 | **M09** | ✅ Done | `src/primed_ai/probes/cross_attn.py` — missing-modality masking. Issue #27 closed. |
+| **E01** | ✅ Done | `evaluation/missing_modality.py` + `scripts/evaluate_missing_modality.py` — full / echo-dropped / ECG-dropped, bootstrap CIs. PR #49. |
+| **E02** | ✅ Done | `evaluation/degradation_curve.py` + `scripts/plot_degradation_curve.py` — degradation figure. PR #50. |
+| **E03** | ✅ Done | `evaluation/fairness.py` + `scripts/evaluate_fairness.py` — sex/age/race strata. PR #51. |
+| **E04–E06** | ⬜ Not started | Calibration (#10) · results aggregation (#11) · ECG-FM pooling ablation (#12). |
 | **I02, I03** | ⬜ Open | PhysioNet credentialing (#14) · ORCD GPU/storage (#15) — manual team steps. |
-| **E01–E06, W01–W06** | ⬜ Not started | Evaluation + writing track. |
+| **W01–W06** | 🔄 In progress | **W04: 4pp Case Report drafted** in `paper/` (`case_report.tex`, builds clean, Tier-0). W01/W02/W03/W05/W06 pending. |
+
+> **Execution status:** all M*/E* code is merged but the pipeline has **not been run end-to-end** — no cohort, embeddings, checkpoints, or result artifacts yet (blocked on I02 PhysioNet/BigQuery + I03 GPU). The Jun 24 submission target is the **Tier-0 Case Report** in `paper/`, which needs no executed results.
 
 ---
 
