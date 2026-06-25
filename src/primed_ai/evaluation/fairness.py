@@ -10,17 +10,17 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from primed_ai.probes.common import (
-    read_table,
-    TokenEmbeddingDataset,
-    collate_tokens,
-    regression_metrics,
-    auroc,
-    git_sha,
-)
-from primed_ai.probes.echo_only import _ensure_tokens
-from primed_ai.probes.concat_mlp import _ensure_ecg_tokens
 from primed_ai.probes import cross_attn
+from primed_ai.probes.common import (
+    TokenEmbeddingDataset,
+    auroc,
+    collate_tokens,
+    git_sha,
+    read_table,
+    regression_metrics,
+)
+from primed_ai.probes.concat_mlp import _ensure_ecg_tokens
+from primed_ai.probes.echo_only import _ensure_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +62,12 @@ def prepare_tokens(df: pd.DataFrame) -> pd.DataFrame:
     return df2
 
 
-def load_model(checkpoint: str | Path, embed_dim: int, device: str | None = None):
+def load_model(checkpoint: str | Path, embed_dim: int, device: str | None = None,
+               echo_dim: int | None = None, ecg_dim: int | None = None):
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    model = cross_attn.CrossAttnFusedProbe(embed_dim).to(device)
+    model = cross_attn.CrossAttnFusedProbe(
+        embed_dim, echo_dim=echo_dim, ecg_dim=ecg_dim
+    ).to(device)
     ckpt = Path(checkpoint)
     if not ckpt.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {ckpt}")
@@ -77,10 +80,11 @@ def load_model(checkpoint: str | Path, embed_dim: int, device: str | None = None
     return model, device
 
 
-def predict_on_df(model: torch.nn.Module, df: pd.DataFrame, embed_dim: int, batch_size: int = 64, device: str | None = None):
+def predict_on_df(model: torch.nn.Module, df: pd.DataFrame, embed_dim: int, batch_size: int = 64, device: str | None = None, echo_dim: int | None = None):
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     ds = TokenEmbeddingDataset(df, ecg_col="ecg_tokens")
-    loader = DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=lambda b: collate_tokens(b, pad_dim=embed_dim))
+    pad_dim = echo_dim or embed_dim
+    loader = DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=lambda b: collate_tokens(b, pad_dim=pad_dim))
     preds, ys, ef = [], [], []
     with torch.no_grad():
         for batch in loader:
@@ -114,6 +118,16 @@ def _compute_stratum_metrics(y_true: np.ndarray, y_pred: np.ndarray, ef_flags: n
 
 
 def compute_stratified_results(df: pd.DataFrame, y_true: np.ndarray, y_pred: np.ndarray, ef_flags: np.ndarray, strata: Sequence[str] = ("sex", "age_band", "race")) -> dict:
+    def _coarsen_race(value) -> str:
+        v = str(value).upper()
+        for label in ("WHITE", "BLACK", "ASIAN"):
+            if v.startswith(label):
+                return label
+        return "HISPANIC/LATINO" if v.startswith("HISPANIC") else "OTHER/UNKNOWN"
+
+    df = df.copy()
+    if "race" in df.columns:
+        df["race"] = df["race"].map(_coarsen_race)
     results = {"overall": _compute_stratum_metrics(y_true, y_pred, ef_flags), "by": {}}
     for s in strata:
         if s not in df.columns:
@@ -192,16 +206,14 @@ def save_outputs(results: dict, out_dir: str | Path):
         logger.warning("Plotting failed: %s", e)
 
 
-def run_fairness(cohort_path, echo_path, ecg_path, checkpoint, out_dir="results/fairness", embed_dim=16, batch_size=64, device=None):
-    logging = __import__("logging")
-    logging.basicConfig(level=logging.INFO)
+def run_fairness(cohort_path, echo_path, ecg_path, checkpoint, out_dir="results/fairness", embed_dim=16, echo_dim=None, ecg_dim=None, batch_size=64, device=None):
     df = load_and_merge(cohort_path, echo_path, ecg_path)
     df = prepare_tokens(df)
     test_df = df[df.get("split") == "test"].reset_index(drop=True)
     if test_df.empty:
         raise RuntimeError("test split is empty; ensure 'split' column contains 'test' partition")
-    model, device = load_model(checkpoint, embed_dim, device)
-    y_pred, y_true, ef_flags = predict_on_df(model, test_df, embed_dim, batch_size, device)
+    model, device = load_model(checkpoint, embed_dim, device, echo_dim=echo_dim, ecg_dim=ecg_dim)
+    y_pred, y_true, ef_flags = predict_on_df(model, test_df, embed_dim, batch_size, device, echo_dim=echo_dim)
     results = {
         "task": "E03_fairness_stratification",
         "checkpoint": str(checkpoint),
