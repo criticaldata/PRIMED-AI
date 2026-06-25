@@ -13,6 +13,9 @@
 \setlist[itemize]{topsep=2pt,itemsep=1pt}
 \setlist[enumerate]{topsep=2pt,itemsep=1pt}
 \usepackage[hidelinks]{hyperref}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,columns=fullflexible,
+        keepspaces=true,xleftmargin=3pt,aboveskip=5pt,belowskip=3pt}
 
 \title{Loud or Silent? A Reusable Framework for Per-Modality\\
 Failure Analysis in Multimodal Clinical AI}
@@ -236,8 +239,22 @@ silent rate is the dangerous regime: wrong, far from the cut, and unflagged.
 \paragraph{Reusable harness.} The three views ship as a small library,
 \mbox{\texttt{analyze(embeddings, predict\_fn, labels)}} $\rightarrow$
 \{\texttt{taxonomy}, \texttt{complementarity}, \texttt{dropout}\}, taking $N$ modality embeddings,
-any mask-aware \texttt{predict\_fn}, and labels. It is released and unit-tested, and is the artifact
-we argue outlives any particular fusion model.
+any mask-aware \texttt{predict\_fn}, and labels (Listing~\ref{lst:api}). It is released and
+unit-tested, and is the artifact we argue outlives any particular fusion model.
+
+\begin{lstlisting}[language=Python,caption={Using the harness: any $N$ modalities, any mask-aware probe.},label=lst:api]
+from primed_ai.failure import analyze_modality_failure
+
+report = analyze_modality_failure(
+    embeddings={'echo': echo_emb, 'ecg': ecg_emb},  # any N modalities
+    lvef=y, ef_le_40=gate,                           # regression target + clinical gate
+    predict_fn=probe.masked_predict,                 # subset -> predictions (others masked)
+    groups={'sex': sex, 'age_band': age},            # optional: per-stratum attribution
+)
+report.complementarity['marginal_value']    # e.g. {'echo': 5.5, 'ecg': 1.8}
+report.dropout['drop_echo']['silent_rate']  # loud vs. silent when echo is missing
+report.conditions['drop_echo']['taxonomy']  # correct / imprecise / critical counts
+\end{lstlisting}
 
 \input{fragments/results_section}
 
@@ -322,7 +339,15 @@ modalities, not state-of-the-art LVEF estimation. \textbf{Label and cohort scope
 structured LVEF and the \mbox{EF\,$\leq$\,40\%} gate only, and \mbox{EF\,$\leq$\,40\%} prevalence in
 a paired echo+ECG cohort may be modest, widening AUROC confidence intervals. \textbf{Echo-branch
 reproducibility:} the strongest echo encoder relies on a privately shared checkpoint; until public
-release, independent reproduction of the echo arm is limited.
+release, independent reproduction of the echo arm is limited. \textbf{Margin is not calibrated
+confidence:} the loud/silent split uses distance from the \mbox{EF\,$\leq$\,40\%} threshold as a
+proxy for monitorability, not a probabilistic confidence; a calibrated head would sharpen it.
+\textbf{Two-modality attribution is partly degenerate:} with $N{=}2$ the leave-one-out winner
+equals the surviving-modality solo, so per-example attribution is most informative for $N{\ge}3$.
+\textbf{Fairness caveats:} a demographic audit inherits MIMIC's known gender- and race-curation
+limitations, small per-stratum samples (wide or undefined AUROC), and post-hoc confounding by
+differing disease prevalence and presentation across groups---observed gaps may reflect the data,
+not only the model.
 
 \section{Discussion}
 \label{sec:discussion}
