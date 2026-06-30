@@ -54,7 +54,7 @@ def plot_dropout_profile(report, output_pdf):
     output_pdf = Path(output_pdf)
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(3.6, 2.9), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(3.6, 3.25), constrained_layout=True)
     ax.bar(x, silent, color="#D55E00", label="silent (confident, wrong)")
     ax.bar(x, loud, bottom=silent, color="#E69F00", label="loud (monitorable)")
     ax.set_xticks(list(x), labels)
@@ -91,7 +91,14 @@ def plot_taxonomy(report, output_pdf):
     ax.set_xticks(list(x), labels, rotation=15, ha="right")
     ax.set_ylabel("test examples")
     ax.set_title("Failure taxonomy by condition")
-    ax.legend(frameon=False, fontsize=7, loc="lower right")
+    ax.legend(
+        frameon=False,
+        fontsize=7,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.24),
+        ncol=3,
+        borderaxespad=0.0,
+    )
     fig.savefig(output_pdf, bbox_inches="tight")
     fig.savefig(output_pdf.with_suffix(".png"), dpi=300, bbox_inches="tight")
     plt.close(fig)
