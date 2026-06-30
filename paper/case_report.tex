@@ -179,7 +179,7 @@ models: EchoJEPA $\approx 5.97$ MAE; ECG-FM $\approx 0.929$ AUROC).
 \midrule
 ECG-only & mean or attentive & Ubiquitous-modality baseline; screen-first lower bound. \\
 Echo-only & attentive & Upper bound when echo is available; attentive vs.\ linear ablation. \\
-Concat-MLP & pool $\oplus$ pool $\rightarrow$ MLP & Quick fused baseline for early sprint numbers. \\
+Concat-MLP & pool $\oplus$ pool $\rightarrow$ MLP & Lightweight fused baseline. \\
 Cross-attn & bidirectional cross-attention & Headline fused model; supports branch masking. \\
 \bottomrule
 \end{tabular}
@@ -204,8 +204,7 @@ resolved config accompany each artifact under \texttt{logs/runs/}.
 
 \section{A Framework for Modality-Failure Analysis}
 \label{sec:framework}
-Models age out; the evaluation that explains \emph{how} they fail is reused across generations. We
-formalize a model-agnostic analysis that assumes only a \emph{mask-aware} predictor: given
+We formalize a model-agnostic analysis that assumes only a \emph{mask-aware} predictor: given
 modalities $\mathcal{M}$, a held-out set with regression target $y$ (LVEF) and clinical gate
 $g=\mathbb{1}[y\le\tau]$ ($\tau{=}40$), and a function $f(S)$ returning a prediction per example
 when only the subset $S\subseteq\mathcal{M}$ is present (others masked at inference), it reports
@@ -308,7 +307,7 @@ released pipeline produces them without further engineering once access clears.
 
 \section{Lessons Learned: the Access Path \emph{Is} a Deployment Finding}
 \label{sec:lessons}
-The gap between a code-complete pipeline and a fully-evaluated one was, in this sprint, almost
+The gap between a code-complete pipeline and a fully-evaluated one was almost
 entirely an \emph{access} gap:
 \begin{itemize}
   \item \textbf{Credentialing latency across a team.} Every contributor needs PhysioNet
