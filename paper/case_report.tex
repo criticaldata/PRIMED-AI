@@ -39,7 +39,7 @@ signals. We release it as a small, unit-tested harness and validate it on synthe
 planted structure---across seeds it recovers the planted modality dominance and complementary
 subset, reports per-modality loud-vs-silent rates, and scales to a three-modality complementarity
 matrix. We instantiate it on \emph{frozen} EchoJEPA and ECG
-embeddings~\citep{echojepa,vjepa2,ecgfm} for LVEF and the \mbox{EF\,$\leq$\,40\%} HFrEF gate over
+embeddings~\citep{echojepa,vjepa2,hubertecg} for LVEF and the \mbox{EF\,$\leq$\,40\%} HFrEF gate over
 MIMIC-IV~\citep{mimiciv,johnson2023mimiciv}, where on a single real held-out cohort (\mbox{$n=245$}) dropping echo nearly
 doubles error; per-example attribution and loud-vs-silent rates on \emph{real} data await
 per-example predictions held back by the data-access barriers we document---themselves a deployment
@@ -101,8 +101,8 @@ Loud-vs-silent profile & When a modality is missing, does the wrong prediction l
 \section{Related Work and Positioning}
 \label{sec:related}
 Foundation models exist for both modalities: EchoJEPA adapts the V-JEPA2 latent-predictive
-video architecture~\citep{vjepa2} to echocardiography~\citep{echojepa}, and ECG-FM is a
-wav2vec2-style~\citep{wav2vec2} self-supervised model for the 12-lead ECG~\citep{ecgfm}. EchoingECG~\citep{echoingecg} distills echocardiographic knowledge into ECG
+video architecture~\citep{vjepa2} to echocardiography~\citep{echojepa}, and HuBERT-ECG~\citep{hubertecg}
+is a self-supervised model for the 12-lead ECG (HuBERT/wav2vec2 family~\citep{wav2vec2}). EchoingECG~\citep{echoingecg} distills echocardiographic knowledge into ECG
 representations (probabilistic cross-modal embeddings with an echo--language teacher) so cardiac
 function can be predicted from the ECG alone, with uncertainty, in zero-/few-shot and fine-tuned
 settings. Our study differs on three deployment-relevant axes: (i)~both backbones stay
@@ -112,7 +112,7 @@ inference}, rather than compressing echo into an ECG-only model; and (iii)~infer
 degradation and a demographic fairness audit are primary results. EchoingECG asks how to build a
 better ECG model using echo at training time; we ask, model-agnostically, how a deployed
 multimodal model fails when a modality is gone. Missing-modality robustness is typically reported
-as a single aggregate accuracy drop; we instead attribute failures per modality and separate loud
+as a single aggregate accuracy drop~\citep{smil2021,mmrobust2022}; we instead attribute failures per modality and separate loud
 from silent degradation, packaged as a reusable instrument rather than a one-off ablation.
 
 \section{Data and Cohort Design}
@@ -154,8 +154,8 @@ future work.
 % -> deployment evaluators; expensive encoding runs once and probes read from cache.
 
 \paragraph{Frozen encoders.} EchoJEPA-L (ViT-L; 1024-dim spatial echo-video
-tokens)~\citep{echojepa} and ECG-FM (wav2vec2-style 12-lead
-tokens)~\citep{ecgfm}. Both run in inference mode only. Embeddings are written to an on-disk
+tokens)~\citep{echojepa} and HuBERT-ECG (12-lead ECG
+tokens)~\citep{hubertecg}. Both run in inference mode only. Embeddings are written to an on-disk
 cache: one \texttt{.npy} array per study/record ID, an append-only JSONL manifest, and an
 \texttt{encoder\_version} tag per write so vectors remain traceable to the checkpoint that
 produced them. Atomic writes and resume support let long extraction jobs survive interruption.
@@ -166,7 +166,7 @@ to underperform). Cross-attention fusion is the headline model for missing-modal
 bidirectional multi-head attention between echo and ECG token sequences, followed by an MLP
 regression head. All probes predict continuous LVEF; the \mbox{EF\,$\leq$\,40\%} gate is derived
 from predictions. Metrics: \textbf{MAE} and \textbf{EF\,$\leq$\,40\% AUROC} (context from source
-models: EchoJEPA $\approx 5.97$ MAE; ECG-FM $\approx 0.929$ AUROC).
+models, on different fine-tuned cohorts not comparable to our frozen split: EchoJEPA $\approx 5.97$ MAE and a reported ECG model $\approx 0.93$ AUROC).
 
 \begin{table}[t]
 \centering
@@ -280,7 +280,7 @@ Subject-level 70/10/20 manifest with zero-leakage assertion. \\
 Prevalence &
 \mbox{EF\,$\leq$\,40\%} prevalence overall and per split; AUROC reportability flag. \\
 Encoders &
-Frozen EchoJEPA-L and ECG-FM wrappers; smoke-test script for ECG-FM load. \\
+Frozen EchoJEPA-L and ECG encoder wrappers; ECG encoder smoke-test script. \\
 Extraction &
 Batch echo/ECG forward passes into the embedding cache; cluster extraction scripts bundled. \\
 Probes &
