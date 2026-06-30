@@ -1,7 +1,8 @@
 """On-disk embedding cache for the frozen-embedding pipeline.
 
-Stores EchoJEPA-L and ECG-FM embeddings so downstream probes and evaluations can
-reuse them without re-encoding. Each modality has one .npy file per
+Stores EchoJEPA-L echo and ECG embeddings so downstream probes and evaluations can
+reuse them without re-encoding. The ECG representation used by the current probes is
+HuBERT-ECG (``mimic-iv-ecg-ve``). Each modality has one .npy file per
 study/record ID and an append-only metadata manifest::
 
 <root>/<modality>/<id>.npy
