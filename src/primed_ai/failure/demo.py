@@ -7,6 +7,7 @@ structure is known and check that it is recovered. ``make_synthetic_multimodal``
 so the harness should report echo dominance overall, ECG wins on that subset, and silent
 failures when the dominant modality (echo) is dropped. No real PHI involved.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -78,8 +79,9 @@ def masked_ridge_predict_fn(embeddings: dict, lvef, train_mask, alpha: float = 1
     return predict_fn
 
 
-def make_synthetic_modalities(strengths: dict, n: int = 600, dim: int = 16, seed: int = 0,
-                              exclusive_frac: float = 0.12):
+def make_synthetic_modalities(
+    strengths: dict, n: int = 600, dim: int = 16, seed: int = 0, exclusive_frac: float = 0.12
+):
     """N-modality synthetic data (generality demo). Each modality ``m`` encodes LVEF with its own
     ``strengths[m]`` along a random direction; an ``exclusive_frac`` slice is split across modalities
     so that, on each sub-slice, only one modality is informative (the others are noise)---planting
@@ -93,11 +95,13 @@ def make_synthetic_modalities(strengths: dict, n: int = 600, dim: int = 16, seed
     for m in mods:
         v = rng.standard_normal(dim)
         dirs[m] = v / np.linalg.norm(v)
-    emb = {m: rng.standard_normal((n, dim)) + strengths[m] * np.outer(signal, dirs[m]) for m in mods}
+    emb = {
+        m: rng.standard_normal((n, dim)) + strengths[m] * np.outer(signal, dirs[m]) for m in mods
+    }
     order = rng.permutation(n)
     per = int(exclusive_frac * n)
     for k, m in enumerate(mods):
-        sel = order[k * per:(k + 1) * per]
+        sel = order[k * per : (k + 1) * per]
         if len(sel) == 0:
             continue
         for other in mods:

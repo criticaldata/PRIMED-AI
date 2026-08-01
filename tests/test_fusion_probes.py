@@ -18,18 +18,21 @@ def _synthetic(tmp_path, n=200, dim=8, seed=2):
     echo_emb = rng.standard_normal((n, dim)) + signal * ((lvef - 50) / 20)[:, None]
     ecg_emb = rng.standard_normal((n, dim)) + signal * ((lvef - 50) / 25)[:, None]
 
-    coh = pd.DataFrame({
-        "subject_id": subs,
-        "echo_study_id": np.arange(2000, 2000 + n),
-        "ecg_record_id": np.arange(3000, 3000 + n),
-        "lvef": lvef,
-        "ef_le_40": lvef <= 40,
-    })
+    coh = pd.DataFrame(
+        {
+            "subject_id": subs,
+            "echo_study_id": np.arange(2000, 2000 + n),
+            "ecg_record_id": np.arange(3000, 3000 + n),
+            "lvef": lvef,
+            "ef_le_40": lvef <= 40,
+        }
+    )
     uniq = pd.unique(coh["subject_id"])
     rng.shuffle(uniq)
     ntr, nva = int(len(uniq) * 0.7), int(len(uniq) * 0.1)
-    smap = {s: ("train" if i < ntr else "val" if i < ntr + nva else "test")
-            for i, s in enumerate(uniq)}
+    smap = {
+        s: ("train" if i < ntr else "val" if i < ntr + nva else "test") for i, s in enumerate(uniq)
+    }
     coh["split"] = coh["subject_id"].map(smap)
 
     echo = pd.DataFrame(echo_emb, columns=[f"echo_ve{i:04d}" for i in range(dim)])
@@ -49,8 +52,7 @@ def _synthetic(tmp_path, n=200, dim=8, seed=2):
 def test_concat_mlp_probe(tmp_path):
     cpath, echo_path, ecg_path = _synthetic(tmp_path, n=400, dim=16)
     out = tmp_path / "probes" / "concat_mlp"
-    res = run_concat(cpath, echo_path, ecg_path, out_dir=out,
-                      echo_dim=16, ecg_dim=16, epochs=40)
+    res = run_concat(cpath, echo_path, ecg_path, out_dir=out, echo_dim=16, ecg_dim=16, epochs=40)
     assert (out / "concat_mlp.pt").is_file()
     assert np.isfinite(res["val"]["mae"])
 
@@ -75,18 +77,22 @@ def test_e01_missing_modality_eval_loads_checkpoint(tmp_path):
     cpath, echo_path, ecg_path = _synthetic(tmp_path)
     echo_df = pd.read_parquet(echo_path)
     echo_cols = [c for c in echo_df.columns if c.startswith("echo_ve")]
-    echo_df = pd.DataFrame({
-        "echo_study_id": echo_df["echo_study_id"],
-        "echo_embedding": list(echo_df[echo_cols].to_numpy()),
-    })
+    echo_df = pd.DataFrame(
+        {
+            "echo_study_id": echo_df["echo_study_id"],
+            "echo_embedding": list(echo_df[echo_cols].to_numpy()),
+        }
+    )
     echo_df.to_parquet(echo_path)
 
     ecg_df = pd.read_parquet(ecg_path)
     ecg_cols = [c for c in ecg_df.columns if c.startswith("ve")]
-    ecg_df = pd.DataFrame({
-        "ecg_study_id": ecg_df["ecg_record_id"],
-        "ecg_embedding": list(ecg_df[ecg_cols].to_numpy()),
-    })
+    ecg_df = pd.DataFrame(
+        {
+            "ecg_study_id": ecg_df["ecg_record_id"],
+            "ecg_embedding": list(ecg_df[ecg_cols].to_numpy()),
+        }
+    )
     ecg_df.to_parquet(ecg_path)
 
     probe_dir = tmp_path / "probes" / "cross_attn"

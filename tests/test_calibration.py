@@ -1,4 +1,5 @@
 """Tests for E04 EF<=40% calibration."""
+
 from __future__ import annotations
 
 import json

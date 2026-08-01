@@ -67,8 +67,9 @@ class EmbeddingCache:
         return self.has(record_id)
 
     # -- write -------------------------------------------------------------
-    def write(self, record_id, embedding, *, overwrite: bool = False,
-              timestamp: str | None = None) -> None:
+    def write(
+        self, record_id, embedding, *, overwrite: bool = False, timestamp: str | None = None
+    ) -> None:
         """Cache one embedding; atomic (temp file + rename).
 
         Raises ``FileExistsError`` if present unless ``overwrite=True``. Pass a
@@ -79,8 +80,7 @@ class EmbeddingCache:
             raise ValueError("embedding must be a non-empty numeric array")
         path = self._path(record_id)
         if path.is_file() and not overwrite:
-            raise FileExistsError(
-                f"{record_id!r} already cached (pass overwrite=True to replace)")
+            raise FileExistsError(f"{record_id!r} already cached (pass overwrite=True to replace)")
         self.dir.mkdir(parents=True, exist_ok=True)
         tmp = path.with_name(path.name + ".tmp")
         # Save via a handle so numpy keeps our temp name (else it appends '.npy').

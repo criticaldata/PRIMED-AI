@@ -6,7 +6,7 @@
 #SBATCH --mem=250G
 #SBATCH --gres=gpu:l40s:1
 #SBATCH --array=0-9
-#SBATCH --output=/home/sebasmos/echo-jepa_%A_%a.log
+#SBATCH --output=logs/echo-jepa_%A_%a.log
 
 # ============================================================
 # Extract frozen EchoJEPA embeddings (10-folder array job)
@@ -24,7 +24,7 @@
 #   python scripts/embedding_extraction/merge_embeddings.py --model echo-vitl-mimic117
 #
 # Monitor:
-#   tail -f ~/echo-jepa_<jobid>_*.log
+#   tail -f logs/echo-jepa_<jobid>_*.log
 # ============================================================
 
 module load miniforge/24.3.0-0
@@ -57,3 +57,5 @@ EXIT_CODE=$?
 
 echo "============================================================"
 echo "$(date) | ${FOLDER} finished with exit code: ${EXIT_CODE}"
+
+exit $EXIT_CODE

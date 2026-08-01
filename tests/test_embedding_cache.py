@@ -55,8 +55,7 @@ def test_keys_len_iter_sorted(tmp_path):
 
 def test_manifest_records_metadata(tmp_path):
     cache = _cache(tmp_path, version="echojepa-l-abc123")
-    cache.write("42", np.zeros((4, 8), dtype=np.float32),
-                timestamp="2026-06-19T12:00:00+00:00")
+    cache.write("42", np.zeros((4, 8), dtype=np.float32), timestamp="2026-06-19T12:00:00+00:00")
     lines = cache.manifest_path.read_text().strip().splitlines()
     assert len(lines) == 1
     assert json.loads(lines[0]) == {

@@ -5,3 +5,14 @@ repos:
       - id: ruff
         args: [ --fix ]
       - id: ruff-format
+
+  # Backstop for the "NEVER commit raw data" rule in CONTRIBUTING.md — .gitignore only
+  # helps until someone reaches for `git add -f`.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: [ --maxkb=2048 ]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace

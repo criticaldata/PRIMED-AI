@@ -1,4 +1,5 @@
 """Pytest configuration — add repo scripts/ to import path for cohort tests."""
+
 import sys
 from pathlib import Path
 

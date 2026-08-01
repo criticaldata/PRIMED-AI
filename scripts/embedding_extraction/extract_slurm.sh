@@ -6,7 +6,7 @@
 #SBATCH --mem=250G
 #SBATCH --gres=gpu:l40s:1
 #SBATCH --array=0-9
-#SBATCH --output=/home/sebasmos/jepa-l_%A_%a.log
+#SBATCH --output=logs/jepa-l_%A_%a.log
 
 # ============================================================
 # Extract frozen V-JEPA2 embeddings (10-folder array job)
@@ -20,7 +20,7 @@
 #   sbatch --array=0 scripts/embedding_extraction/extract_slurm.sh    # p10 only
 #
 # Monitor:
-#   tail -f ~/jepa-l_<jobid>_*.log
+#   tail -f logs/jepa-l_<jobid>_*.log
 # ============================================================
 
 module load miniforge/24.3.0-0
@@ -54,3 +54,5 @@ EXIT_CODE=$?
 
 echo "============================================================"
 echo "$(date) | ${FOLDER} finished with exit code: ${EXIT_CODE}"
+
+exit $EXIT_CODE

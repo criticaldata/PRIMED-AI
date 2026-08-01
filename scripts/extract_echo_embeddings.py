@@ -11,6 +11,7 @@ Example (ORCD):
       --mp4-root /orcd/pool/006/lceli_shared/mimic-iv-echo-mp4 \\
       --encoder-config configs/encoder/echojepa.yaml
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,12 +48,15 @@ def _resolve_mp4(row, mp4_root: Path) -> Path | None:
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--cohort", default=str(repo_root / "cohort" / "paired.parquet"))
     ap.add_argument("--mp4-root", required=True, help="Root directory of echo MP4 files.")
     ap.add_argument("--cache-root", default=str(repo_root / "embeddings"))
-    ap.add_argument("--encoder-config", default=str(repo_root / "configs" / "encoder" / "echojepa.yaml"))
+    ap.add_argument(
+        "--encoder-config", default=str(repo_root / "configs" / "encoder" / "echojepa.yaml")
+    )
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0, help="Max studies (0 = all).")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -88,12 +92,15 @@ def main() -> None:
         if args.limit and len(pending) >= args.limit:
             break
 
-    log.info("Encoding %d echo studies (skipped %d already cached)",
-             len(pending), len(cohort) - len(pending))
+    log.info(
+        "Encoding %d echo studies (skipped %d already cached)",
+        len(pending),
+        len(cohort) - len(pending),
+    )
     t0 = time.time()
     ok = err = 0
     for start in range(0, len(pending), args.batch_size):
-        chunk = pending[start:start + args.batch_size]
+        chunk = pending[start : start + args.batch_size]
         tensors, ids = [], []
         for sid, mp4 in chunk:
             try:

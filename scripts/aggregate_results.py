@@ -3,6 +3,7 @@
 Example:
   python scripts/aggregate_results.py --results-dir results --out-dir results
 """
+
 from __future__ import annotations
 
 import argparse

@@ -42,11 +42,13 @@ def test_add_age_bands():
 
 
 def test_write_cohort_summary(tmp_path):
-    cohort = pd.DataFrame({
-        "subject_id": [1, 1, 2],
-        "lvef": [55.0, 35.0, 60.0],
-        "ef_le_40": [False, True, False],
-    })
+    cohort = pd.DataFrame(
+        {
+            "subject_id": [1, 1, 2],
+            "lvef": [55.0, 35.0, 60.0],
+            "ef_le_40": [False, True, False],
+        }
+    )
     path = tmp_path / "summary.json"
     summary = write_cohort_summary(cohort, path, lvef_min=0, lvef_max=100)
     assert summary["n_rows"] == 3
@@ -56,11 +58,13 @@ def test_write_cohort_summary(tmp_path):
 
 
 def test_write_demographics_coverage(tmp_path):
-    df = pd.DataFrame({
-        "sex": ["M", "F"],
-        "age": [50, None],
-        "race": ["WHITE", "UNKNOWN"],
-    })
+    df = pd.DataFrame(
+        {
+            "sex": ["M", "F"],
+            "age": [50, None],
+            "race": ["WHITE", "UNKNOWN"],
+        }
+    )
     add_age_bands(df)
     path = tmp_path / "coverage.json"
     report = write_demographics_coverage(df, path)
@@ -71,15 +75,17 @@ def test_write_demographics_coverage(tmp_path):
 
 
 def test_write_flowchart(tmp_path):
-    funnel = pd.DataFrame({
-        "stage": ["1. Echo", "2. LVEF", "3. Paired"],
-        "step": [0, 1, 2],
-        "n_studies": [1000, 500, 200],
-        "n_subjects": [800, 400, 150],
-        "n_dicom_files": [5000, 2500, 1000],
-        "excluded_studies": [0, 500, 300],
-        "excluded_dicom_files": [0, 2500, 1500],
-    })
+    funnel = pd.DataFrame(
+        {
+            "stage": ["1. Echo", "2. LVEF", "3. Paired"],
+            "step": [0, 1, 2],
+            "n_studies": [1000, 500, 200],
+            "n_subjects": [800, 400, 150],
+            "n_dicom_files": [5000, 2500, 1000],
+            "excluded_studies": [0, 500, 300],
+            "excluded_dicom_files": [0, 2500, 1500],
+        }
+    )
     path = tmp_path / "flow.md"
     write_flowchart(funnel, path, "window +/-24h")
     text = path.read_text()

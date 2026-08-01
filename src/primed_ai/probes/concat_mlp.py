@@ -1,4 +1,5 @@
 """Concat-MLP fused LVEF probe (M08)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -116,8 +117,9 @@ def run(
     if ecg_key not in ecg_emb.columns:
         ecg_emb = ecg_emb.rename(columns={ecg_emb.columns[0]: ecg_key})
 
-    df = coh.merge(echo_emb, on=echo_key, how="inner").merge(ecg_emb, on=ecg_key, how="inner",
-                                                               suffixes=("", "_ecg"))
+    df = coh.merge(echo_emb, on=echo_key, how="inner").merge(
+        ecg_emb, on=ecg_key, how="inner", suffixes=("", "_ecg")
+    )
     df = _ensure_tokens(df)
     df = _ensure_ecg_tokens(df)
 

@@ -7,6 +7,7 @@ Public API:
     masked_ridge_predict_fn(...)               # a simple maskable multimodal predict_fn
     plot_complementarity_matrix / plot_dropout_profile / plot_taxonomy
 """
+
 from __future__ import annotations
 
 from .core import CATEGORIES, FailureReport, analyze_modality_failure, classify_taxonomy

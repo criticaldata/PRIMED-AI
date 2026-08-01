@@ -1,4 +1,5 @@
 """Checkpoint-only missing-modality evaluation for the M09 fused probe."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,11 +7,10 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from primed_ai.probes.common import auroc, regression_metrics
-from primed_ai.probes.common import git_sha, save_results
+from primed_ai.probes.common import auroc, git_sha, regression_metrics, save_results
 from primed_ai.probes.cross_attn import (
-    CrossAttnFusedProbe,
     MISSING_MODALITY_CONDITIONS,
+    CrossAttnFusedProbe,
     fused_probe_loader,
     predict_missing_modality,
     prepare_fused_probe_data,

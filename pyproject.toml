@@ -46,6 +46,8 @@ addopts = "-v --tb=short"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# Vendored V-JEPA source from Meta — keep byte-identical to upstream so it stays diffable.
+extend-exclude = ["scripts/embedding_extraction/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

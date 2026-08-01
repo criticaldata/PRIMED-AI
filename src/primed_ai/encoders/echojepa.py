@@ -1,4 +1,5 @@
 """Frozen EchoJEPA-L (V-JEPA2 ViT-L) encoder wrapper (M01)."""
+
 from __future__ import annotations
 
 import sys
@@ -56,11 +57,16 @@ def _load_vit_encoder(
     )
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     state_dict = ckpt["encoder"] if isinstance(ckpt, dict) and "encoder" in ckpt else ckpt
-    clean = {
-        k.replace("module.", "").replace("backbone.", ""): v
-        for k, v in state_dict.items()
-    }
-    model.load_state_dict(clean, strict=False)
+    clean = {k.replace("module.", "").replace("backbone.", ""): v for k, v in state_dict.items()}
+    incompatible = model.load_state_dict(clean, strict=False)
+    # Unexpected keys are fine (checkpoints carry predictor/EMA tensors we don't use), but
+    # missing keys mean the prefix stripping above didn't match this checkpoint layout and
+    # the ViT would stay randomly initialised.
+    if incompatible.missing_keys:
+        raise RuntimeError(
+            f"{len(incompatible.missing_keys)} encoder weights not found in {checkpoint_path} "
+            f"(first: {incompatible.missing_keys[:3]}) — checkpoint key layout is unsupported"
+        )
     return model
 
 
@@ -144,9 +150,11 @@ def build_video_transform(img_size: int = 256):
     import src.datasets.utils.video.volume_transforms as volume_transforms  # noqa: WPS433
 
     short_side = int(256.0 / 224 * img_size)
-    return video_transforms.Compose([
-        video_transforms.Resize(short_side, interpolation="bilinear"),
-        video_transforms.CenterCrop(size=(img_size, img_size)),
-        volume_transforms.ClipToTensor(),
-        video_transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-    ])
+    return video_transforms.Compose(
+        [
+            video_transforms.Resize(short_side, interpolation="bilinear"),
+            video_transforms.CenterCrop(size=(img_size, img_size)),
+            volume_transforms.ClipToTensor(),
+            video_transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+        ]
+    )

@@ -1,4 +1,5 @@
 """Cross-attention fused LVEF probe with missing-modality masking (M09)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -90,12 +91,16 @@ def _condition_arrays(
     mask_ecg = condition == "ecg_dropped"
     ys, preds, ef = [], [], []
     for batch in loader:
-        pred = model(
-            batch["echo"].to(device),
-            batch["ecg"].to(device),
-            mask_echo=mask_echo,
-            mask_ecg=mask_ecg,
-        ).cpu().numpy()
+        pred = (
+            model(
+                batch["echo"].to(device),
+                batch["ecg"].to(device),
+                mask_echo=mask_echo,
+                mask_ecg=mask_ecg,
+            )
+            .cpu()
+            .numpy()
+        )
         ys.append(batch["lvef"].numpy())
         preds.append(pred)
         ef.append(batch["ef_le_40"].numpy())
@@ -121,7 +126,9 @@ def _eval_condition(
     return _metrics_from_arrays(_condition_arrays(model, loader, device, condition))
 
 
-def prepare_fused_probe_data(cohort_path, echo_embedding_path, ecg_embedding_path) -> dict[str, pd.DataFrame]:
+def prepare_fused_probe_data(
+    cohort_path, echo_embedding_path, ecg_embedding_path
+) -> dict[str, pd.DataFrame]:
     """Load paired cohort + cached embeddings and return train/val/test frames."""
     coh = read_table(cohort_path)
     echo_emb = read_table(echo_embedding_path)
@@ -222,7 +229,9 @@ def run(
     for _ in range(epochs):
         _train_epoch(
             model,
-            fused_probe_loader(parts["train"], embed_dim=echo_dim, batch_size=batch_size, shuffle=True),
+            fused_probe_loader(
+                parts["train"], embed_dim=echo_dim, batch_size=batch_size, shuffle=True
+            ),
             optim,
             device,
         )

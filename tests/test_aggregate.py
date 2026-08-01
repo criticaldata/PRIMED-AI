@@ -1,4 +1,5 @@
 """Tests for E05 results aggregation."""
+
 from __future__ import annotations
 
 import json
@@ -14,26 +15,34 @@ from primed_ai.evaluation.aggregate import (
 
 
 def _seed_results(root):
-    (root / "missing_modality.json").write_text(json.dumps({
-        "n": {"test": 245},
-        "metrics_table": [
-            {"condition": "full", "mae": 10.28, "ef40_auroc": 0.766},
-            {"condition": "echo_dropped", "mae": 18.57, "ef40_auroc": 0.693},
-            {"condition": "ecg_dropped", "mae": 15.13, "ef40_auroc": 0.750},
-        ],
-    }))
+    (root / "missing_modality.json").write_text(
+        json.dumps(
+            {
+                "n": {"test": 245},
+                "metrics_table": [
+                    {"condition": "full", "mae": 10.28, "ef40_auroc": 0.766},
+                    {"condition": "echo_dropped", "mae": 18.57, "ef40_auroc": 0.693},
+                    {"condition": "ecg_dropped", "mae": 15.13, "ef40_auroc": 0.750},
+                ],
+            }
+        )
+    )
     fdir = root / "fairness"
     fdir.mkdir()
-    (fdir / "fairness_metrics.json").write_text(json.dumps({
-        "overall": {"n": 245, "mae": 10.28, "ef40_auroc": 0.766, "small_n": False},
-        "by": {
-            "sex": {
-                "F": {"n": 130, "mae": 10.1, "ef40_auroc": 0.77, "small_n": False},
-                "M": {"n": 115, "mae": 10.5, "ef40_auroc": 0.76, "small_n": False},
-            },
-            "race": {"Other": {"n": 6, "mae": 12.0, "ef40_auroc": None, "small_n": True}},
-        },
-    }))
+    (fdir / "fairness_metrics.json").write_text(
+        json.dumps(
+            {
+                "overall": {"n": 245, "mae": 10.28, "ef40_auroc": 0.766, "small_n": False},
+                "by": {
+                    "sex": {
+                        "F": {"n": 130, "mae": 10.1, "ef40_auroc": 0.77, "small_n": False},
+                        "M": {"n": 115, "mae": 10.5, "ef40_auroc": 0.76, "small_n": False},
+                    },
+                    "race": {"Other": {"n": 6, "mae": 12.0, "ef40_auroc": None, "small_n": True}},
+                },
+            }
+        )
+    )
 
 
 def test_aggregate_collects_sources(tmp_path):

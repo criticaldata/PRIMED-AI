@@ -1,4 +1,5 @@
 """Publication figures for the modality-failure harness."""
+
 from __future__ import annotations
 
 import os
@@ -86,8 +87,13 @@ def plot_taxonomy(report, output_pdf):
     fig, ax = plt.subplots(figsize=(3.6, 2.9), constrained_layout=True)
     ax.bar(x, correct, color="#009E73", label="correct")
     ax.bar(x, imprecise, bottom=correct, color="#E69F00", label="imprecise")
-    ax.bar(x, critical, bottom=[c + i for c, i in zip(correct, imprecise)],
-           color="#D55E00", label="critical (gate wrong)")
+    ax.bar(
+        x,
+        critical,
+        bottom=[c + i for c, i in zip(correct, imprecise)],
+        color="#D55E00",
+        label="critical (gate wrong)",
+    )
     ax.set_xticks(list(x), labels, rotation=15, ha="right")
     ax.set_ylabel("test examples")
     ax.set_title("Failure taxonomy by condition")

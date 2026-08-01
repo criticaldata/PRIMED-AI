@@ -5,6 +5,7 @@ Example:
     --input results/missing_modality.json \
     --output results/figures/degradation_curve.pdf
 """
+
 from __future__ import annotations
 
 import argparse

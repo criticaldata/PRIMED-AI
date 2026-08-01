@@ -275,10 +275,10 @@ Reserve compute and confirm storage for embedding extraction on the paired cohor
 
 **Description**
 
-**Single most important blocker.** EchoJEPA-L weights are pending public PhysioNet approval. Secure private access from Alif's team (email or private HF repo) by end of Day 1; pivot by end of Day 2 if unavailable.
+**Single most important blocker.** EchoJEPA-L weights are pending public PhysioNet approval. Request checkpoint access from the model authors by end of Day 1; pivot by end of Day 2 if unavailable.
 
 **Steps:**
-1. Email Alif's team for EchoJEPA-L weights — chase Day 1.
+1. Request EchoJEPA-L weights from the model authors — chase Day 1.
 2. Verify checkpoint loads and produces expected embedding dimension on one dummy echo clip.
 3. Document weight path, version hash, and loading instructions in `configs/encoder/echojepa.yaml`.
 4. If weights not received by end of Day 2, trigger fallback (ECG-FM-only study or Case Report — see [OVERVIEW.md §5](./OVERVIEW.md#5-blockers--risk-register)).
@@ -1093,7 +1093,7 @@ Write toward **8-page Research Paper**; keep **4-page Case Report** as strict su
 Desk-reject risk if deanonymizing details remain. Scrub all artifacts before submit.
 
 **Steps:**
-1. Remove: repo names (`sebasmos/EchoJEPA-VE`), PhysioNet usernames, lab/institution names, cluster paths.
+1. Remove: source repo names, PhysioNet usernames, lab/institution names, cluster paths.
 2. Cite own related arXiv papers in third person throughout.
 3. Anonymize supplementary code/logs if uploaded.
 4. Second reviewer pass on PDF + supplementary.

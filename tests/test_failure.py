@@ -1,4 +1,5 @@
 """Validate the modality-failure harness recovers planted ground-truth structure."""
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,9 @@ def _run(seed: int = 0):
 def test_recovers_echo_dominance():
     d = _run()
     mv = d["complementarity"]["marginal_value"]
-    assert mv["echo"] > mv["ecg"]                                 # robust aggregate: echo worth more
+    assert mv["echo"] > mv["ecg"]  # robust aggregate: echo worth more
     winners = d["complementarity"]["per_example_winners"]
-    assert winners["echo"] > winners["ecg"]                       # planted: echo dominant globally
+    assert winners["echo"] > winners["ecg"]  # planted: echo dominant globally
     # fusion is at least as good as the best single modality
     assert d["complementarity"]["full_mae"] <= min(d["complementarity"]["solo_mae"].values()) + 1e-6
 
@@ -44,15 +45,19 @@ def test_ecg_still_wins_some_examples():
 
 def test_dropping_dominant_modality_induces_more_and_silent_failures():
     d = _run()
-    assert (d["dropout"]["drop_echo"]["induced_critical"]
-            >= d["dropout"]["drop_ecg"]["induced_critical"])
-    assert d["dropout"]["drop_echo"]["induced_critical"] > 0      # dropping echo induces gate failures
+    assert (
+        d["dropout"]["drop_echo"]["induced_critical"]
+        >= d["dropout"]["drop_ecg"]["induced_critical"]
+    )
+    assert d["dropout"]["drop_echo"]["induced_critical"] > 0  # dropping echo induces gate failures
 
 
 def test_taxonomy_degrades_under_dropout():
     d = _run()
-    assert (d["conditions"]["full"]["taxonomy"]["correct"]
-            > d["conditions"]["drop_echo"]["taxonomy"]["correct"])
+    assert (
+        d["conditions"]["full"]["taxonomy"]["correct"]
+        > d["conditions"]["drop_echo"]["taxonomy"]["correct"]
+    )
 
 
 def test_report_is_json_serializable():
@@ -63,7 +68,9 @@ def test_report_is_json_serializable():
 
 def test_classify_taxonomy_categories():
     y = np.array([35.0, 55.0, 50.0])
-    pred = np.array([36.0, 54.0, 20.0])   # 3rd: confidently predicts HFrEF but truth is 50 -> critical
+    pred = np.array(
+        [36.0, 54.0, 20.0]
+    )  # 3rd: confidently predicts HFrEF but truth is 50 -> critical
     gate_true = y <= 40
     cats = classify_taxonomy(y, pred, gate_true, threshold=40, tolerance=5)
     assert list(cats) == ["correct", "correct", "critical"]
@@ -73,8 +80,9 @@ def test_requires_two_modalities():
     import pytest
 
     with pytest.raises(ValueError):
-        analyze_modality_failure({"echo": np.zeros((3, 2))}, [1, 2, 3], [True, False, True],
-                                 lambda present: np.zeros(3))
+        analyze_modality_failure(
+            {"echo": np.zeros((3, 2))}, [1, 2, 3], [True, False, True], lambda present: np.zeros(3)
+        )
 
 
 def test_three_modality_generality():
@@ -88,10 +96,11 @@ def test_three_modality_generality():
         {m: emb[m][test] for m in emb}, lvef[test], ef[test], lambda present: pf(present)[test]
     ).to_dict()
     matrix = d["complementarity"]["matrix"]
-    assert matrix["modalities"] == ["echo", "ecg", "labs"]          # genuine 3x3 matrix
+    assert matrix["modalities"] == ["echo", "ecg", "labs"]  # genuine 3x3 matrix
     assert len(matrix["values"]) == 3 and all(len(r) == 3 for r in matrix["values"])
     assert d["complementarity"]["marginal_value"]["echo"] == max(
-        d["complementarity"]["marginal_value"].values())            # echo planted strongest
+        d["complementarity"]["marginal_value"].values()
+    )  # echo planted strongest
     assert set(d["dropout"]) == {"drop_echo", "drop_ecg", "drop_labs"}
 
 
@@ -100,4 +109,4 @@ def test_split_has_healthy_prevalence():
     emb, lvef, ef, _ = make_synthetic_multimodal(n=600, seed=0)
     test = ~stratified_train_mask(ef, 0.7, seed=12345)
     prevalence = float(ef[test].mean())
-    assert 0.15 < prevalence < 0.6   # both gate classes well represented in the held-out split
+    assert 0.15 < prevalence < 0.6  # both gate classes well represented in the held-out split

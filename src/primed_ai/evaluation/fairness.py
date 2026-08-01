@@ -38,7 +38,9 @@ def _safe_json(obj):
     return obj
 
 
-def load_and_merge(cohort_path: str | Path, echo_path: str | Path, ecg_path: str | Path) -> pd.DataFrame:
+def load_and_merge(
+    cohort_path: str | Path, echo_path: str | Path, ecg_path: str | Path
+) -> pd.DataFrame:
     coh = read_table(cohort_path)
     echo = read_table(echo_path)
     ecg = read_table(ecg_path)
@@ -62,12 +64,15 @@ def prepare_tokens(df: pd.DataFrame) -> pd.DataFrame:
     return df2
 
 
-def load_model(checkpoint: str | Path, embed_dim: int, device: str | None = None,
-               echo_dim: int | None = None, ecg_dim: int | None = None):
+def load_model(
+    checkpoint: str | Path,
+    embed_dim: int,
+    device: str | None = None,
+    echo_dim: int | None = None,
+    ecg_dim: int | None = None,
+):
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    model = cross_attn.CrossAttnFusedProbe(
-        embed_dim, echo_dim=echo_dim, ecg_dim=ecg_dim
-    ).to(device)
+    model = cross_attn.CrossAttnFusedProbe(embed_dim, echo_dim=echo_dim, ecg_dim=ecg_dim).to(device)
     ckpt = Path(checkpoint)
     if not ckpt.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {ckpt}")
@@ -80,11 +85,23 @@ def load_model(checkpoint: str | Path, embed_dim: int, device: str | None = None
     return model, device
 
 
-def predict_on_df(model: torch.nn.Module, df: pd.DataFrame, embed_dim: int, batch_size: int = 64, device: str | None = None, echo_dim: int | None = None):
+def predict_on_df(
+    model: torch.nn.Module,
+    df: pd.DataFrame,
+    embed_dim: int,
+    batch_size: int = 64,
+    device: str | None = None,
+    echo_dim: int | None = None,
+):
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     ds = TokenEmbeddingDataset(df, ecg_col="ecg_tokens")
     pad_dim = echo_dim or embed_dim
-    loader = DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=lambda b: collate_tokens(b, pad_dim=pad_dim))
+    loader = DataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=lambda b: collate_tokens(b, pad_dim=pad_dim),
+    )
     preds, ys, ef = [], [], []
     with torch.no_grad():
         for batch in loader:
@@ -117,7 +134,13 @@ def _compute_stratum_metrics(y_true: np.ndarray, y_pred: np.ndarray, ef_flags: n
     }
 
 
-def compute_stratified_results(df: pd.DataFrame, y_true: np.ndarray, y_pred: np.ndarray, ef_flags: np.ndarray, strata: Sequence[str] = ("sex", "age_band", "race")) -> dict:
+def compute_stratified_results(
+    df: pd.DataFrame,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    ef_flags: np.ndarray,
+    strata: Sequence[str] = ("sex", "age_band", "race"),
+) -> dict:
     def _coarsen_race(value) -> str:
         v = str(value).upper()
         for label in ("WHITE", "BLACK", "ASIAN"):
@@ -154,7 +177,9 @@ def save_outputs(results: dict, out_dir: str | Path):
     for s, mapping in results["by"].items():
         for val, metrics in mapping.items():
             rows.append([s, val, metrics.get("n"), metrics.get("mae"), metrics.get("ef40_auroc")])
-    pd.DataFrame(rows, columns=["Stratum Type", "Stratum Value", "N", "MAE", "EF<=40 AUROC"]).to_csv(out / "fairness_summary.csv", index=False)
+    pd.DataFrame(
+        rows, columns=["Stratum Type", "Stratum Value", "N", "MAE", "EF<=40 AUROC"]
+    ).to_csv(out / "fairness_summary.csv", index=False)
 
     # plotting (best-effort)
     try:
@@ -186,11 +211,17 @@ def save_outputs(results: dict, out_dir: str | Path):
             axes[1].legend()
 
         race_keys = sorted(results["by"].get("race", {}).keys())
-        race_data = [(r, results["by"]["race"][r]["ef40_auroc"]) for r in race_keys if results["by"]["race"][r]["ef40_auroc"] is not None]
+        race_data = [
+            (r, results["by"]["race"][r]["ef40_auroc"])
+            for r in race_keys
+            if results["by"]["race"][r]["ef40_auroc"] is not None
+        ]
         if race_data:
             races, aurocs = zip(*race_data)
             axes[2].bar(races, aurocs, alpha=0.7, color="coral")
-            axes[2].axhline(results["overall"]["ef40_auroc"], color="red", linestyle="--", label="Overall")
+            axes[2].axhline(
+                results["overall"]["ef40_auroc"], color="red", linestyle="--", label="Overall"
+            )
             axes[2].set_ylabel("AUROC")
             axes[2].set_xlabel("Race")
             axes[2].set_title("EF≤40% AUROC by Race")
@@ -206,14 +237,27 @@ def save_outputs(results: dict, out_dir: str | Path):
         logger.warning("Plotting failed: %s", e)
 
 
-def run_fairness(cohort_path, echo_path, ecg_path, checkpoint, out_dir="results/fairness", embed_dim=16, echo_dim=None, ecg_dim=None, batch_size=64, device=None):
+def run_fairness(
+    cohort_path,
+    echo_path,
+    ecg_path,
+    checkpoint,
+    out_dir="results/fairness",
+    embed_dim=16,
+    echo_dim=None,
+    ecg_dim=None,
+    batch_size=64,
+    device=None,
+):
     df = load_and_merge(cohort_path, echo_path, ecg_path)
     df = prepare_tokens(df)
     test_df = df[df.get("split") == "test"].reset_index(drop=True)
     if test_df.empty:
         raise RuntimeError("test split is empty; ensure 'split' column contains 'test' partition")
     model, device = load_model(checkpoint, embed_dim, device, echo_dim=echo_dim, ecg_dim=ecg_dim)
-    y_pred, y_true, ef_flags = predict_on_df(model, test_df, embed_dim, batch_size, device, echo_dim=echo_dim)
+    y_pred, y_true, ef_flags = predict_on_df(
+        model, test_df, embed_dim, batch_size, device, echo_dim=echo_dim
+    )
     results = {
         "task": "E03_fairness_stratification",
         "checkpoint": str(checkpoint),

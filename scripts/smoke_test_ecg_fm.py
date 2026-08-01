@@ -8,6 +8,7 @@ checks to ``logs/ecg_fm_smoke.txt``.
 Requires ``fairseq_signals`` + downloaded checkpoint for a real forward pass; falls
 back to the stub encoder when deps are missing (still validates the wrapper API).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,8 +33,9 @@ def main() -> None:
     ap.add_argument("--checkpoint", default=DEFAULT_CHECKPOINT)
     ap.add_argument("--cache-dir", default=str(repo_root / "weights" / "ecg_fm"))
     ap.add_argument("--log-path", default=str(repo_root / "logs" / "ecg_fm_smoke.txt"))
-    ap.add_argument("--skip-download", action="store_true",
-                    help="Use stub encoder only (offline CI).")
+    ap.add_argument(
+        "--skip-download", action="store_true", help="Use stub encoder only (offline CI)."
+    )
     args = ap.parse_args()
 
     lines = [f"ECG-FM smoke test @ {datetime.now(timezone.utc).isoformat()}"]
@@ -59,12 +61,14 @@ def main() -> None:
 
     tokens = out["tokens"]
     pooled = out.get("pooled")
-    lines.extend([
-        f"use_stub={encoder.use_stub}",
-        f"tokens_shape={tuple(tokens.shape)}",
-        f"tokens_dtype={tokens.dtype}",
-        f"pooled_shape={tuple(pooled.shape) if pooled is not None else None}",
-    ])
+    lines.extend(
+        [
+            f"use_stub={encoder.use_stub}",
+            f"tokens_shape={tuple(tokens.shape)}",
+            f"tokens_dtype={tokens.dtype}",
+            f"pooled_shape={tuple(pooled.shape) if pooled is not None else None}",
+        ]
+    )
     encoder.verify_frozen()
     lines.append("frozen_check=pass")
 

@@ -1,4 +1,5 @@
 """Shared helpers for frozen foundation-model encoders."""
+
 from __future__ import annotations
 
 import torch.nn as nn

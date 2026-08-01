@@ -60,9 +60,7 @@ from google.cloud import bigquery
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("build_cohort")
 
 # --- Fully-qualified BigQuery tables --------------------------------------
@@ -133,8 +131,8 @@ RACE_MISSING_VALUES = (
     "",
 )
 
-def funnel_stages(pair_by: str, require_admission: bool = True
-                  ) -> list[tuple[str, str]]:
+
+def funnel_stages(pair_by: str, require_admission: bool = True) -> list[tuple[str, str]]:
     """(cte_name, label) per inclusion step, in the order they are applied.
 
     The last two steps swap order between modes: window pairing matches an ECG by
@@ -153,9 +151,11 @@ def funnel_stages(pair_by: str, require_admission: bool = True
             ("echo_adm", "5. Echo within a hospital admission"),
             ("ecg_pairs", "6. ECG matched in same admission"),
         ]
-    adm_label = ("6. Within a hospital admission (demographics)"
-                 if require_admission
-                 else "6. Has admission demographics (subset, not a filter)")
+    adm_label = (
+        "6. Within a hospital admission (demographics)"
+        if require_admission
+        else "6. Has admission demographics (subset, not a filter)"
+    )
     return common + [
         ("ecg_pairs", "5. ECG within window of the echo"),
         ("adm_match", adm_label),
@@ -177,9 +177,14 @@ def get_client(project: str) -> bigquery.Client:
     return bigquery.Client(project=project, credentials=credentials)
 
 
-def build_cte_sql(window_before_hours: float, window_after_hours: float,
-                  lvef_min: float, lvef_max: float,
-                  require_admission: bool, pair_by: str = "window") -> str:
+def build_cte_sql(
+    window_before_hours: float,
+    window_after_hours: float,
+    lvef_min: float,
+    lvef_max: float,
+    require_admission: bool,
+    pair_by: str = "window",
+) -> str:
     """Return the shared WITH ... clause used by both the funnel and the fetch.
 
     Every stage CTE is reduced to exactly one row per echo study so that
@@ -387,8 +392,9 @@ final AS (
     return head + tail
 
 
-def run_funnel(client: bigquery.Client, cte_sql: str, pair_by: str,
-               require_admission: bool) -> pd.DataFrame:
+def run_funnel(
+    client: bigquery.Client, cte_sql: str, pair_by: str, require_admission: bool
+) -> pd.DataFrame:
     """Count distinct studies and subjects remaining at each inclusion step."""
     parts = [
         f"SELECT '{label}' AS stage, {i} AS step, "
@@ -421,10 +427,10 @@ def run_lvef_breakdown(client: bigquery.Client, cte_sql: str) -> pd.DataFrame:
     ECG / admission filters) so fallback frequency is visible independent of the
     downstream pairing. Ordered by the configured priority.
     """
-    order = " ".join(
-        f"WHEN '{m}' THEN {i}" for i, m in enumerate(LVEF_PRIORITY)
-    )
-    sql = cte_sql + f"""
+    order = " ".join(f"WHEN '{m}' THEN {i}" for i, m in enumerate(LVEF_PRIORITY))
+    sql = (
+        cte_sql
+        + f"""
 SELECT lvef_measurement,
        COUNT(*) AS n_studies,
        ROUND(AVG(lvef_value), 1) AS mean_lvef
@@ -432,6 +438,7 @@ FROM echo_with_lvef
 GROUP BY lvef_measurement
 ORDER BY CASE lvef_measurement {order} ELSE {len(LVEF_PRIORITY)} END
 """
+    )
     df = client.query(sql).to_dataframe()
     total = int(df["n_studies"].sum()) or 1
     df["is_fallback"] = df["lvef_measurement"] != LVEF_PRIORITY[0]
@@ -439,9 +446,9 @@ ORDER BY CASE lvef_measurement {order} ELSE {len(LVEF_PRIORITY)} END
     return df
 
 
-def write_cohort_summary(cohort: pd.DataFrame, path: Path,
-                         lvef_min: float, lvef_max: float,
-                         ef_threshold: float = 40.0) -> dict:
+def write_cohort_summary(
+    cohort: pd.DataFrame, path: Path, lvef_min: float, lvef_max: float, ef_threshold: float = 40.0
+) -> dict:
     """Compute the LVEF label distribution and write it to JSON (task D02).
 
     Validates the continuous regression label and the EF<=40% gate.
@@ -484,8 +491,10 @@ def write_cohort_summary(cohort: pd.DataFrame, path: Path,
             "require_linked_structured_lvef": True,
             "lvef_valid_range": [lvef_min, lvef_max],
             "out_of_range_or_nonnumeric": "dropped",
-            "note": ("Missing / out-of-range LVEF is dropped upstream in SQL, "
-                     "so the in-cohort missing rate is 0 by construction."),
+            "note": (
+                "Missing / out-of-range LVEF is dropped upstream in SQL, "
+                "so the in-cohort missing rate is 0 by construction."
+            ),
         },
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -502,9 +511,7 @@ def add_age_bands(cohort: pd.DataFrame) -> pd.DataFrame:
     the top "90+" band. Missing ages remain NaN (and so does their band).
     """
     age = pd.to_numeric(cohort["age"], errors="coerce")
-    cohort["age_band"] = pd.cut(
-        age, bins=AGE_BAND_EDGES, labels=AGE_BAND_LABELS, right=False
-    )
+    cohort["age_band"] = pd.cut(age, bins=AGE_BAND_EDGES, labels=AGE_BAND_LABELS, right=False)
     return cohort
 
 
@@ -522,9 +529,7 @@ def write_demographics_coverage(cohort: pd.DataFrame, path: Path) -> dict:
     for field in ["sex", "age", "age_band", "race"]:
         col = cohort[field]
         if field == "race":
-            present = col.notna() & ~col.astype("string").str.upper().isin(
-                RACE_MISSING_VALUES
-            )
+            present = col.notna() & ~col.astype("string").str.upper().isin(RACE_MISSING_VALUES)
         else:
             present = col.notna()
         n_present = int(present.sum())
@@ -535,8 +540,7 @@ def write_demographics_coverage(cohort: pd.DataFrame, path: Path) -> dict:
         }
 
     def _counts(series: pd.Series) -> dict:
-        return {str(k): int(v)
-                for k, v in series.value_counts(dropna=False).items()}
+        return {str(k): int(v) for k, v in series.value_counts(dropna=False).items()}
 
     report = {
         "n_rows": n_rows,
@@ -555,7 +559,8 @@ def write_demographics_coverage(cohort: pd.DataFrame, path: Path) -> dict:
         "limitations": {
             "gender_curation": GENDER_CURATION_NOTE,
             "race_missing_values": (
-                "Race values " + ", ".join(v for v in RACE_MISSING_VALUES if v)
+                "Race values "
+                + ", ".join(v for v in RACE_MISSING_VALUES if v)
                 + " are counted as missing for coverage."
             ),
             "age_aggregation": (
@@ -575,8 +580,7 @@ def write_flowchart(funnel: pd.DataFrame, path: Path, pairing_desc: str) -> None
     lines = [
         "# Cohort construction flow",
         "",
-        f"Paired Echo+ECG LVEF cohort ({pairing_desc}). "
-        "Generated by `scripts/build_cohort.py`.",
+        f"Paired Echo+ECG LVEF cohort ({pairing_desc}). Generated by `scripts/build_cohort.py`.",
         "",
         "```mermaid",
         "flowchart TD",
@@ -590,9 +594,7 @@ def write_flowchart(funnel: pd.DataFrame, path: Path, pairing_desc: str) -> None
     for i in range(len(rows) - 1):
         excluded = rows[i].n_studies - rows[i + 1].n_studies
         excluded_dcm = rows[i].n_dicom_files - rows[i + 1].n_dicom_files
-        lines.append(
-            f'    E{i}["excluded: {excluded:,} studies, {excluded_dcm:,} DICOM files"]'
-        )
+        lines.append(f'    E{i}["excluded: {excluded:,} studies, {excluded_dcm:,} DICOM files"]')
     for i in range(len(rows) - 1):
         lines.append(f"    S{i} --> S{i + 1}")
         lines.append(f"    S{i} -.-> E{i}")
@@ -603,47 +605,91 @@ def write_flowchart(funnel: pd.DataFrame, path: Path, pairing_desc: str) -> None
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
 
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--project", default=os.getenv("GCP_PROJECT_ID"),
-                    help="Billing GCP project (default: $GCP_PROJECT_ID).")
-    ap.add_argument("--pair-by", choices=["window", "admission"], default="window",
-                    help="ECG pairing strategy: nearest within a time window "
-                         "('window', default) or nearest ECG in the same hospital "
-                         "admission ('admission', ignores the window).")
-    ap.add_argument("--window-hours", type=float, default=24.0,
-                    help="Symmetric echo<->ECG gap in hours; sets the default for "
-                         "both sides (window mode only; default: 24).")
-    ap.add_argument("--window-before-hours", type=float, default=None,
-                    help="Max hours an ECG may precede the echo (overrides "
-                         "--window-hours for the 'before' side, e.g. 720 = 30 days).")
-    ap.add_argument("--window-after-hours", type=float, default=None,
-                    help="Max hours an ECG may follow the echo (overrides "
-                         "--window-hours for the 'after' side).")
-    ap.add_argument("--lvef-min", type=float, default=0.0,
-                    help="Drop LVEF results below this value (default: 0).")
-    ap.add_argument("--lvef-max", type=float, default=100.0,
-                    help="Drop LVEF results above this value (default: 100).")
-    ap.add_argument("--no-require-admission", dest="require_admission",
-                    action="store_false",
-                    help="Keep pairs without a matching admission (race may be null).")
-    ap.add_argument("--output-dir", default=str(repo_root / "cohort"),
-                    help="Directory for cohort outputs (default: <repo>/cohort).")
-    ap.add_argument("--logs-dir", default=str(repo_root / "logs"),
-                    help="Directory for run logs / summaries (default: <repo>/logs).")
-    ap.add_argument("--format", choices=["parquet", "csv"], default="csv",
-                    help="Paired cohort output format (default: csv).")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="Print the funnel only; do not download/write the cohort.")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--project",
+        default=os.getenv("GCP_PROJECT_ID"),
+        help="Billing GCP project (default: $GCP_PROJECT_ID).",
+    )
+    ap.add_argument(
+        "--pair-by",
+        choices=["window", "admission"],
+        default="window",
+        help="ECG pairing strategy: nearest within a time window "
+        "('window', default) or nearest ECG in the same hospital "
+        "admission ('admission', ignores the window).",
+    )
+    ap.add_argument(
+        "--window-hours",
+        type=float,
+        default=24.0,
+        help="Symmetric echo<->ECG gap in hours; sets the default for "
+        "both sides (window mode only; default: 24).",
+    )
+    ap.add_argument(
+        "--window-before-hours",
+        type=float,
+        default=None,
+        help="Max hours an ECG may precede the echo (overrides "
+        "--window-hours for the 'before' side, e.g. 720 = 30 days).",
+    )
+    ap.add_argument(
+        "--window-after-hours",
+        type=float,
+        default=None,
+        help="Max hours an ECG may follow the echo (overrides "
+        "--window-hours for the 'after' side).",
+    )
+    ap.add_argument(
+        "--lvef-min",
+        type=float,
+        default=0.0,
+        help="Drop LVEF results below this value (default: 0).",
+    )
+    ap.add_argument(
+        "--lvef-max",
+        type=float,
+        default=100.0,
+        help="Drop LVEF results above this value (default: 100).",
+    )
+    ap.add_argument(
+        "--no-require-admission",
+        dest="require_admission",
+        action="store_false",
+        help="Keep pairs without a matching admission (race may be null).",
+    )
+    ap.add_argument(
+        "--output-dir",
+        default=str(repo_root / "cohort"),
+        help="Directory for cohort outputs (default: <repo>/cohort).",
+    )
+    ap.add_argument(
+        "--logs-dir",
+        default=str(repo_root / "logs"),
+        help="Directory for run logs / summaries (default: <repo>/logs).",
+    )
+    ap.add_argument(
+        "--format",
+        choices=["parquet", "csv"],
+        default="csv",
+        help="Paired cohort output format (default: csv).",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the funnel only; do not download/write the cohort.",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    before_h = (args.window_before_hours if args.window_before_hours is not None
-                else args.window_hours)
-    after_h = (args.window_after_hours if args.window_after_hours is not None
-               else args.window_hours)
+    before_h = (
+        args.window_before_hours if args.window_before_hours is not None else args.window_hours
+    )
+    after_h = args.window_after_hours if args.window_after_hours is not None else args.window_hours
     if before_h < 0 or after_h < 0:
         ap.error("window-before-hours / window-after-hours must be non-negative.")
 
@@ -654,20 +700,30 @@ def main() -> None:
         pairing_desc = f"window +/-{before_h:.3g}h"
     else:
         pairing_desc = f"window -{before_h:.3g}h..+{after_h:.3g}h (before..after)"
-    log.info("BigQuery project: %s | pair_by: %s | LVEF in [%g, %g] | "
-             "require_admission=%s",
-             args.project, pairing_desc, args.lvef_min, args.lvef_max,
-             args.require_admission or args.pair_by == "admission")
+    log.info(
+        "BigQuery project: %s | pair_by: %s | LVEF in [%g, %g] | require_admission=%s",
+        args.project,
+        pairing_desc,
+        args.lvef_min,
+        args.lvef_max,
+        args.require_admission or args.pair_by == "admission",
+    )
 
-    cte_sql = build_cte_sql(before_h, after_h, args.lvef_min, args.lvef_max,
-                            args.require_admission, args.pair_by)
+    cte_sql = build_cte_sql(
+        before_h, after_h, args.lvef_min, args.lvef_max, args.require_admission, args.pair_by
+    )
 
     log.info("Computing inclusion/exclusion funnel ...")
     funnel = run_funnel(client, cte_sql, args.pair_by, args.require_admission)
     for r in funnel.itertuples(index=False):
-        log.info("  %-46s studies=%-7d patients=%-7d dicoms=%-9d (excluded %d studies)",
-                 r.stage, r.n_studies, r.n_subjects, r.n_dicom_files,
-                 r.excluded_studies)
+        log.info(
+            "  %-46s studies=%-7d patients=%-7d dicoms=%-9d (excluded %d studies)",
+            r.stage,
+            r.n_studies,
+            r.n_subjects,
+            r.n_dicom_files,
+            r.excluded_studies,
+        )
 
     funnel.to_json(out_dir / "cohort_funnel.json", orient="records", indent=2)
     funnel.to_csv(out_dir / "cohort_funnel.csv", index=False)
@@ -681,9 +737,14 @@ def main() -> None:
     log.info("LVEF source breakdown (at LVEF-selection stage):")
     lvef_src = run_lvef_breakdown(client, cte_sql)
     for r in lvef_src.itertuples(index=False):
-        log.info("  %-18s studies=%-7d (%.2f%%) mean=%-5s %s",
-                 r.lvef_measurement, r.n_studies, r.pct, r.mean_lvef,
-                 "[fallback]" if r.is_fallback else "[primary]")
+        log.info(
+            "  %-18s studies=%-7d (%.2f%%) mean=%-5s %s",
+            r.lvef_measurement,
+            r.n_studies,
+            r.pct,
+            r.mean_lvef,
+            "[fallback]" if r.is_fallback else "[primary]",
+        )
     lvef_src.to_json(out_dir / "cohort_lvef_sources.json", orient="records", indent=2)
     lvef_src.to_csv(out_dir / "cohort_lvef_sources.csv", index=False)
 
@@ -697,8 +758,11 @@ def main() -> None:
     dupes = cohort.duplicated(subset=["subject_id", "echo_study_id"]).sum()
     if dupes:
         raise RuntimeError(f"Found {dupes} duplicate (subject_id, echo_study_id) rows.")
-    log.info("Paired cohort: %d rows | %d unique patients | dupes=0",
-             len(cohort), cohort["subject_id"].nunique())
+    log.info(
+        "Paired cohort: %d rows | %d unique patients | dupes=0",
+        len(cohort),
+        cohort["subject_id"].nunique(),
+    )
 
     add_age_bands(cohort)
 
@@ -712,24 +776,36 @@ def main() -> None:
 
     logs_dir = Path(args.logs_dir)
     summary_path = logs_dir / "cohort_summary.json"
-    summary = write_cohort_summary(cohort, summary_path,
-                                   args.lvef_min, args.lvef_max)
+    summary = write_cohort_summary(cohort, summary_path, args.lvef_min, args.lvef_max)
     s = summary["lvef"]
-    log.info("LVEF summary: n=%d mean=%.2f std=%.2f min=%.1f max=%.1f "
-             "missing_rate=%.4f",
-             s["n_valid"], s["mean"], s["std"], s["min"], s["max"],
-             s["missing_rate"])
-    log.info("EF<=40 gate: prevalence=%.4f (%d/%d positive)",
-             summary["ef_le_40"]["prevalence"],
-             summary["ef_le_40"]["n_positive"], s["n_valid"])
+    log.info(
+        "LVEF summary: n=%d mean=%.2f std=%.2f min=%.1f max=%.1f missing_rate=%.4f",
+        s["n_valid"],
+        s["mean"],
+        s["std"],
+        s["min"],
+        s["max"],
+        s["missing_rate"],
+    )
+    log.info(
+        "EF<=40 gate: prevalence=%.4f (%d/%d positive)",
+        summary["ef_le_40"]["prevalence"],
+        summary["ef_le_40"]["n_positive"],
+        s["n_valid"],
+    )
     log.info("Wrote LVEF summary to %s", summary_path)
 
     coverage_path = logs_dir / "demographics_coverage.json"
     coverage = write_demographics_coverage(cohort, coverage_path)
     log.info("Demographic coverage (%% non-missing):")
     for field, c in coverage["fields"].items():
-        log.info("  %-9s %6.2f%% (%d/%d present)",
-                 field, c["coverage"] * 100, c["n_present"], coverage["n_rows"])
+        log.info(
+            "  %-9s %6.2f%% (%d/%d present)",
+            field,
+            c["coverage"] * 100,
+            c["n_present"],
+            coverage["n_rows"],
+        )
     log.info("Wrote demographic coverage to %s", coverage_path)
 
 

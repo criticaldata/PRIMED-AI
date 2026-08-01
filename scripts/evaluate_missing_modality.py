@@ -11,6 +11,7 @@ Example:
     --ecg-dim 768 \
     --output results/missing_modality.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,10 +55,7 @@ def main() -> None:
         device=args.device,
     )
     for row in results["metrics_table"]:
-        print(
-            f"{row['condition']:12} MAE {row['mae']:.4f} | "
-            f"EF<=40 AUROC {row['ef40_auroc']:.4f}"
-        )
+        print(f"{row['condition']:12} MAE {row['mae']:.4f} | EF<=40 AUROC {row['ef40_auroc']:.4f}")
     print(f"\nWrote missing-modality metrics to: {args.output}")
 
 

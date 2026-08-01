@@ -10,6 +10,7 @@ Real cached embeddings (Ridge probe; uses the cohort `split` column for train/te
     --ecg-embeddings  data/interim/hubert_ecg_embeddings.parquet \
     --out results/failure
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,8 +43,13 @@ def _emit(report, out: str) -> None:
     print("modalities          :", d["modalities"], f"(n_test={d['n']})")
     print("per-example winners :", d["complementarity"]["per_example_winners"])
     print("marginal value (LOO):", d["complementarity"]["marginal_value"])
-    print("dropout profile     :", {k: {kk: v[kk] for kk in ("induced_critical", "silent", "silent_rate")}
-                                     for k, v in d["dropout"].items()})
+    print(
+        "dropout profile     :",
+        {
+            k: {kk: v[kk] for kk in ("induced_critical", "silent", "silent_rate")}
+            for k, v in d["dropout"].items()
+        },
+    )
     print("wrote               :", out_dir)
 
 
@@ -53,8 +59,9 @@ def _run_demo(seed: int, out: str) -> None:
     test = ~train
     predict_full = masked_ridge_predict_fn(emb, lvef, train)
     emb_te = {m: emb[m][test] for m in emb}
-    report = analyze_modality_failure(emb_te, lvef[test], ef[test],
-                                      lambda present: predict_full(present)[test])
+    report = analyze_modality_failure(
+        emb_te, lvef[test], ef[test], lambda present: predict_full(present)[test]
+    )
     _emit(report, out)
 
 
@@ -78,13 +85,20 @@ def _run_real(cohort: str, echo: str, ecg: str, out: str) -> None:
     predict_full = masked_ridge_predict_fn(embeddings, lvef, train)
     emb_te = {m: embeddings[m][test] for m in embeddings}
     g_te = {a: v[test] for a, v in groups.items()}
-    report = analyze_modality_failure(emb_te, lvef[test], ef[test],
-                                      lambda present: predict_full(present)[test], groups=g_te or None)
+    report = analyze_modality_failure(
+        emb_te,
+        lvef[test],
+        ef[test],
+        lambda present: predict_full(present)[test],
+        groups=g_te or None,
+    )
     _emit(report, out)
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--demo", action="store_true", help="run on planted synthetic data")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--cohort")

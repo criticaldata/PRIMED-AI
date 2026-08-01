@@ -1,4 +1,5 @@
 """Echo-only attentive LVEF probe (M07)."""
+
 from __future__ import annotations
 
 from pathlib import Path

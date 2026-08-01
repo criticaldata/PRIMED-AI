@@ -11,6 +11,7 @@ Usage:
     --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
     --out results/fairness
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,7 +26,9 @@ def main():
     p.add_argument("--ecg-embeddings", required=True, help="ECG embedding path")
     p.add_argument("--checkpoint", required=True, help="M09 checkpoint path")
     p.add_argument("--out", default="results/fairness", help="Output directory")
-    p.add_argument("--embed-dim", type=int, default=16, help="Fusion dimension (matches the checkpoint).")
+    p.add_argument(
+        "--embed-dim", type=int, default=16, help="Fusion dimension (matches the checkpoint)."
+    )
     p.add_argument("--echo-dim", type=int, default=None, help="Echo embedding dim, e.g. 1024.")
     p.add_argument("--ecg-dim", type=int, default=None, help="ECG embedding dim, e.g. 768.")
     p.add_argument("--batch-size", type=int, default=64, help="Batch size")

@@ -20,7 +20,7 @@ import sys
 import numpy as np
 import torch
 from decord import VideoReader, cpu
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 # src/ is bundled alongside this script in scripts/embedding_extraction/src/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -39,19 +39,54 @@ MODEL_REGISTRY = {
     # V-JEPA2 natural image pretrained
     "vitl": {"constructor": vit_large, "embed_dim": 1024, "img_size": 256, "batch_size": 256},
     "vith": {"constructor": vit_huge, "embed_dim": 1280, "img_size": 256, "batch_size": 128},
-    "vitg": {"constructor": vit_giant_xformers, "embed_dim": 1408, "img_size": 256, "batch_size": 64},
-    "vitg-384": {"constructor": vit_giant_xformers, "embed_dim": 1408, "img_size": 384, "batch_size": 16},
+    "vitg": {
+        "constructor": vit_giant_xformers,
+        "embed_dim": 1408,
+        "img_size": 256,
+        "batch_size": 64,
+    },
+    "vitg-384": {
+        "constructor": vit_giant_xformers,
+        "embed_dim": 1408,
+        "img_size": 384,
+        "batch_size": 16,
+    },
     # EchoJEPA — fine-tuned on MIMIC-IV-Echo (Alif Munim / Bo Wang lab)
-    "echo-vitl-scratch": {"constructor": vit_large, "embed_dim": 1024, "img_size": 256, "batch_size": 256,
-                          "checkpoint": "vitl-scratch-pt-210-c25.pt"},
-    "echo-vitl-mimic117": {"constructor": vit_large, "embed_dim": 1024, "img_size": 256, "batch_size": 256,
-                           "checkpoint": "vjepa21_vitl_mimic_pt117.pt"},
-    "echo-vitb-mimic169": {"constructor": vit_base, "embed_dim": 768, "img_size": 256, "batch_size": 512,
-                           "checkpoint": "vjepa2_1_vitb_mimic_pt169_c60.pt"},
-    "echo-vitl-mimic100": {"constructor": vit_large, "embed_dim": 1024, "img_size": 256, "batch_size": 256,
-                           "checkpoint": "vjepa21_vitl_mimic_pt100.pt"},
-    "echo-vitl-vmix22m":  {"constructor": vit_large, "embed_dim": 1024, "img_size": 256, "batch_size": 256,
-                           "checkpoint": "vitl-vmix22m-pt220-c55.pt"},
+    "echo-vitl-scratch": {
+        "constructor": vit_large,
+        "embed_dim": 1024,
+        "img_size": 256,
+        "batch_size": 256,
+        "checkpoint": "vitl-scratch-pt-210-c25.pt",
+    },
+    "echo-vitl-mimic117": {
+        "constructor": vit_large,
+        "embed_dim": 1024,
+        "img_size": 256,
+        "batch_size": 256,
+        "checkpoint": "vjepa21_vitl_mimic_pt117.pt",
+    },
+    "echo-vitb-mimic169": {
+        "constructor": vit_base,
+        "embed_dim": 768,
+        "img_size": 256,
+        "batch_size": 512,
+        "checkpoint": "vjepa2_1_vitb_mimic_pt169_c60.pt",
+    },
+    "echo-vitl-mimic100": {
+        "constructor": vit_large,
+        "embed_dim": 1024,
+        "img_size": 256,
+        "batch_size": 256,
+        "checkpoint": "vjepa21_vitl_mimic_pt100.pt",
+    },
+    "echo-vitl-vmix22m": {
+        "constructor": vit_large,
+        "embed_dim": 1024,
+        "img_size": 256,
+        "batch_size": 256,
+        "checkpoint": "vitl-vmix22m-pt220-c55.pt",
+    },
 }
 
 
@@ -61,7 +96,11 @@ MODEL_REGISTRY = {
 def _worker_init_fn(_):
     """Keep each DataLoader worker to 1 CPU thread to avoid oversubscription."""
     try:
-        import torch as _torch, cv2, os as _os
+        import os as _os
+
+        import cv2
+        import torch as _torch
+
         _torch.set_num_threads(1)
         try:
             cv2.setNumThreads(1)
@@ -128,15 +167,37 @@ def parse_args():
         type=str,
         default="/orcd/pool/006/lceli_shared/mimic-iv-echo-mp4",
     )
-    parser.add_argument("--folder", type=str, default=None,
-                        help="Process single subfolder (e.g., p10). For SLURM array jobs.")
-    parser.add_argument("--checkpoint", type=str, default=None, help="Path to .pt weights (auto-resolved from --model)")
-    parser.add_argument("--output_path", type=str, default=None, help="Output .pt path (auto-resolved from --model)")
-    parser.add_argument("--img_size", type=int, default=None, help="Input resolution (auto-resolved from --model)")
+    parser.add_argument(
+        "--folder",
+        type=str,
+        default=None,
+        help="Process single subfolder (e.g., p10). For SLURM array jobs.",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to .pt weights (auto-resolved from --model)",
+    )
+    parser.add_argument(
+        "--output_path", type=str, default=None, help="Output .pt path (auto-resolved from --model)"
+    )
+    parser.add_argument(
+        "--img_size", type=int, default=None, help="Input resolution (auto-resolved from --model)"
+    )
     parser.add_argument("--num_frames", type=int, default=16)
-    parser.add_argument("--batch_size", type=int, default=0, help="Batch size for GPU inference (0 = auto per model)")
-    parser.add_argument("--num_workers", type=int, default=8,
-                        help="DataLoader workers for parallel video loading (0 = sequential fallback)")
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=0,
+        help="Batch size for GPU inference (0 = auto per model)",
+    )
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=8,
+        help="DataLoader workers for parallel video loading (0 = sequential fallback)",
+    )
     parser.add_argument("--limit", type=int, default=0, help="Max files to process (0 = all)")
     parser.add_argument("--save_every", type=int, default=10000, help="Checkpoint every N videos")
     args = parser.parse_args()
@@ -189,12 +250,14 @@ def load_model(model_name, checkpoint_path, img_size, num_frames):
 def build_transform(img_size):
     """Eval transform: resize, center crop, normalize (from notebooks/vjepa2_demo.py)."""
     short_side = int(256.0 / 224 * img_size)
-    return video_transforms.Compose([
-        video_transforms.Resize(short_side, interpolation="bilinear"),
-        video_transforms.CenterCrop(size=(img_size, img_size)),
-        volume_transforms.ClipToTensor(),
-        video_transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-    ])
+    return video_transforms.Compose(
+        [
+            video_transforms.Resize(short_side, interpolation="bilinear"),
+            video_transforms.CenterCrop(size=(img_size, img_size)),
+            volume_transforms.ClipToTensor(),
+            video_transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+        ]
+    )
 
 
 def load_video(path, num_frames):

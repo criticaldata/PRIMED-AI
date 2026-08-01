@@ -19,7 +19,7 @@
 
 1. **Reframe the work.** DAIH is a *deployment-and-risk* workshop, not a benchmark venue. A "fusion beats unimodal on EF MAE" paper is a weak fit. Lead instead with **missing-modality robustness** and a **fairness audit**; use the fusion result as supporting evidence, not the thesis.
 2. **Scope to Task A (ejection fraction) only.** Cut Tasks B and C — both have high-severity label blockers that are not solvable in a week.
-3. **Critical path = securing EchoJEPA-L weights privately from Alif's team.** Chase today. If not in hand by end of Day 2, pivot (see §6).
+3. **Critical path = EchoJEPA-L weight access.** If not in hand by end of Day 2, pivot (see §6).
 4. **Write toward the 8-page Research Paper, keep the 4-page Case Report as a guaranteed fallback.** Hard go/no-go on Day 3.
 5. **Build the paired cohort *before* extracting embeddings.** Subset, don't process all 525K echos.
 
@@ -89,7 +89,7 @@ Per the roadmap's own assessment, Task A has **no high-severity blockers once we
 
 | Issue | Severity | Mitigation |
 |---|---|---|
-| **EchoJEPA-L weights pending PhysioNet approval** | **Critical / blocks everything** | Get them **privately** from Alif's team (email or private HF repo) — agreed in the March 11 meeting. Chase Day 1. |
+| **EchoJEPA-L weights pending PhysioNet approval** | **Critical / blocks everything** | Request checkpoint access from the EchoJEPA authors. Chase Day 1. |
 | Echo↔ECG temporal pairing (no existing tooling) | Medium | Join on `subject_id` + 24–48h time window using MIMIC timestamps. Build this Day 1. |
 | GPU availability on ORCD | Medium | Reserve H200 (or any capable GPU) Day 1. Subsetting makes a smaller GPU viable. |
 | Credentialing / DUA for all team members | Medium | Verify PhysioNet credentialing + signed DUAs on all three datasets before touching data. |
@@ -135,7 +135,7 @@ Per the roadmap's own assessment, Task A has **no high-severity blockers once we
 ## 7. Day-by-day
 
 **Day 1 (Tue, June 17 — today)**
-- ☐ Email Alif's team for EchoJEPA-L weights — *single most important action.*
+- ☐ Request EchoJEPA-L weights from the model authors — *single most important action.*
 - ☐ Pull ECG-FM weights (open on HF).
 - ☐ Confirm PhysioNet credentialing + DUAs for all members.
 - ☐ Reserve GPU on ORCD.
@@ -188,7 +188,7 @@ Intro (compressed) → Data + pairing → Fusion + missing-modality result → *
 
 ## 9. Submission checklist (each item can desk-reject)
 
-- ☐ **Anonymize.** Scrub deanonymizing details from all artifacts: repo names (`sebasmos/EchoJEPA-VE`), PhysioNet usernames, "Bo Wang lab / UHN / Vector," Leo Celi cluster paths. Cite own related arXiv papers in **third person**.
+- ☐ **Anonymize.** Scrub deanonymizing details from all artifacts: source repo names, PhysioNet usernames, lab and institution names, shared cluster paths. Cite own related arXiv papers in **third person**.
 - ☐ **Template:** COLM 2026 LaTeX template specifically (not NeurIPS/generic).
 - ☐ **Page limits:** ≤8 pp research / ≤4 pp case report, excluding references.
 - ☐ **Non-archival + dual-submission allowed** → this does **not** burn the future journal submission. A workshop-shaped slice now is free.

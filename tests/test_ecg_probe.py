@@ -30,8 +30,9 @@ def _make_data(tmp_path, n=300, dim=16, seed=0):
     uniq = pd.unique(coh["subject_id"])
     rng.shuffle(uniq)
     ntr, nva = int(len(uniq) * 0.7), int(len(uniq) * 0.1)
-    smap = {s: ("train" if i < ntr else "val" if i < ntr + nva else "test")
-            for i, s in enumerate(uniq)}
+    smap = {
+        s: ("train" if i < ntr else "val" if i < ntr + nva else "test") for i, s in enumerate(uniq)
+    }
     coh["split"] = coh["subject_id"].map(smap)
 
     emb = pd.DataFrame(emb_mat, columns=[f"ve{i:04d}" for i in range(dim)])
@@ -72,5 +73,5 @@ def test_run_beats_baseline_and_saves(tmp_path):
     assert (out / "results.json").is_file()
     assert (out / "ecg_only.joblib").is_file()
     t = res["splits"]["test"]
-    assert t["ridge_mae"] < t["baseline_mae"]          # planted signal -> beats mean baseline
-    assert t["ef40_auroc_from_regression"] > 0.6       # and discriminates EF<=40
+    assert t["ridge_mae"] < t["baseline_mae"]  # planted signal -> beats mean baseline
+    assert t["ef40_auroc_from_regression"] > 0.6  # and discriminates EF<=40

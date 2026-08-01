@@ -13,17 +13,20 @@ def _synthetic(tmp_path, n=240, dim=8, seed=1):
     weight = rng.standard_normal(dim)
     emb = rng.standard_normal((n, dim)) + weight * ((lvef - 50) / 15)[:, None]
 
-    coh = pd.DataFrame({
-        "subject_id": subs,
-        "echo_study_id": np.arange(1000, 1000 + n),
-        "lvef": lvef,
-        "ef_le_40": lvef <= 40,
-    })
+    coh = pd.DataFrame(
+        {
+            "subject_id": subs,
+            "echo_study_id": np.arange(1000, 1000 + n),
+            "lvef": lvef,
+            "ef_le_40": lvef <= 40,
+        }
+    )
     uniq = pd.unique(coh["subject_id"])
     rng.shuffle(uniq)
     ntr, nva = int(len(uniq) * 0.7), int(len(uniq) * 0.1)
-    smap = {s: ("train" if i < ntr else "val" if i < ntr + nva else "test")
-            for i, s in enumerate(uniq)}
+    smap = {
+        s: ("train" if i < ntr else "val" if i < ntr + nva else "test") for i, s in enumerate(uniq)
+    }
     coh["split"] = coh["subject_id"].map(smap)
 
     echo = pd.DataFrame(emb, columns=[f"echo_ve{i:04d}" for i in range(dim)])

@@ -12,6 +12,7 @@ mean-LVEF baseline, with a seeded bootstrap CI on the test split. A checkpoint
 Run on **HuBERT-ECG** embeddings (``mimic-iv-ecg-ve``). The probe itself
 is model-agnostic — any per-record pooled embedding table works.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,8 +56,10 @@ def load_dataset(cohort_path, embedding_path, *, record_col="ecg_record_id"):
     if not ve:
         ve = [c for c in emb.columns if pd.api.types.is_numeric_dtype(emb[c])]
     non_numeric = [c for c in emb.columns if not pd.api.types.is_numeric_dtype(emb[c])]
-    key = next((c for c in (non_numeric or list(emb.columns))
-                if emb[c].map(_canon).str.len().gt(0).all()), None)
+    key = next(
+        (c for c in (non_numeric or list(emb.columns)) if emb[c].map(_canon).str.len().gt(0).all()),
+        None,
+    )
     if key is None:
         raise ValueError("could not find an id/path column in the embedding table")
 
@@ -72,8 +75,9 @@ def load_dataset(cohort_path, embedding_path, *, record_col="ecg_record_id"):
 def _git_sha() -> str:
     try:
         repo = Path(__file__).resolve().parents[3]
-        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True,
-                                       stderr=subprocess.DEVNULL).strip()
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=repo, text=True, stderr=subprocess.DEVNULL
+        ).strip()
     except Exception:
         return "unknown"
 
@@ -86,8 +90,16 @@ def _ci(a) -> list:
     return [round(float(np.percentile(a, 2.5)), 4), round(float(np.percentile(a, 97.5)), 4)]
 
 
-def run(cohort_path, embedding_path, out_dir="probes/ecg_only", *,
-        seed: int = 42, alphas=DEFAULT_ALPHAS, cs=DEFAULT_CS, n_bootstrap: int = 2000) -> dict:
+def run(
+    cohort_path,
+    embedding_path,
+    out_dir="probes/ecg_only",
+    *,
+    seed: int = 42,
+    alphas=DEFAULT_ALPHAS,
+    cs=DEFAULT_CS,
+    n_bootstrap: int = 2000,
+) -> dict:
     """Train + evaluate the ECG-only probe; write checkpoint + results JSON."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -97,8 +109,11 @@ def run(cohort_path, embedding_path, out_dir="probes/ecg_only", *,
 
     def xy(name):
         s = df[df["split"] == name]
-        return (s[ve].to_numpy(np.float64), s["lvef"].to_numpy(np.float64),
-                s["ef_le_40"].astype(bool).to_numpy())
+        return (
+            s[ve].to_numpy(np.float64),
+            s["lvef"].to_numpy(np.float64),
+            s["ef_le_40"].astype(bool).to_numpy(),
+        )
 
     Xtr, ytr, eftr = xy("train")
     Xva, yva, efva = xy("val")
@@ -111,15 +126,18 @@ def run(cohort_path, embedding_path, out_dir="probes/ecg_only", *,
         sc = StandardScaler().fit(Xtr)
         ztr, zva, zte = sc.transform(Xtr), sc.transform(Xva), sc.transform(Xte)
         ridge = RidgeCV(alphas=alphas).fit(ztr, ytr)
-        clf = LogisticRegressionCV(Cs=cs, cv=5, max_iter=2000, scoring="roc_auc",
-                                   random_state=seed).fit(ztr, eftr)
+        clf = LogisticRegressionCV(
+            Cs=cs, cv=5, max_iter=2000, scoring="roc_auc", random_state=seed
+        ).fit(ztr, eftr)
 
         def metrics(z, y, ef):
             lp, pr = ridge.predict(z), clf.predict_proba(z)[:, 1]
-            return {"baseline_mae": round(mean_absolute_error(y, np.full_like(y, ytr.mean())), 4),
-                    "ridge_mae": round(mean_absolute_error(y, lp), 4),
-                    "ef40_auroc_from_regression": round(_auroc(ef, -lp), 4),
-                    "ef40_auroc_logreg": round(_auroc(ef, pr), 4)}
+            return {
+                "baseline_mae": round(mean_absolute_error(y, np.full_like(y, ytr.mean())), 4),
+                "ridge_mae": round(mean_absolute_error(y, lp), 4),
+                "ef40_auroc_from_regression": round(_auroc(ef, -lp), 4),
+                "ef40_auroc_logreg": round(_auroc(ef, pr), 4),
+            }
 
         splits = {"val": metrics(zva, yva, efva), "test": metrics(zte, yte, efte)}
 
@@ -134,22 +152,32 @@ def run(cohort_path, embedding_path, out_dir="probes/ecg_only", *,
                 areg_b.append(roc_auc_score(efte[b], -lp_te[b]))
                 aclf_b.append(roc_auc_score(efte[b], pr_te[b]))
 
-    splits["test"].update({"ridge_mae_ci95": _ci(mae_b),
-                           "ef40_auroc_from_regression_ci95": _ci(areg_b),
-                           "ef40_auroc_logreg_ci95": _ci(aclf_b)})
+    splits["test"].update(
+        {
+            "ridge_mae_ci95": _ci(mae_b),
+            "ef40_auroc_from_regression_ci95": _ci(areg_b),
+            "ef40_auroc_logreg_ci95": _ci(aclf_b),
+        }
+    )
 
     results = {
-        "task": "M06_ecg_only_probe", "issue": 24,
+        "task": "M06_ecg_only_probe",
+        "issue": 24,
         "model_source": "HuBERT-ECG (mimic-iv-ecg-ve), pooled per-record",
-        "embedding_dim": len(ve), "n_dropped_nonfinite": n_dropped,
-        "seed": seed, "git_sha": _git_sha(),
-        "ridge_alpha": float(ridge.alpha_), "logreg_C": float(clf.C_[0]),
+        "embedding_dim": len(ve),
+        "n_dropped_nonfinite": n_dropped,
+        "seed": seed,
+        "git_sha": _git_sha(),
+        "ridge_alpha": float(ridge.alpha_),
+        "logreg_C": float(clf.C_[0]),
         "lvef_train_mean": round(float(ytr.mean()), 3),
         "n": {"train": len(ytr), "val": len(yva), "test": len(yte)},
         "ef40_test_positives": int(efte.sum()),
         "splits": splits,
     }
     (out / "results.json").write_text(json.dumps(results, indent=2))
-    dump({"scaler": sc, "ridge": ridge, "logreg": clf, "embedding_dim": len(ve)},
-         out / "ecg_only.joblib")
+    dump(
+        {"scaler": sc, "ridge": ridge, "logreg": clf, "embedding_dim": len(ve)},
+        out / "ecg_only.joblib",
+    )
     return results

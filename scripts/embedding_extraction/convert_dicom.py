@@ -47,8 +47,15 @@ def parse_args():
     parser.add_argument("--target_size", type=int, default=256)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--limit", type=int, default=0, help="Max files to convert (0 = all)")
-    parser.add_argument("--workers", type=int, default=1, help="Number of parallel workers (0 = all CPUs)")
-    parser.add_argument("--timeout", type=int, default=600, help="Per-file timeout in seconds (default 600 = 10 min)")
+    parser.add_argument(
+        "--workers", type=int, default=1, help="Number of parallel workers (0 = all CPUs)"
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=600,
+        help="Per-file timeout in seconds (default 600 = 10 min)",
+    )
     return parser.parse_args()
 
 
@@ -184,7 +191,9 @@ def main():
             if os.path.exists(save_path):
                 skipped += 1
                 if (i + 1) % 1000 == 0 or (i + 1) == total:
-                    print(f"  [{i+1}/{total}] converted={converted} skipped={skipped} errored={errored}")
+                    print(
+                        f"  [{i + 1}/{total}] converted={converted} skipped={skipped} errored={errored}"
+                    )
                 continue
             signal.alarm(args.timeout)
             try:
@@ -192,20 +201,20 @@ def main():
                 signal.alarm(0)
                 if status == "converted":
                     converted += 1
-                    print(f"  [{i+1}/{total}] OK: {rel_path} ({reason})")
+                    print(f"  [{i + 1}/{total}] OK: {rel_path} ({reason})")
                 else:
                     skipped += 1
-                    print(f"  [{i+1}/{total}] SKIP: {rel_path} ({reason})")
+                    print(f"  [{i + 1}/{total}] SKIP: {rel_path} ({reason})")
             except _Timeout:
                 signal.alarm(0)
                 if os.path.exists(save_path):
                     os.remove(save_path)
                 errored += 1
-                print(f"  [{i+1}/{total}] TIMEOUT: {rel_path} (>{args.timeout}s)")
+                print(f"  [{i + 1}/{total}] TIMEOUT: {rel_path} (>{args.timeout}s)")
             except Exception as e:
                 signal.alarm(0)
                 errored += 1
-                print(f"  [{i+1}/{total}] ERROR: {rel_path} ({e})")
+                print(f"  [{i + 1}/{total}] ERROR: {rel_path} ({e})")
         signal.signal(signal.SIGALRM, old_handler)
     else:
         # Parallel path
@@ -221,7 +230,9 @@ def main():
                 else:
                     skipped += 1
                 if (i + 1) % 1000 == 0 or (i + 1) == total:
-                    print(f"  [{i+1}/{total}] converted={converted} skipped={skipped} errored={errored}")
+                    print(
+                        f"  [{i + 1}/{total}] converted={converted} skipped={skipped} errored={errored}"
+                    )
 
     print(f"\nDone! converted={converted}, skipped={skipped}, errored={errored}")
     print(f"Output directory: {args.output_dir}")

@@ -4,6 +4,7 @@ Example:
   python scripts/evaluate_calibration.py \
     --predictions results/missing_modality.json --condition full --out results/calibration
 """
+
 from __future__ import annotations
 
 import argparse

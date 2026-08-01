@@ -16,6 +16,7 @@ The harness is model-agnostic: callers pass ``predict_fn(present) -> np.ndarray`
 continuous prediction per example given the *set of present modalities* (others masked at
 inference). It works for any number of modalities and any probe/backbone.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -159,9 +160,9 @@ def analyze_modality_failure(
     complementarity = {
         "full_mae": round(float(err_full.mean()), 4),
         "solo_mae": solo_mae,
-        "marginal_value": marginal_value,            # how much each modality is worth (LOO)
+        "marginal_value": marginal_value,  # how much each modality is worth (LOO)
         "fusion_gain_vs_best_solo": round(best_solo - float(err_full.mean()), 4),
-        "per_example_winners": winners,              # which modality "wins" overall
+        "per_example_winners": winners,  # which modality "wins" overall
         "matrix": {"modalities": modalities, "values": matrix},
     }
     if groups:
@@ -182,16 +183,18 @@ def analyze_modality_failure(
         pred_drop = preds[allm - {m}]
         was_right = _gate(full, threshold) == gate_true
         now_wrong = _gate(pred_drop, threshold) != gate_true
-        induced = was_right & now_wrong                       # newly clinically wrong from dropping m
-        confidence = np.abs(pred_drop - threshold)   # distance from boundary (deployment-observable)
-        shift = np.abs(pred_drop - full)             # diagnostic only; needs the full counterfactual
-        silent = induced & (confidence >= confidence_margin)   # confidently wrong -> undetectable
-        loud = induced & (confidence < confidence_margin)      # near boundary -> output signals doubt
+        induced = was_right & now_wrong  # newly clinically wrong from dropping m
+        confidence = np.abs(pred_drop - threshold)  # distance from boundary (deployment-observable)
+        shift = np.abs(pred_drop - full)  # diagnostic only; needs the full counterfactual
+        silent = induced & (confidence >= confidence_margin)  # confidently wrong -> undetectable
+        loud = induced & (confidence < confidence_margin)  # near boundary -> output signals doubt
         dropout[f"drop_{m}"] = {
             "induced_critical": int(induced.sum()),
             "silent": int(silent.sum()),
             "loud": int(loud.sum()),
-            "silent_rate": (round(float(silent.sum() / induced.sum()), 4) if induced.sum() else None),
+            "silent_rate": (
+                round(float(silent.sum() / induced.sum()), 4) if induced.sum() else None
+            ),
             "mean_output_shift": round(float(shift.mean()), 4),
             "mae_increase": round(float(drop_err[m].mean() - err_full.mean()), 4),
         }
@@ -204,5 +207,9 @@ def analyze_modality_failure(
         conditions=conditions,
         complementarity=complementarity,
         dropout=dropout,
-        predictions={"__labels__": y, "__gate__": gate_true, **{",".join(sorted(s)): p for s, p in preds.items()}},
+        predictions={
+            "__labels__": y,
+            "__gate__": gate_true,
+            **{",".join(sorted(s)): p for s, p in preds.items()},
+        },
     )

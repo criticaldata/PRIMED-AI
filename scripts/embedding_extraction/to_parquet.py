@@ -29,7 +29,9 @@ def build_record_lookup(csv_path: str) -> dict:
         lookup[mp4_path] = {
             "subject_id": int(row["subject_id"]),
             "study_id": int(row["study_id"]),
-            "acquisition_datetime": str(row["acquisition_datetime"]) if pd.notna(row["acquisition_datetime"]) else None,
+            "acquisition_datetime": str(row["acquisition_datetime"])
+            if pd.notna(row["acquisition_datetime"])
+            else None,
         }
     return lookup
 
@@ -41,10 +43,14 @@ def build_study_lookup(csv_path: str) -> dict:
     for _, row in df.iterrows():
         key = (int(row["subject_id"]), int(row["study_id"]))
         lookup[key] = {
-            "study_datetime": str(row["study_datetime"]) if pd.notna(row["study_datetime"]) else None,
+            "study_datetime": str(row["study_datetime"])
+            if pd.notna(row["study_datetime"])
+            else None,
             "note_id": str(row["note_id"]) if pd.notna(row["note_id"]) else None,
             "note_seq": str(row["note_seq"]) if pd.notna(row["note_seq"]) else None,
-            "note_charttime": str(row["note_charttime"]) if pd.notna(row["note_charttime"]) else None,
+            "note_charttime": str(row["note_charttime"])
+            if pd.notna(row["note_charttime"])
+            else None,
         }
     return lookup
 
@@ -76,7 +82,9 @@ def main():
     parser.add_argument("--metadata_dir", default=METADATA_DIR)
     args = parser.parse_args()
 
-    out_dir = os.path.join(args.embeddings_dir, "mimic-iv-echo-jepa-embeddings", f"jepa-{args.model[3:]}-embeddings")
+    out_dir = os.path.join(
+        args.embeddings_dir, "mimic-iv-echo-jepa-embeddings", f"jepa-{args.model[3:]}-embeddings"
+    )
     os.makedirs(out_dir, exist_ok=True)
 
     # Load metadata
@@ -88,18 +96,20 @@ def main():
     study_lookup = build_study_lookup(os.path.join(args.metadata_dir, "echo-study-list.csv"))
     print(f"  {len(study_lookup)} studies")
 
-    schema = pa.schema([
-        ("subject_id", pa.int64()),
-        ("study_id", pa.int64()),
-        ("dicom_id", pa.string()),
-        ("file_path", pa.string()),
-        ("acquisition_datetime", pa.string()),
-        ("study_datetime", pa.string()),
-        ("note_id", pa.string()),
-        ("note_seq", pa.string()),
-        ("note_charttime", pa.string()),
-        ("embedding", pa.list_(pa.float32(), 1024)),
-    ])
+    schema = pa.schema(
+        [
+            ("subject_id", pa.int64()),
+            ("study_id", pa.int64()),
+            ("dicom_id", pa.string()),
+            ("file_path", pa.string()),
+            ("acquisition_datetime", pa.string()),
+            ("study_datetime", pa.string()),
+            ("note_id", pa.string()),
+            ("note_seq", pa.string()),
+            ("note_charttime", pa.string()),
+            ("embedding", pa.list_(pa.float32(), 1024)),
+        ]
+    )
 
     total_rows = 0
     total_matched_record = 0
@@ -112,7 +122,7 @@ def main():
             print(f"  Skipping {folder}: {pt_path} not found")
             continue
 
-        print(f"\n[{i+1}/{num_shards}] Loading {folder}...")
+        print(f"\n[{i + 1}/{num_shards}] Loading {folder}...")
         data = torch.load(pt_path, map_location="cpu", weights_only=False)
 
         rows = {
@@ -151,7 +161,12 @@ def main():
             if study:
                 matched_study += 1
             else:
-                study = {"study_datetime": None, "note_id": None, "note_seq": None, "note_charttime": None}
+                study = {
+                    "study_datetime": None,
+                    "note_id": None,
+                    "note_seq": None,
+                    "note_charttime": None,
+                }
 
             rows["subject_id"].append(subject_id)
             rows["study_id"].append(study_id)
@@ -170,16 +185,24 @@ def main():
 
         size_mb = os.path.getsize(shard_path) / 1e6
         print(f"  {folder}: {len(data)} rows → {shard_path} ({size_mb:.0f} MB)")
-        print(f"  Record match: {matched_record}/{len(data)} ({100*matched_record/len(data):.1f}%)")
-        print(f"  Study match:  {matched_study}/{len(data)} ({100*matched_study/len(data):.1f}%)")
+        print(
+            f"  Record match: {matched_record}/{len(data)} ({100 * matched_record / len(data):.1f}%)"
+        )
+        print(
+            f"  Study match:  {matched_study}/{len(data)} ({100 * matched_study / len(data):.1f}%)"
+        )
 
         total_rows += len(data)
         total_matched_record += matched_record
         total_matched_study += matched_study
 
     print(f"\nDone! {total_rows} rows across {num_shards} shards")
-    print(f"Record coverage: {total_matched_record}/{total_rows} ({100*total_matched_record/total_rows:.1f}%)")
-    print(f"Study coverage:  {total_matched_study}/{total_rows} ({100*total_matched_study/total_rows:.1f}%)")
+    print(
+        f"Record coverage: {total_matched_record}/{total_rows} ({100 * total_matched_record / total_rows:.1f}%)"
+    )
+    print(
+        f"Study coverage:  {total_matched_study}/{total_rows} ({100 * total_matched_study / total_rows:.1f}%)"
+    )
     print(f"Output: {out_dir}/")
 
 

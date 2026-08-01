@@ -4,6 +4,7 @@ A deployable risk score must be calibrated, not merely discriminative. This modu
 continuous LVEF predictions into EF<=40% probabilities (Platt scaling), then reports the
 expected calibration error (ECE) and a reliability diagram. Optional stretch (issue #10).
 """
+
 from __future__ import annotations
 
 import json
@@ -40,13 +41,15 @@ def reliability_bins(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -
     for b in range(n_bins):
         mask = idx == b
         count = int(mask.sum())
-        bins.append({
-            "bin_low": round(float(edges[b]), 4),
-            "bin_high": round(float(edges[b + 1]), 4),
-            "count": count,
-            "confidence": round(float(y_prob[mask].mean()), 4) if count else None,
-            "accuracy": round(float(y_true[mask].mean()), 4) if count else None,
-        })
+        bins.append(
+            {
+                "bin_low": round(float(edges[b]), 4),
+                "bin_high": round(float(edges[b + 1]), 4),
+                "count": count,
+                "confidence": round(float(y_prob[mask].mean()), 4) if count else None,
+                "accuracy": round(float(y_true[mask].mean()), 4) if count else None,
+            }
+        )
     return bins
 
 
@@ -64,8 +67,9 @@ def expected_calibration_error(y_true: np.ndarray, y_prob: np.ndarray, n_bins: i
     return float(ece)
 
 
-def plot_reliability(y_true: np.ndarray, y_prob: np.ndarray, output_pdf: str | Path,
-                     n_bins: int = 10) -> Path:
+def plot_reliability(
+    y_true: np.ndarray, y_prob: np.ndarray, output_pdf: str | Path, n_bins: int = 10
+) -> Path:
     """Write a reliability diagram (PDF + PNG) with the diagonal and per-bin gaps."""
     cache_root = Path(tempfile.gettempdir()) / "primed-ai-plot-cache"
     cache_root.mkdir(parents=True, exist_ok=True)
@@ -98,8 +102,12 @@ def plot_reliability(y_true: np.ndarray, y_prob: np.ndarray, output_pdf: str | P
     return output_pdf
 
 
-def run_calibration(predictions_path: str | Path, out_dir: str | Path = "results/calibration",
-                    condition: str = "full", n_bins: int = 10) -> dict:
+def run_calibration(
+    predictions_path: str | Path,
+    out_dir: str | Path = "results/calibration",
+    condition: str = "full",
+    n_bins: int = 10,
+) -> dict:
     """Compute EF<=40% calibration from a missing-modality results JSON's predictions."""
     from primed_ai.probes.common import git_sha
 

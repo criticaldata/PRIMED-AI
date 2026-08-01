@@ -4,6 +4,7 @@ Collects the missing-modality (E01) and fairness (E03) result JSONs that exist u
 results directory and rebuilds a single ``results.json`` plus Markdown and LaTeX tables.
 Designed to be re-runnable: one command regenerates every table from the raw JSONs.
 """
+
 from __future__ import annotations
 
 import json
@@ -48,7 +49,9 @@ def aggregate_results(results_dir: str | Path = "results") -> dict:
         agg["fairness"] = {"overall": fair.get("overall"), "by": fair.get("by", {})}
 
     if not agg["sources"]:
-        raise FileNotFoundError(f"No result JSONs found under {rd} (looked for missing_modality.json, fairness/)")
+        raise FileNotFoundError(
+            f"No result JSONs found under {rd} (looked for missing_modality.json, fairness/)"
+        )
     return agg
 
 
@@ -61,16 +64,24 @@ def to_markdown(agg: dict) -> str:
     rows = _mm_rows(agg)
     if rows:
         n = agg["missing_modality"].get("n_test")
-        lines += [f"## Missing-modality degradation (n={n})", "",
-                  "| Condition | MAE | EF≤40% AUROC |", "|---|---:|---:|"]
+        lines += [
+            f"## Missing-modality degradation (n={n})",
+            "",
+            "| Condition | MAE | EF≤40% AUROC |",
+            "|---|---:|---:|",
+        ]
         for r in rows:
             label = CONDITION_LABELS.get(r["condition"], r["condition"])
             lines.append(f"| {label} | {_fmt(r.get('mae'))} | {_fmt(r.get('ef40_auroc'), 3)} |")
         lines.append("")
     if "fairness" in agg:
         by = agg["fairness"].get("by", {})
-        lines += ["## Fairness stratification", "",
-                  "| Attribute | Group | n | MAE | EF≤40% AUROC |", "|---|---|---:|---:|---:|"]
+        lines += [
+            "## Fairness stratification",
+            "",
+            "| Attribute | Group | n | MAE | EF≤40% AUROC |",
+            "|---|---|---:|---:|---:|",
+        ]
         for attr, groups in by.items():
             for grp, m in groups.items():
                 flag = " *" if m.get("small_n") else ""

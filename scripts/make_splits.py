@@ -156,9 +156,7 @@ def main() -> None:
     verify_no_subject_overlap(splits)
 
     split_lookup = {
-        subject_id: split
-        for split, subject_ids in splits.items()
-        for subject_id in subject_ids
+        subject_id: split for split, subject_ids in splits.items() for subject_id in subject_ids
     }
 
     cohort = cohort.copy()
@@ -169,9 +167,7 @@ def main() -> None:
 
     # Verify no leakage in the actual output table.
     output_splits = {
-        split: cohort.loc[cohort["split"] == split, "subject_id"]
-        .drop_duplicates()
-        .tolist()
+        split: cohort.loc[cohort["split"] == split, "subject_id"].drop_duplicates().tolist()
         for split in ["train", "val", "test"]
     }
     verify_no_subject_overlap(output_splits)
@@ -192,8 +188,7 @@ def main() -> None:
     subject_split_df.to_csv(args.subject_splits, index=False)
 
     row_counts = {
-        split: int((cohort["split"] == split).sum())
-        for split in ["train", "val", "test"]
+        split: int((cohort["split"] == split).sum()) for split in ["train", "val", "test"]
     }
     subject_counts = {
         split: int(cohort.loc[cohort["split"] == split, "subject_id"].nunique())
@@ -218,8 +213,7 @@ def main() -> None:
         "subject_counts": subject_counts,
         "subject_id_hash": hash_values(subjects),
         "split_subject_id_hashes": {
-            split: hash_values(subject_ids)
-            for split, subject_ids in splits.items()
+            split: hash_values(subject_ids) for split, subject_ids in splits.items()
         },
         "leakage_check": {
             "train_val_overlap": 0,

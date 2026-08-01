@@ -1,11 +1,11 @@
 """Plot missing-modality degradation curves from aggregate evaluation metrics."""
+
 from __future__ import annotations
 
 import json
 import os
 import tempfile
 from pathlib import Path
-
 
 CONDITION_LABELS = {
     "full": "Full",

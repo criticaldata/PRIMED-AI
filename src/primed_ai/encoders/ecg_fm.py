@@ -1,10 +1,11 @@
 """Frozen ECG-FM encoder wrapper (M03 / I05).
 
 ECG-FM weights are hosted on Hugging Face (``wanglab/ecg-fm``) and load via the
-``fairseq_signals`` stack. When that stack is unavailable (e.g. local dev without
-GPU deps), :class:`ECGFMEncoder` still exposes shape-stable ``encode()`` for unit
-tests using a lightweight stub backbone.
+``fairseq_signals`` stack. Unit tests and offline dev can opt into a shape-stable
+stub backbone with ``use_stub=True``; asking for a checkpoint without the stack
+installed raises rather than quietly substituting random weights.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -86,12 +87,10 @@ class ECGFMEncoder(nn.Module):
         if use_stub or checkpoint_path is None:
             self._backbone = _StubECGFMBackbone(embed_dim=embed_dim, seq_len=seq_len)
         else:
-            try:
-                self._backbone = _load_fairseq_model(checkpoint_path)
-                self._fairseq = True
-            except ImportError:
-                self._backbone = _StubECGFMBackbone(embed_dim=embed_dim, seq_len=seq_len)
-                self.use_stub = True
+            # Never fall back to the random-weight stub implicitly: a caller that asked for
+            # a checkpoint and silently got noise would poison every downstream embedding.
+            self._backbone = _load_fairseq_model(checkpoint_path)
+            self._fairseq = True
 
         if frozen:
             freeze_module(self._backbone)

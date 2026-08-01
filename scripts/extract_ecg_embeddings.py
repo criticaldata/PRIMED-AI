@@ -10,6 +10,7 @@ Example:
       --ecg-root /path/to/mimic-iv-ecg/files \\
       --encoder-config configs/encoder/ecg_fm.yaml
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,12 +58,17 @@ def _load_waveform(path: Path, sample_rate: int = 500, length: int = 5000) -> np
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--cohort", default=str(repo_root / "cohort" / "paired.parquet"))
-    ap.add_argument("--ecg-root", help="MIMIC-IV-ECG files root (optional if ecg_path is absolute).")
+    ap.add_argument(
+        "--ecg-root", help="MIMIC-IV-ECG files root (optional if ecg_path is absolute)."
+    )
     ap.add_argument("--cache-root", default=str(repo_root / "embeddings"))
-    ap.add_argument("--encoder-config", default=str(repo_root / "configs" / "encoder" / "ecg_fm.yaml"))
+    ap.add_argument(
+        "--encoder-config", default=str(repo_root / "configs" / "encoder" / "ecg_fm.yaml")
+    )
     ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -101,7 +107,7 @@ def main() -> None:
     t0 = time.time()
     ok = err = 0
     for start in range(0, len(pending), args.batch_size):
-        chunk = pending[start:start + args.batch_size]
+        chunk = pending[start : start + args.batch_size]
         waves, ids = [], []
         for rid, path in chunk:
             wave = _load_waveform(path)

@@ -6,6 +6,7 @@
     the modality-specific silent-failure asymmetry across seeds?
 (2) N-modality generality (echo/ECG/labs): does it produce a genuine 3x3 complementarity matrix?
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,7 +29,9 @@ def _analyze(emb, lvef, ef, seed):
     test = ~train
     predict_full = masked_ridge_predict_fn(emb, lvef, train)
     return analyze_modality_failure(
-        {m: emb[m][test] for m in emb}, lvef[test], ef[test],
+        {m: emb[m][test] for m in emb},
+        lvef[test],
+        ef[test],
         lambda present: predict_full(present)[test],
     )
 
@@ -45,13 +48,18 @@ def multiseed(k: int, out: str) -> dict:
         w = d["complementarity"]["per_example_winners"]
         tot = max(sum(w.values()), 1)
         mv = d["complementarity"]["marginal_value"]
-        rec.append(dict(
-            marg_echo=mv["echo"], marg_ecg=mv["ecg"], winfrac_echo=w["echo"] / tot,
-            silent_echo=d["dropout"]["drop_echo"]["silent_rate"],
-            silent_ecg=d["dropout"]["drop_ecg"]["silent_rate"],
-            echo_val=mv["echo"] > mv["ecg"],
-            ecg_silent=d["dropout"]["drop_ecg"]["silent_rate"] > d["dropout"]["drop_echo"]["silent_rate"],
-        ))
+        rec.append(
+            dict(
+                marg_echo=mv["echo"],
+                marg_ecg=mv["ecg"],
+                winfrac_echo=w["echo"] / tot,
+                silent_echo=d["dropout"]["drop_echo"]["silent_rate"],
+                silent_ecg=d["dropout"]["drop_ecg"]["silent_rate"],
+                echo_val=mv["echo"] > mv["ecg"],
+                ecg_silent=d["dropout"]["drop_ecg"]["silent_rate"]
+                > d["dropout"]["drop_echo"]["silent_rate"],
+            )
+        )
     summary = dict(
         seeds=k,
         marginal_echo=_meanstd([r["marg_echo"] for r in rec]),
