@@ -2,7 +2,7 @@
 
 How to access pre-extracted embeddings on the MIT ORCD cluster, load them in your pipeline, and reproduce extraction from scratch.
 
-See [TECHNICAL.md](../TECHNICAL.md) for the full pipeline context and [OVERVIEW.md](../OVERVIEW.md) for scope decisions.
+See [TECHNICAL.md](../TECHNICAL.md) for the full pipeline context.
 
 ---
 

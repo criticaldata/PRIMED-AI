@@ -7,7 +7,7 @@
 
 Frozen-embedding, multimodal pipeline for estimating left ventricular ejection fraction (LVEF) from paired echocardiogram and ECG data. Foundation models are used as fixed feature extractors; all task-specific learning happens in lightweight probes on top of cached embeddings.
 
-See [OVERVIEW.md](./OVERVIEW.md) for submission strategy, scope decisions, and timeline.
+See [README.md](./README.md) for project scope and status.
 
 ---
 

@@ -130,7 +130,8 @@ seed, model dimensions, test-set size, and a machine-readable `metrics_table`.
 
 **Reproducibility caveat:** `results/`, `probes/`, and `data/` are gitignored, so the cohort,
 embeddings, and checkpoints behind the reported numbers are not in this repository. Reproducing
-them requires PhysioNet credentialing (I02) and cluster access (I03) — see [TASK.md](./TASK.md).
+them requires PhysioNet credentialing and access to a cluster holding the MIMIC data and the
+foundation-model checkpoints.
 
 ---
 
@@ -138,11 +139,11 @@ them requires PhysioNet credentialing (I02) and cluster access (I03) — see [TA
 
 | Document | Contents |
 |----------|----------|
-| [OVERVIEW.md](./OVERVIEW.md) | Project framing, scope decisions, and original sprint plan (kept for provenance) |
 | [TECHNICAL.md](./TECHNICAL.md) | Pipeline architecture, probes, deployment analyses, expected artifacts |
-| [TASK.md](./TASK.md) | Task board with 33 GitHub issues for the 5–7 person team |
+| [docs/embeddings.md](./docs/embeddings.md) | Embedding extraction, model registry, output formats |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Local setup, tests, linting, data-access rules |
 
-**Contributing:** Pick a task from [TASK.md](./TASK.md) or the [issue tracker](https://github.com/criticaldata/PRIMED-AI/issues). Each issue maps to a task ID (`I##`, `D##`, `M##`, `E##`, `W##`) with steps and acceptance criteria.
+**Contributing:** See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, and the [issue tracker](https://github.com/criticaldata/PRIMED-AI/issues) for open work.
 
 ---
 
@@ -152,9 +153,9 @@ The work pivoted from a fusion benchmark to a model-agnostic **modality-failure 
 framework** — failure taxonomy, complementarity matrix, and loud-vs-silent dropout profile. That
 framework is the main contribution and lives in
 [src/primed_ai/failure/](./src/primed_ai/failure/); the fusion pipeline described above is the
-substrate it is instantiated on. See [TASK.md](./TASK.md) for per-task status.
+substrate it is instantiated on.
 
-Still open: I02 (PhysioNet credentialing) and I03 (ORCD GPU/storage), both needed for the canonical
+Still open: PhysioNet credentialing and reserved GPU/storage, both needed for the canonical
 real-data rerun.
 
 ---
