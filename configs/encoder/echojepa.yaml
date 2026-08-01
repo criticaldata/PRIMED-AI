@@ -1,5 +1,5 @@
 name: echojepa
-checkpoint_path: /orcd/pool/006/lceli_shared/weights/vjepa21_vitl_mimic_pt117.pt
+checkpoint_path: /path/to/shared/weights/vjepa21_vitl_mimic_pt117.pt
 embed_dim: 1024
 img_size: 256
 num_frames: 16

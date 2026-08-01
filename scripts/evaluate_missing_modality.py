@@ -29,9 +29,10 @@ def main() -> None:
     parser.add_argument("--ecg-embeddings", default="data/interim/hubert_ecg_embeddings.parquet")
     parser.add_argument("--checkpoint", default="probes/cross_attn_fused/cross_attn_fused.pt")
     parser.add_argument("--output", "--out", dest="output", default="results/missing_modality.json")
-    parser.add_argument("--embed-dim", type=int, default=16, help="Shared fusion dimension.")
-    parser.add_argument("--echo-dim", type=int, default=None)
-    parser.add_argument("--ecg-dim", type=int, default=None)
+    # All three must match the checkpoint being loaded, or the state_dict load fails on shape.
+    parser.add_argument("--embed-dim", type=int, default=256, help="Shared fusion dimension.")
+    parser.add_argument("--echo-dim", type=int, default=1024)
+    parser.add_argument("--ecg-dim", type=int, default=768)
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seed", type=int, default=42)

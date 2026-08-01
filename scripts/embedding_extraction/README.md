@@ -48,7 +48,7 @@ python scripts/embedding_extraction/to_parquet.py --model echo-vitl-mimic117
 | `echo-vitl-vmix22m` | `vitl-vmix22m-pt220-c55.pt` | 1024 | ViT-L VMix-22M pretrain + MIMIC FT |
 | `echo-vitb-mimic169` | `vjepa2_1_vitb_mimic_pt169_c60.pt` | 768 | V-JEPA2.1 ViT-B, MIMIC 169-epoch FT |
 
-All weights: `/orcd/pool/006/lceli_shared/weights/`
+All weights: `/path/to/shared/weights/`
 
 ## Cluster setup
 

@@ -5,7 +5,7 @@ import os
 
 import torch
 
-EMBEDDINGS_DIR = "/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo"
+EMBEDDINGS_DIR = "/path/to/shared/jepa-embeddings-mimiciv-echo"
 FOLDERS = [f"p{i}" for i in range(10, 20)]
 
 

@@ -37,12 +37,12 @@ def parse_args():
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/orcd/pool/006/lceli_shared/mimic-iv-echo/files/mimic-iv-echo-0.1.physionet.org",
+        default="/path/to/shared/mimic-iv-echo/files/mimic-iv-echo-0.1.physionet.org",
     )
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="/orcd/pool/006/lceli_shared/mimic-iv-echo-mp4",
+        default="/path/to/shared/mimic-iv-echo-mp4",
     )
     parser.add_argument("--target_size", type=int, default=256)
     parser.add_argument("--fps", type=int, default=30)

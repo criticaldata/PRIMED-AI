@@ -10,8 +10,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
 
-EMBEDDINGS_DIR = "/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo"
-METADATA_DIR = "/orcd/pool/006/lceli_shared/mimic-iv-echo"
+EMBEDDINGS_DIR = "/path/to/shared/jepa-embeddings-mimiciv-echo"
+METADATA_DIR = "/path/to/shared/mimic-iv-echo"
 FOLDERS = [f"p{i}" for i in range(10, 20)]
 
 

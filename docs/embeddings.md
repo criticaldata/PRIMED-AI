@@ -1,4 +1,4 @@
-# Embedding Extraction — EchoJEPA & ECG-FM
+# Embedding Extraction — EchoJEPA & ECG
 
 How to access pre-extracted embeddings on the MIT ORCD cluster, load them in your pipeline, and reproduce extraction from scratch.
 
@@ -22,7 +22,7 @@ See [TECHNICAL.md](../TECHNICAL.md) for the full pipeline context.
 All embeddings are stored on the shared ORCD pool under:
 
 ```
-/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/
+/path/to/shared/jepa-embeddings-mimiciv-echo/
 ```
 
 ### Available extraction runs
@@ -37,7 +37,7 @@ EchoJEPA fine-tuned runs are **in progress** (SLURM array jobs submitted Jun 20,
 ### Expected EchoJEPA embedding locations (once jobs complete)
 
 ```
-/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/
+/path/to/shared/jepa-embeddings-mimiciv-echo/
 ├── echo-vitl-scratch_embeddings_p10.pt ... p19.pt
 ├── echo-vitl-scratch_embeddings_all.pt
 ├── echo-vitl-mimic100_embeddings_p10.pt ... p19.pt   # V-JEPA2.1 ViT-L, 100-epoch MIMIC FT
@@ -57,7 +57,7 @@ EchoJEPA fine-tuned runs are **in progress** (SLURM array jobs submitted Jun 20,
 All checkpoints live at:
 
 ```
-/orcd/pool/006/lceli_shared/weights/
+/path/to/shared/weights/
 ```
 
 ### V-JEPA2 — natural image pretrain (Meta AI)
@@ -90,7 +90,7 @@ All checkpoints live at:
 ```python
 import torch
 
-EMBED_DIR = "/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/mimic-iv-jepa-embedding-pt"
+EMBED_DIR = "/path/to/shared/jepa-embeddings-mimiciv-echo/mimic-iv-jepa-embedding-pt"
 
 # Load one folder (p10 = patients p10xxxxx)
 embeddings = torch.load(f"{EMBED_DIR}/vitl_embeddings_p10.pt", map_location="cpu")
@@ -115,7 +115,7 @@ from datasets import load_dataset
 import pandas as pd
 
 PARQUET_DIR = (
-    "/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo"
+    "/path/to/shared/jepa-embeddings-mimiciv-echo"
     "/mimic-iv-echo-jepa-embeddings/jepa-l-embeddings"
 )
 
@@ -156,7 +156,7 @@ Hydra configs for the encoders live in [`configs/encoder/`](../configs/encoder/)
 
 ```yaml
 name: echojepa
-checkpoint_path: /orcd/pool/006/lceli_shared/weights/vjepa21_vitl_mimic_pt117.pt
+checkpoint_path: /path/to/shared/weights/vjepa21_vitl_mimic_pt117.pt
 embed_dim: 1024
 img_size: 256
 num_frames: 16
@@ -178,15 +178,15 @@ All extraction scripts live in [`scripts/embedding_extraction/`](../scripts/embe
 MIMIC-IV-Echo DICOMs
         │
         ▼  [Stage 1]  scripts/embedding_extraction/convert_dicom.py
-/orcd/pool/006/lceli_shared/mimic-iv-echo-mp4/   (~525K MP4 files, 256×256)
+/path/to/shared/mimic-iv-echo-mp4/   (~525K MP4 files, 256×256)
         │
         ▼  [Stage 2]  scripts/embedding_extraction/extract_embeddings.py
              (SLURM array via extract_echo_slurm.sh: 10 folders × 1 L40S GPU)
-/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/  (.pt per folder)
+/path/to/shared/jepa-embeddings-mimiciv-echo/  (.pt per folder)
         │
         ▼  [Stage 3]  scripts/embedding_extraction/to_parquet.py
              (joins MIMIC metadata, writes sharded Parquet)
-/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/  (Parquet shards)
+/path/to/shared/jepa-embeddings-mimiciv-echo/  (Parquet shards)
 ```
 
 ### Submitting a new extraction run (ORCD)

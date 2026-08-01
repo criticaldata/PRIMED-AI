@@ -17,7 +17,7 @@
 #   sbatch scripts/embedding_extraction/extract_echo_slurm.sh echo-vitb-mimic169
 #
 # Outputs go to:
-#   /orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo/<model>_embeddings_p{10..19}.pt
+#   /path/to/shared/jepa-embeddings-mimiciv-echo/<model>_embeddings_p{10..19}.pt
 #
 # Resume: safe to resubmit — script skips already-extracted videos.
 # Merge after all 10 tasks complete:
@@ -38,7 +38,7 @@ MODEL="${1:-echo-vitl-mimic117}"
 FOLDERS=(p10 p11 p12 p13 p14 p15 p16 p17 p18 p19)
 FOLDER="${FOLDERS[$SLURM_ARRAY_TASK_ID]}"
 
-INPUT_DIR="/orcd/pool/006/lceli_shared/mimic-iv-echo-mp4"
+INPUT_DIR="/path/to/shared/mimic-iv-echo-mp4"
 
 echo "$(date) | Job ${SLURM_ARRAY_JOB_ID} task ${SLURM_ARRAY_TASK_ID}"
 echo "Model:  ${MODEL}"

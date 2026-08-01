@@ -1,4 +1,4 @@
-# Technical Pipeline — EchoJEPA + ECG-FM LVEF Estimation
+# Technical Pipeline — EchoJEPA + HuBERT-ECG LVEF Estimation
 
 > **Note (Jun 24, 2026):** this pipeline is the **substrate** for a model-agnostic
 > **modality-failure analysis framework** (`src/primed_ai/failure/`), which is the project's main
@@ -23,10 +23,10 @@ MIMIC-IV      ──┘    LVEF labels
 
 Foundation models (frozen, no fine-tuning):
   EchoJEPA-L  → echo video embeddings
-  ECG-FM      → 12-lead ECG embeddings
+  HuBERT-ECG  → 12-lead ECG embeddings
 
 Probes (trainable):
-  ECG-only    → linear / MLP on pooled ECG-FM embedding
+  ECG-only    → linear / MLP on pooled ECG embedding
   Echo-only   → attentive probe on EchoJEPA embedding
   Fused       → cross-attention over echo ⊕ ECG (headline)
   Quick win   → concat(pooled echo, pooled ECG) → MLP
@@ -103,17 +103,19 @@ Five EchoJEPA checkpoints are available (ViT-L and ViT-B variants, various MIMIC
 
 EchoJEPA embeddings preserve spatial structure across frames. This matters for probe design — a simple linear head is insufficient; an **attentive probe** is required (see §5.2).
 
-### 4.2 ECG-FM
+### 4.2 ECG encoder
 
-| Property | Detail |
+Two ECG paths exist in this repo, and they are not interchangeable:
+
+| Path | Status |
 |---|---|
-| Architecture | wav2vec2-style signal foundation model |
-| Input | 12-lead ECG waveform |
-| Output | Token-level or sequence embeddings (pool before probing) |
-| Weights | Publicly available on Hugging Face |
-| Reference | arXiv:2408.05178 |
+| **HuBERT-ECG** — pre-extracted pooled embeddings (768-d), consumed directly from Parquet | **Produced every reported ECG result.** Path in `configs/encoder/ecg_fm.yaml: hubert_ecg_parquet` |
+| **ECG-FM** — frozen wrapper (`encoders/ecg_fm.py`), wav2vec2-style, loads via `fairseq_signals` from `wanglab/ecg-fm` (arXiv:2408.05178) | Implemented and unit-tested; **not** used for any reported number |
 
-**Open decision:** pooling strategy for ECG-FM embeddings — mean pooling vs. attentive pooling. Resolve with a quick empirical check early in probe development.
+Both are 768-d after pooling, so the probes accept either. Anything downstream that says "ECG
+embedding" below refers to the HuBERT-ECG Parquet unless stated otherwise.
+
+**Open decision:** pooling strategy for ECG embeddings — mean vs. attentive pooling. Resolve with a quick empirical check early in probe development.
 
 ---
 
@@ -129,11 +131,11 @@ Model:  EchoJEPA-L (frozen)
 Output: per-study embedding tensor → cache to disk
 ```
 
-### 5.2 ECG-FM forward pass
+### 5.2 ECG forward pass
 
 ```
 Input:  12-lead ECG waveform (same paired cohort rows)
-Model:  ECG-FM (frozen)
+Model:  HuBERT-ECG (frozen; ECG-FM wrapper is the alternative path)
 Output: per-record embedding tensor → cache to disk
 ```
 
@@ -152,10 +154,10 @@ All probes are trained on cached embeddings. Recommended build order: quick conc
 ### 6.1 ECG-only baseline
 
 ```
-ECG-FM embedding → pool (mean or attentive) → linear / MLP → LVEF prediction
+ECG embedding → pool (mean or attentive) → linear / MLP → LVEF prediction
 ```
 
-Simplest unimodal baseline. ECG-FM embeddings are lower-dimensional and more amenable to linear probing than EchoJEPA outputs.
+Simplest unimodal baseline. ECG embeddings are lower-dimensional and more amenable to linear probing than EchoJEPA outputs.
 
 ### 6.2 Echo-only baseline
 
@@ -178,7 +180,7 @@ Concatenation + MLP. Fast to implement; provides an early end-to-end number befo
 ```
 EchoJEPA embedding ──┐
                      ├──► cross-attention fusion → probe head → LVEF prediction
-ECG-FM embedding   ──┘
+ECG embedding      ──┘
 ```
 
 Cross-attention over echo and ECG representations. This is the model used for the missing-modality deployment analysis (§7.1).
@@ -270,10 +272,10 @@ Probe training after caching is CPU/GPU-light and completes in minutes.
 
 If EchoJEPA-L weights are unavailable by end of Day 2:
 
-### Fallback A — ECG-FM only
+### Fallback A — ECG only
 
 ```
-Paired cohort (ECG + LVEF only) → ECG-FM embeddings → probe → deployment analyses
+Paired cohort (ECG + LVEF only) → ECG embeddings → probe → deployment analyses
 ```
 
 Loses fusion novelty. Retains missing-modality framing (ECG-only is the realistic deployment scenario) and fairness audit.
@@ -289,7 +291,8 @@ Document data-access barriers, pairing protocol design, and lessons learned. Req
 | Work | Relationship |
 |---|---|
 | EchoJEPA (arXiv:2602.02603) | Echo foundation model used in this pipeline |
-| ECG-FM (arXiv:2408.05178) | ECG foundation model used in this pipeline |
+| HuBERT-ECG | ECG foundation model that produced the reported ECG embeddings |
+| ECG-FM (arXiv:2408.05178) | Alternative ECG foundation model — wrapper shipped, not used for reported results |
 | EchoingECG (arXiv:2509.25791) | Closest prior cross-modal echo+ECG work — differentiate on frozen-embedding fusion + deployment-risk framing |
 
 Read EchoingECG before writing methods. Explicitly state how this work differs: frozen embeddings (no fine-tuning), missing-modality evaluation at inference, and fairness audit as primary contributions.
@@ -298,7 +301,7 @@ Read EchoingECG before writing methods. Explicitly state how this work differs: 
 
 ## 12. Open technical decisions
 
-- [ ] ECG-FM pooling: mean vs. attentive — empirical check on validation set
+- [ ] ECG pooling: mean vs. attentive — empirical check on validation set
 - [ ] Echo↔ECG pairing window: 24h vs. 48h — sensitivity analysis or fixed choice with justification
 - [ ] Multi-match resolution: when multiple ECGs fall within the window, take nearest timestamp
 - [ ] EF≤40% prevalence in paired cohort — confirm before reporting AUROC
@@ -313,11 +316,11 @@ Read EchoingECG before writing methods. Explicitly state how this work differs: 
 |---|---|
 | `cohort/` | Paired cohort table with subject_id, echo_id, ecg_id, LVEF, demographics, split assignment |
 | `embeddings/echo/` | Cached EchoJEPA-L embeddings per study |
-| `embeddings/ecg/` | Cached ECG-FM embeddings per record |
+| `embeddings/ecg/` | Cached ECG embeddings per record |
 | `probes/` | Trained probe checkpoints (ECG-only, echo-only, concat-MLP, cross-attention fused) |
 | `results/` | Metrics tables, degradation curve, fairness stratification, calibration plots |
 | `logs/` | Extraction and training logs with hyperparameters and seeds |
 
 ---
 
-*References: EchoJEPA arXiv:2602.02603 · ECG-FM arXiv:2408.05178 · EchoingECG arXiv:2509.25791 · MIMIC-IV-Echo 0.1 · MIMIC-IV-ECG 1.0 · MIMIC-IV 3.1*
+*References: EchoJEPA arXiv:2602.02603 · HuBERT-ECG · ECG-FM arXiv:2408.05178 · EchoingECG arXiv:2509.25791 · MIMIC-IV-Echo 0.1 · MIMIC-IV-ECG 1.0 · MIMIC-IV 3.1*

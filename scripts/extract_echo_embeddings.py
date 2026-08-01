@@ -8,7 +8,7 @@ EchoJEPA-L encoder, and writes one ``.npy`` per ``echo_study_id`` under
 Example (ORCD):
   python scripts/extract_echo_embeddings.py \\
       --cohort cohort/paired.parquet \\
-      --mp4-root /orcd/pool/006/lceli_shared/mimic-iv-echo-mp4 \\
+      --mp4-root /path/to/shared/mimic-iv-echo-mp4 \\
       --encoder-config configs/encoder/echojepa.yaml
 """
 

@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">PRIMED-AI</h1>
   <p align="center">
-    <strong>EchoJEPA + ECG-FM: frozen-embedding, deployment-risk study of multimodal LVEF estimation</strong>
+    <strong>EchoJEPA + HuBERT-ECG: frozen-embedding, deployment-risk study of multimodal LVEF estimation</strong>
   </p>
   <p align="center">
     <a href="https://github.com/criticaldata/PRIMED-AI">criticaldata/PRIMED-AI</a>
@@ -12,9 +12,14 @@
 
 ## Overview
 
-**PRIMED-AI** studies whether fusing two cardiac foundation models — **EchoJEPA-L** (echocardiogram video) and **ECG-FM** (12-lead ECG) — can estimate left ventricular ejection fraction (LVEF) in a way that is ready for real-world deployment, not just benchmark accuracy.
+**PRIMED-AI** studies whether fusing two cardiac foundation models — **EchoJEPA-L** (echocardiogram video) and **HuBERT-ECG** (12-lead ECG) — can estimate left ventricular ejection fraction (LVEF) in a way that is ready for real-world deployment, not just benchmark accuracy.
 
 The pipeline uses **frozen embeddings only**: foundation models act as fixed feature extractors; all task-specific learning happens in lightweight probes on top of cached representations.
+
+> **Which ECG encoder?** The reported results use pre-extracted **HuBERT-ECG** embeddings. The repo
+> also ships a frozen **ECG-FM** wrapper ([`encoders/ecg_fm.py`](./src/primed_ai/encoders/ecg_fm.py),
+> [`scripts/extract_ecg_embeddings.py`](./scripts/extract_ecg_embeddings.py)) as an alternative
+> extraction path — it is implemented and unit-tested but did **not** produce any reported number.
 
 > *ECG is ubiquitous and cheap; echo requires a sonographer and a cart. If we train a fused model but only ECG is available at inference, how much accuracy do we lose — and does the model degrade gracefully or fail silently?*
 
@@ -48,7 +53,7 @@ flowchart LR
 
     subgraph pipeline["Frozen-embedding pipeline"]
         CO[Paired cohort]
-        EN[EchoJEPA-L + ECG-FM<br/>embedding extraction]
+        EN[EchoJEPA-L + HuBERT-ECG<br/>embedding extraction]
         PR[Probes<br/>unimodal + fused]
         EV[Deployment analyses]
     end
@@ -75,7 +80,8 @@ See [TECHNICAL.md](./TECHNICAL.md) for full pipeline details.
 | Component | Source |
 |-----------|--------|
 | **EchoJEPA-L** | Video JEPA for echo · [arXiv:2602.02603](https://arxiv.org/abs/2602.02603) |
-| **ECG-FM** | wav2vec2-style ECG foundation model · [arXiv:2408.05178](https://arxiv.org/abs/2408.05178) · [Hugging Face](https://huggingface.co/bowang-lab/ECG-FM) |
+| **HuBERT-ECG** | Self-supervised 12-lead ECG model (HuBERT/wav2vec2 family) — **produced the reported ECG embeddings** |
+| **ECG-FM** | Alternative ECG foundation model · [arXiv:2408.05178](https://arxiv.org/abs/2408.05178) · [Hugging Face](https://huggingface.co/wanglab/ecg-fm) — wrapper shipped, not used for reported results |
 | **MIMIC-IV-Echo** 0.1 | Echo DICOM + structured LVEF · [PhysioNet](https://physionet.org/content/mimic-iv-echo/0.1/) |
 | **MIMIC-IV-ECG** 1.0 | 12-lead waveforms · [PhysioNet](https://physionet.org/content/mimic-iv-ecg/1.0/) |
 | **MIMIC-IV** 3.1 | Demographics for fairness audit · [PhysioNet](https://physionet.org/content/mimic-iv/3.1/) |
@@ -165,7 +171,7 @@ real-data rerun.
 | Work | Relationship |
 |------|--------------|
 | [EchoJEPA](https://arxiv.org/abs/2602.02603) | Echo foundation model used in this pipeline |
-| [ECG-FM](https://arxiv.org/abs/2408.05178) | ECG foundation model used in this pipeline |
+| [ECG-FM](https://arxiv.org/abs/2408.05178) | Alternative ECG foundation model — wrapper shipped, not used for reported results |
 | [EchoingECG](https://arxiv.org/abs/2509.25791) | Closest prior cross-modal echo+ECG work — differentiated on frozen-embedding fusion + deployment-risk framing |
 
 ---
@@ -176,7 +182,7 @@ If you use this work, please cite the repository:
 
 ```bibtex
 @misc{primedai2026,
-  title        = {PRIMED-AI: Deployment-Risk Study of Multimodal LVEF Estimation with EchoJEPA and ECG-FM},
+  title        = {PRIMED-AI: Deployment-Risk Study of Multimodal LVEF Estimation with EchoJEPA and HuBERT-ECG},
   author       = {Critical Data},
   year         = {2026},
   howpublished = {\url{https://github.com/criticaldata/PRIMED-AI}}

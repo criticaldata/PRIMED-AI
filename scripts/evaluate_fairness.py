@@ -26,11 +26,12 @@ def main():
     p.add_argument("--ecg-embeddings", required=True, help="ECG embedding path")
     p.add_argument("--checkpoint", required=True, help="M09 checkpoint path")
     p.add_argument("--out", default="results/fairness", help="Output directory")
+    # All three must match the checkpoint being loaded, or the state_dict load fails on shape.
     p.add_argument(
-        "--embed-dim", type=int, default=16, help="Fusion dimension (matches the checkpoint)."
+        "--embed-dim", type=int, default=256, help="Fusion dimension (matches the checkpoint)."
     )
-    p.add_argument("--echo-dim", type=int, default=None, help="Echo embedding dim, e.g. 1024.")
-    p.add_argument("--ecg-dim", type=int, default=None, help="ECG embedding dim, e.g. 768.")
+    p.add_argument("--echo-dim", type=int, default=1024, help="Echo embedding dim.")
+    p.add_argument("--ecg-dim", type=int, default=768, help="ECG embedding dim.")
     p.add_argument("--batch-size", type=int, default=64, help="Batch size")
     p.add_argument("--device", default=None, help="Device (cuda or cpu)")
     args = p.parse_args()

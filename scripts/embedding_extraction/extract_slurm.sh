@@ -35,7 +35,7 @@ MODEL="${1:-vitl}"
 FOLDERS=(p10 p11 p12 p13 p14 p15 p16 p17 p18 p19)
 FOLDER="${FOLDERS[$SLURM_ARRAY_TASK_ID]}"
 
-INPUT_DIR="/orcd/pool/006/lceli_shared/mimic-iv-echo-mp4"
+INPUT_DIR="/path/to/shared/mimic-iv-echo-mp4"
 
 echo "$(date) | Job ${SLURM_ARRAY_JOB_ID} task ${SLURM_ARRAY_TASK_ID}"
 echo "Model:  ${MODEL}"

@@ -1,7 +1,7 @@
 name: ecg_fm
 repo_id: wanglab/ecg-fm
 checkpoint: mimic_iv_ecg_physionet_pretrained.pt
-checkpoint_path: /orcd/pool/006/lceli_shared/weights/mimic_iv_ecg_physionet_pretrained.pt
+checkpoint_path: /path/to/shared/weights/mimic_iv_ecg_physionet_pretrained.pt
 embed_dim: 768
 seq_len: 64
 sample_rate: 500
@@ -11,5 +11,8 @@ frozen: true
 pooling: mean
 # Set use_stub: true for offline dev/CI without fairseq_signals + checkpoint.
 use_stub: false
-# ORCD HuBERT-ECG pooled embeddings (used by M06 probe today):
-hubert_ecg_parquet: /orcd/pool/006/lceli_shared/ecg-hubert/mimic-iv-ecg-ve.parquet
+# Everything above configures the ECG-FM wrapper (encoders/ecg_fm.py), an alternative
+# extraction path that has not produced any reported result. The probes and evaluation
+# scripts read the pre-extracted HuBERT-ECG embeddings below — these are the ones behind
+# every reported ECG number.
+hubert_ecg_parquet: /path/to/shared/ecg-hubert/mimic-iv-ecg-ve.parquet

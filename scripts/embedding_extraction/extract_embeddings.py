@@ -32,8 +32,8 @@ from src.models.vision_transformer import vit_base, vit_giant_xformers, vit_huge
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
-WEIGHTS_DIR = "/orcd/pool/006/lceli_shared/weights"
-EMBEDDINGS_DIR = "/orcd/pool/006/lceli_shared/jepa-embeddings-mimiciv-echo"
+WEIGHTS_DIR = "/path/to/shared/weights"
+EMBEDDINGS_DIR = "/path/to/shared/jepa-embeddings-mimiciv-echo"
 
 MODEL_REGISTRY = {
     # V-JEPA2 natural image pretrained
@@ -165,7 +165,7 @@ def parse_args():
     parser.add_argument(
         "--input_dir",
         type=str,
-        default="/orcd/pool/006/lceli_shared/mimic-iv-echo-mp4",
+        default="/path/to/shared/mimic-iv-echo-mp4",
     )
     parser.add_argument(
         "--folder",
