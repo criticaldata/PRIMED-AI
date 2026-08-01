@@ -18,18 +18,16 @@ The pipeline uses **frozen embeddings only**: foundation models act as fixed fea
 
 > *ECG is ubiquitous and cheap; echo requires a sonographer and a cart. If we train a fused model but only ECG is available at inference, how much accuracy do we lose — and does the model degrade gracefully or fail silently?*
 
-**Target venue:** [DAIH @ COLM 2026](https://colmweb.org/workshops.html) (Deploying AI in Healthcare) · Submission deadline: June 23, 2026
-
 ---
 
 ## Motivation
 
 LVEF is a core measure of heart pump function, used to diagnose heart failure and guide treatment. Echocardiography is accurate but resource-intensive; ECG is cheap, fast, and available almost everywhere.
 
-Most multimodal ML papers ask whether fusion beats unimodal baselines on a leaderboard. This project reframes the question for a **deployment-and-risk** audience:
+Most multimodal ML papers ask whether fusion beats unimodal baselines on a leaderboard. This project asks the **deployment-and-risk** questions instead:
 
-| DAIH pillar | What we evaluate |
-|-------------|------------------|
+| Question | What we evaluate |
+|----------|------------------|
 | **Does it work?** | Missing-modality robustness when echo or ECG is unavailable at inference |
 | **Is it equitable?** | Fairness audit of EF error across sex, age, and race |
 | **Is it safe?** | Whether accuracy degrades gracefully or fails silently under shift |
@@ -140,7 +138,7 @@ them requires PhysioNet credentialing (I02) and cluster access (I03) — see [TA
 
 | Document | Contents |
 |----------|----------|
-| [OVERVIEW.md](./OVERVIEW.md) | DAIH submission strategy, framing, sprint timeline, go/no-go criteria |
+| [OVERVIEW.md](./OVERVIEW.md) | Project framing, scope decisions, and original sprint plan (kept for provenance) |
 | [TECHNICAL.md](./TECHNICAL.md) | Pipeline architecture, probes, deployment analyses, expected artifacts |
 | [TASK.md](./TASK.md) | Task board with 33 GitHub issues for the 5–7 person team |
 
@@ -150,15 +148,14 @@ them requires PhysioNet credentialing (I02) and cluster access (I03) — see [TA
 
 ## Status
 
-Submitted to DAIH @ COLM 2026. During the sprint the work pivoted from a fusion benchmark to a
-model-agnostic **modality-failure analysis framework** — failure taxonomy, complementarity matrix,
-and loud-vs-silent dropout profile — which is the paper's contribution. The framework lives in
+The work pivoted from a fusion benchmark to a model-agnostic **modality-failure analysis
+framework** — failure taxonomy, complementarity matrix, and loud-vs-silent dropout profile. That
+framework is the main contribution and lives in
 [src/primed_ai/failure/](./src/primed_ai/failure/); the fusion pipeline described above is the
-substrate it is instantiated on. See [paper/](./paper/) for the submitted draft and
-[TASK.md](./TASK.md) for per-task status.
+substrate it is instantiated on. See [TASK.md](./TASK.md) for per-task status.
 
-Still open: I02 (PhysioNet credentialing) and I03 (ORCD GPU/storage), both needed only for the
-canonical real-data rerun, not for the submitted paper.
+Still open: I02 (PhysioNet credentialing) and I03 (ORCD GPU/storage), both needed for the canonical
+real-data rerun.
 
 ---
 
@@ -174,7 +171,7 @@ canonical real-data rerun, not for the submitted paper.
 
 ## Citation
 
-If you use this work, please cite (placeholder — update when a preprint or paper is available):
+If you use this work, please cite the repository:
 
 ```bibtex
 @misc{primedai2026,
@@ -189,12 +186,10 @@ If you use this work, please cite (placeholder — update when a preprint or pap
 
 ## License
 
-**Not yet chosen — this must be settled before the repository is made public.** Without a license
-the code is not legally reusable by anyone.
+MIT — see [LICENSE](./LICENSE).
 
 `scripts/embedding_extraction/src/` is vendored V-JEPA code from Meta Platforms and stays under its
-own MIT license (see `scripts/embedding_extraction/src/LICENSE`) regardless of what the rest of the
-repository adopts.
+own MIT license (see [scripts/embedding_extraction/src/LICENSE](./scripts/embedding_extraction/src/LICENSE)).
 
 ---
 

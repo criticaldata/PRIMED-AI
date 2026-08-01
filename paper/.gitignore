@@ -1,6 +1,0 @@
-# LaTeX build output (see latexmkrc)
-build/
-
-# Editor / OS
-.DS_Store
-*.swp

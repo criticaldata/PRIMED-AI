@@ -35,11 +35,11 @@
 | **E04** | ✅ Done | `evaluation/calibration.py` + `scripts/evaluate_calibration.py` — reliability diagram + ECE (Platt). Issue #10 closed. |
 | **E05** | ✅ Done | `evaluation/aggregate.py` + `scripts/aggregate_results.py` — unified `results.json` + LaTeX/MD tables. Issue #11 closed. |
 | **MFA** | ✅ Done | **Failure-analysis framework (paper's contribution)** — `src/primed_ai/failure/`: model-agnostic taxonomy + complementarity matrix + loud/silent dropout; `scripts/run_failure_analysis.py` + `scripts/validate_harness.py`; multi-seed + 3-modality validation. |
-| **W01–W06** | ✅ Done | **8-page research paper SUBMITTED** to DAIH @ COLM 2026 (`paper/`, builds clean, anonymized, 51 tests). Issues #28–#33 closed. |
+| **W01–W06** | ✅ Done | 8-page research paper written and submitted; source no longer tracked here. Issues #28–#33 closed. |
 | **E06** | ⬜ Not pursued | ECG-FM pooling ablation (#12) — needs real ECG embeddings; out of scope after the framework pivot. |
 | **I02, I03** | ⬜ Open | PhysioNet credentialing (#14) · ORCD GPU/storage (#15) — needed only for the canonical real-data run, not for the submitted paper. |
 
-> **Final:** the project pivoted from a fusion benchmark to a **model-agnostic modality-failure framework** (taxonomy · complementarity matrix · loud-vs-silent dropout), validated on synthetic data (multi-seed + 3-modality) and demonstrated on a real n=245 cohort. The 8-page paper in `paper/` was **submitted to DAIH @ COLM 2026**. A full canonical real-data run (per-example attribution + loud/silent on MIMIC) still needs I02 (PhysioNet/BigQuery) + I03 (GPU); the released harness produces it once a per-example prediction dump is available.
+> **Final:** the project pivoted from a fusion benchmark to a **model-agnostic modality-failure framework** (taxonomy · complementarity matrix · loud-vs-silent dropout), validated on synthetic data (multi-seed + 3-modality) and demonstrated on a real n=245 cohort. The 8-page paper was written and submitted; its source is no longer tracked in this repository. A full canonical real-data run (per-example attribution + loud/silent on MIMIC) still needs I02 (PhysioNet/BigQuery) + I03 (GPU); the released harness produces it once a per-example prediction dump is available.
 
 ---
 

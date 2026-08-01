@@ -1,6 +1,6 @@
 """Validate the modality-failure harness on synthetic data with known ground truth.
 
-  python scripts/validate_harness.py --seeds 12 --out results/validation --figdir paper/figures
+  python scripts/validate_harness.py --seeds 12 --out results/validation --figdir results/figures
 
 (1) Multi-seed recovery (echo/ECG): does the harness reliably recover planted echo-dominance and
     the modality-specific silent-failure asymmetry across seeds?
@@ -96,7 +96,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seeds", type=int, default=12)
     ap.add_argument("--out", default="results/validation")
-    ap.add_argument("--figdir", default="paper/figures")
+    ap.add_argument("--figdir", default="results/figures")
     a = ap.parse_args()
     multiseed(a.seeds, a.out)
     threemodal(a.out, a.figdir)

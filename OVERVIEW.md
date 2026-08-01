@@ -3,9 +3,9 @@
 
 > **FINAL OUTCOME (Jun 24, 2026):** the submission pivoted from "fusion vs. unimodal" to a
 > model-agnostic **modality-failure evaluation framework** (failure taxonomy · complementarity
-> matrix · loud-vs-silent dropout) — see [`paper/`](./paper/) and
-> [`src/primed_ai/failure/`](./src/primed_ai/failure/). Submitted to DAIH @ COLM 2026 as an 8-page
-> research paper. The strategy below is the original plan, kept for provenance.
+> matrix · loud-vs-silent dropout) — see [`src/primed_ai/failure/`](./src/primed_ai/failure/).
+> The paper source is no longer tracked in this repository. The strategy below is the original
+> plan, kept for provenance.
 
 **Target venue:** DAIH (Deploying AI in Healthcare), COLM 2026 Workshop — non-archival
 **Submission deadline:** **June 23, 2026 (AoE)** · Notification: July 24 · Workshop: Oct 9, San Francisco
