@@ -4,7 +4,7 @@ Reference documents for the PRIMED-AI pipeline.
 
 | Document | Contents |
 |----------|----------|
-| [embeddings.md](embeddings.md) | Pre-extracted embedding paths, loading code, model weights, and how to re-run extraction |
+| [embeddings.md](embeddings.md) | Where the pre-extracted echo/ECG embeddings live (HuggingFace + ORCD), loading code, model weights, and how to re-run extraction |
 
 For higher-level context see the root-level docs:
 
@@ -12,4 +12,4 @@ For higher-level context see the root-level docs:
 |----------|----------|
 | [README.md](../README.md) | Project scope, motivation, and status |
 | [TECHNICAL.md](../TECHNICAL.md) | Full pipeline architecture — cohort, encoders, probes, evaluation |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Local setup, testing, linting, data access |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Local setup, testing, linting, data access, reproducibility |

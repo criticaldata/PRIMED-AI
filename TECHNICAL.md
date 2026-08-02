@@ -13,24 +13,17 @@ See [README.md](./README.md) for project scope and status.
 
 ## 1. Architecture overview
 
-```
-MIMIC-IV-Echo ──┐
-                ├──► Paired cohort ──► Frozen embedding extraction ──► Probes ──► Evaluation
-MIMIC-IV-ECG  ──┤         ▲
-                │         │
-MIMIC-IV      ──┘    LVEF labels
-  (Clinical)
+Paired cohort → frozen embedding extraction → probes → evaluation. MIMIC-IV-Echo and MIMIC-IV-ECG
+supply the two modalities; MIMIC-IV Clinical supplies LVEF labels and demographics.
 
-Foundation models (frozen, no fine-tuning):
-  EchoJEPA-L  → echo video embeddings
-  HuBERT-ECG  → 12-lead ECG embeddings
-
-Probes (trainable):
-  ECG-only    → linear / MLP on pooled ECG embedding
-  Echo-only   → attentive probe on EchoJEPA embedding
-  Fused       → cross-attention over echo ⊕ ECG (headline)
-  Quick win   → concat(pooled echo, pooled ECG) → MLP
-```
+| Component | Trainable | Role |
+|---|---|---|
+| EchoJEPA-L | no | Echo video → 1024-d embedding per study |
+| HuBERT-ECG | no | 12-lead ECG → 768-d pooled embedding per record |
+| ECG-only probe | yes | Linear / MLP on pooled ECG embedding |
+| Echo-only probe | yes | Attentive probe on EchoJEPA embedding |
+| Concat probe | yes | `concat(pooled echo, pooled ECG)` → MLP — quick baseline |
+| Fused probe | yes | Cross-attention over echo ⊕ ECG — headline model |
 
 **Design principle:** separate expensive forward passes (run once, cache to disk) from cheap probe training (minutes, fully reproducible). Do not fine-tune foundation-model weights.
 
@@ -68,18 +61,18 @@ Expected cohort size: a few thousand to tens of thousands of paired rows (exact 
 - Hold out a fixed test split partitioned by `subject_id`.
 - No patient may appear in both train and test sets (prevents leakage across splits).
 
-### 3.3 Cohort flow (for paper diagram)
+### 3.3 Cohort flow
 
-```
-All MIMIC-IV-Echo studies (~525K)
-  → filter: has structured LVEF label
-  → filter: has ECG within 24–48h on same subject_id
-  → deduplicate / resolve multi-match edge cases
-  → final paired cohort
-  → subject_id-level train / val / test split
-```
+| Step | Filter |
+|---|---|
+| 1 | All MIMIC-IV-Echo studies (~525K) |
+| 2 | Has a structured LVEF label |
+| 3 | Has an ECG within 24–48h on the same `subject_id` |
+| 4 | Deduplicate / resolve multi-match edge cases |
+| 5 | Final paired cohort |
+| 6 | `subject_id`-level train / val / test split |
 
-Document exclusion counts at each step for the cohort flow diagram.
+Record exclusion counts at each step — they are what makes the cohort auditable.
 
 ---
 
@@ -94,14 +87,14 @@ Both models run in inference mode only. Weights are frozen; gradients do not flo
 | Architecture | Video JEPA (Joint Embedding Predictive Architecture) |
 | Input | Echo video (DICOM → MP4) |
 | Output | 1024-dim mean-pooled embedding per study (ViT-L) |
-| Weights | **Available** on ORCD — see [`docs/embeddings.md §2`](docs/embeddings.md#2-model-weights) |
+| Weights | **Available** on ORCD — see [`docs/embeddings.md §3`](docs/embeddings.md#3-model-weights) |
 | Primary checkpoint | `vjepa21_vitl_mimic_pt117.pt` (ViT-L, 117-epoch MIMIC fine-tune) |
 | Config | [`configs/encoder/echojepa.yaml`](configs/encoder/echojepa.yaml) |
 | Reference | arXiv:2602.02603 |
 
-Five EchoJEPA checkpoints are available (ViT-L and ViT-B variants, various MIMIC fine-tune epochs). Pre-extracted embeddings for `vitl` (natural pretrain) are already on ORCD; EchoJEPA fine-tuned runs are in progress. See [`docs/embeddings.md`](docs/embeddings.md) for paths, loading code, and [`scripts/embedding_extraction/`](scripts/embedding_extraction/) for the full pipeline.
+Five EchoJEPA checkpoints are available (ViT-L and ViT-B variants, various MIMIC fine-tune epochs). Pre-extracted embeddings for every variant are published on HuggingFace as [`MITCriticalData/mimic-iv-echo-jepa-embeddings`](https://huggingface.co/datasets/MITCriticalData/mimic-iv-echo-jepa-embeddings) (gated, PhysioNet credentials required) and mirrored on ORCD. See [`docs/embeddings.md`](docs/embeddings.md) for loading code and [`scripts/embedding_extraction/`](scripts/embedding_extraction/) for the extraction pipeline.
 
-EchoJEPA embeddings preserve spatial structure across frames. This matters for probe design — a simple linear head is insufficient; an **attentive probe** is required (see §5.2).
+EchoJEPA embeddings preserve spatial structure across frames. This matters for probe design — a simple linear head is insufficient; an **attentive probe** is required (see §6.2).
 
 ### 4.2 ECG encoder
 
@@ -123,23 +116,12 @@ embedding" below refers to the HuBERT-ECG Parquet unless stated otherwise.
 
 Run once over the paired cohort only; cache all outputs to disk.
 
-### 5.1 EchoJEPA forward pass
+| Pass | Input | Model | Output |
+|---|---|---|---|
+| Echo | Echo DICOM video, paired cohort rows | EchoJEPA-L (frozen) | Per-study embedding tensor |
+| ECG | 12-lead waveform, same cohort rows | HuBERT-ECG (frozen; ECG-FM wrapper is the alternative path) | Per-record embedding tensor |
 
-```
-Input:  echo DICOM video (paired cohort rows)
-Model:  EchoJEPA-L (frozen)
-Output: per-study embedding tensor → cache to disk
-```
-
-### 5.2 ECG forward pass
-
-```
-Input:  12-lead ECG waveform (same paired cohort rows)
-Model:  HuBERT-ECG (frozen; ECG-FM wrapper is the alternative path)
-Output: per-record embedding tensor → cache to disk
-```
-
-### 5.3 Caching
+### 5.1 Caching
 
 - Store embeddings keyed by study/record identifier aligned to the paired cohort index.
 - Probes read from cache only — no re-running foundation models during probe iteration.
@@ -151,39 +133,14 @@ Output: per-record embedding tensor → cache to disk
 
 All probes are trained on cached embeddings. Recommended build order: quick concat baseline first, then refined architectures.
 
-### 6.1 ECG-only baseline
+| Probe | Head | Notes |
+|---|---|---|
+| **6.1** ECG-only | pool (mean or attentive) → linear / MLP | Simplest unimodal baseline. ECG embeddings are lower-dimensional and more amenable to linear probing than EchoJEPA outputs. |
+| **6.2** Echo-only | attentive pooling → probe head | EchoJEPA embeddings are high-dimensional and spatial-preserving, so **attentive pooling is required** — a plain linear probe on raw embeddings underperforms. |
+| **6.3** Concat fused | `pool(echo) ⊕ pool(ECG)` → MLP | Fast to implement; gives an early end-to-end number before cross-attention is ready. |
+| **6.4** Cross-attention fused | cross-attention over echo + ECG → probe head | **Headline model.** The one used for the missing-modality deployment analysis (§7.1). |
 
-```
-ECG embedding → pool (mean or attentive) → linear / MLP → LVEF prediction
-```
-
-Simplest unimodal baseline. ECG embeddings are lower-dimensional and more amenable to linear probing than EchoJEPA outputs.
-
-### 6.2 Echo-only baseline
-
-```
-EchoJEPA embedding → attentive pooling → probe head → LVEF prediction
-```
-
-EchoJEPA produces high-dimensional, spatial-preserving embeddings. **Attentive pooling is required** — a plain linear probe on raw embeddings is expected to underperform.
-
-### 6.3 Quick-win fused probe (Day 2 target)
-
-```
-pool(echo embedding) ⊕ pool(ECG embedding) → MLP → LVEF prediction
-```
-
-Concatenation + MLP. Fast to implement; provides an early end-to-end number before the cross-attention fusion probe is ready.
-
-### 6.4 Fused probe — headline model (Day 3 target)
-
-```
-EchoJEPA embedding ──┐
-                     ├──► cross-attention fusion → probe head → LVEF prediction
-ECG embedding      ──┘
-```
-
-Cross-attention over echo and ECG representations. This is the model used for the missing-modality deployment analysis (§7.1).
+All four predict continuous LVEF; the EF≤40% gate is derived from that output.
 
 ### 6.5 Prediction targets
 
@@ -251,7 +208,9 @@ If time permits, assess calibration of the EF≤40% binary gate (e.g., reliabili
 | Missing-modality degradation | Δ MAE / Δ AUROC across conditions | No external baseline — this is the novel result |
 | Fairness gap | Δ MAE / Δ AUROC across demographic strata | No external baseline |
 
-**Pre-flight check:** confirm EF≤40% prevalence in the paired cohort is high enough for stable AUROC estimation before locking results.
+**Pre-flight check:** confirm EF≤40% prevalence in the paired cohort is high enough for stable AUROC estimation before locking results (`scripts/check_ef40_prevalence.py`).
+
+Measured missing-modality numbers are in the [README results table](README.md#results); reproducing them is covered in [CONTRIBUTING.md](CONTRIBUTING.md#reproducibility).
 
 ---
 
@@ -268,25 +227,7 @@ Probe training after caching is CPU/GPU-light and completes in minutes.
 
 ---
 
-## 10. Fallback pipelines
-
-If EchoJEPA-L weights are unavailable by end of Day 2:
-
-### Fallback A — ECG only
-
-```
-Paired cohort (ECG + LVEF only) → ECG embeddings → probe → deployment analyses
-```
-
-Loses fusion novelty. Retains missing-modality framing (ECG-only is the realistic deployment scenario) and fairness audit.
-
-### Fallback B — Case Report (no embeddings)
-
-Document data-access barriers, pairing protocol design, and lessons learned. Requires no model weights or GPU time.
-
----
-
-## 11. Related work positioning
+## 10. Related work positioning
 
 | Work | Relationship |
 |---|---|
@@ -295,11 +236,11 @@ Document data-access barriers, pairing protocol design, and lessons learned. Req
 | ECG-FM (arXiv:2408.05178) | Alternative ECG foundation model — wrapper shipped, not used for reported results |
 | EchoingECG (arXiv:2509.25791) | Closest prior cross-modal echo+ECG work — differentiate on frozen-embedding fusion + deployment-risk framing |
 
-Read EchoingECG before writing methods. Explicitly state how this work differs: frozen embeddings (no fine-tuning), missing-modality evaluation at inference, and fairness audit as primary contributions.
+This work differs from EchoingECG on three axes: frozen embeddings (no fine-tuning), missing-modality evaluation at inference, and fairness audit as primary contributions.
 
 ---
 
-## 12. Open technical decisions
+## 11. Open technical decisions
 
 - [ ] ECG pooling: mean vs. attentive — empirical check on validation set
 - [ ] Echo↔ECG pairing window: 24h vs. 48h — sensitivity analysis or fixed choice with justification
@@ -310,7 +251,7 @@ Read EchoingECG before writing methods. Explicitly state how this work differs: 
 
 ---
 
-## 13. Expected artifacts
+## 12. Expected artifacts
 
 | Artifact | Description |
 |---|---|
