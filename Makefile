@@ -12,3 +12,6 @@ test:
 
 smoke-ecg-fm:
 	python scripts/smoke_test_ecg_fm.py --skip-download
+
+reproduce-echo-hubert-local:
+	python scripts/reproduce_echo_hubert_local.py
