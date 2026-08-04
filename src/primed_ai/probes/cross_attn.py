@@ -59,10 +59,17 @@ class CrossAttnFusedProbe(nn.Module):
         *,
         mask_echo: bool = False,
         mask_ecg: bool = False,
+        echo_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         echo_tokens = self.echo_proj(echo_tokens)
         ecg_tokens = self.ecg_proj(ecg_tokens)
-        fused = self.fusion(echo_tokens, ecg_tokens, mask_echo=mask_echo, mask_ecg=mask_ecg)
+        fused = self.fusion(
+            echo_tokens,
+            ecg_tokens,
+            mask_echo=mask_echo,
+            mask_ecg=mask_ecg,
+            echo_mask=echo_mask,
+        )
         return self.head(fused)
 
 
@@ -74,7 +81,7 @@ def _train_epoch(model, loader, optim, device) -> None:
         ecg = batch["ecg"].to(device)
         y = batch["lvef"].to(device)
         optim.zero_grad()
-        pred = model(echo, ecg)
+        pred = model(echo, ecg, echo_mask=batch["echo_mask"].to(device))
         loss = loss_fn(pred, y)
         loss.backward()
         optim.step()
@@ -98,6 +105,7 @@ def _condition_arrays(
                 batch["ecg"].to(device),
                 mask_echo=mask_echo,
                 mask_ecg=mask_ecg,
+                echo_mask=batch["echo_mask"].to(device),
             )
             .cpu()
             .numpy()

@@ -32,8 +32,13 @@ class ConcatMLPProbe(nn.Module):
         self.echo_pool = AttentivePool(echo_dim)
         self.head = MLPHead(echo_dim + ecg_dim, hidden=hidden)
 
-    def forward(self, echo_tokens: torch.Tensor, ecg_tokens: torch.Tensor) -> torch.Tensor:
-        echo_vec = self.echo_pool(echo_tokens)
+    def forward(
+        self,
+        echo_tokens: torch.Tensor,
+        ecg_tokens: torch.Tensor,
+        echo_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        echo_vec = self.echo_pool(echo_tokens, echo_mask)
         ecg_vec = ecg_tokens.mean(dim=1)
         return self.head(torch.cat([echo_vec, ecg_vec], dim=-1))
 
@@ -65,26 +70,40 @@ def _train_epoch(model, loader, optim, device) -> None:
         ecg = batch["ecg"].to(device)
         y = batch["lvef"].to(device)
         optim.zero_grad()
-        pred = model(echo, ecg)
+        pred = model(echo, ecg, batch["echo_mask"].to(device))
         loss = loss_fn(pred, y)
         loss.backward()
         optim.step()
 
 
 @torch.no_grad()
-def _eval_model(model, loader, device) -> dict:
+def _predict(model, loader, device) -> dict:
     model.eval()
     ys, preds, ef = [], [], []
     for batch in loader:
-        pred = model(batch["echo"].to(device), batch["ecg"].to(device)).cpu().numpy()
+        pred = (
+            model(
+                batch["echo"].to(device),
+                batch["ecg"].to(device),
+                batch["echo_mask"].to(device),
+            )
+            .cpu()
+            .numpy()
+        )
         ys.append(batch["lvef"].numpy())
         preds.append(pred)
         ef.append(batch["ef_le_40"].numpy())
-    y = np.concatenate(ys)
-    p = np.concatenate(preds)
-    ef = np.concatenate(ef).astype(bool)
-    metrics = regression_metrics(y, p)
-    metrics["ef40_auroc"] = round(auroc(ef, -p), 4)
+    return {
+        "lvef": np.concatenate(ys),
+        "prediction": np.concatenate(preds),
+        "ef_le_40": np.concatenate(ef).astype(bool),
+    }
+
+
+def _eval_model(model, loader, device) -> dict:
+    arrays = _predict(model, loader, device)
+    metrics = regression_metrics(arrays["lvef"], arrays["prediction"])
+    metrics["ef40_auroc"] = round(auroc(arrays["ef_le_40"], -arrays["prediction"]), 4)
     return metrics
 
 

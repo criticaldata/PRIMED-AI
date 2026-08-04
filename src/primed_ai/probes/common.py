@@ -74,15 +74,32 @@ class TokenEmbeddingDataset(Dataset):
 
 
 def collate_tokens(batch: list[dict], *, pad_dim: int) -> dict[str, torch.Tensor]:
-    """Pad token sequences to the max length in the batch."""
+    """Pad echo token sequences to the max length in the batch.
+
+    Studies carry different clip counts, so ``echo_mask`` (True where padded) rides along
+    and keeps attentive pooling from weighting the zero rows pad_sequence appends.
+
+    ECG is stacked, not padded: every producer tiles a study vector to a fixed token count,
+    and no ECG consumer takes a mask, so a ragged batch is rejected rather than silently
+    pooled with pad rows.
+    """
+    dims = {b["echo"].size(-1) for b in batch}
+    if dims != {pad_dim}:
+        raise ValueError(f"expected embed dim {pad_dim}, got {sorted(dims)}")
+    lengths = torch.tensor([b["echo"].size(0) for b in batch])
     echo = torch.nn.utils.rnn.pad_sequence([b["echo"] for b in batch], batch_first=True)
     out = {
         "echo": echo,
+        "echo_mask": torch.arange(echo.size(1))[None, :] >= lengths[:, None],
         "lvef": torch.stack([b["lvef"] for b in batch]),
         "ef_le_40": torch.stack([b["ef_le_40"] for b in batch]),
     }
     if "ecg" in batch[0]:
-        out["ecg"] = torch.nn.utils.rnn.pad_sequence([b["ecg"] for b in batch], batch_first=True)
-    if echo.size(-1) != pad_dim:
-        raise ValueError(f"expected embed dim {pad_dim}, got {echo.size(-1)}")
+        ecg_lengths = {b["ecg"].size(0) for b in batch}
+        if len(ecg_lengths) > 1:
+            raise ValueError(
+                f"ragged ecg token counts {sorted(ecg_lengths)} are unsupported — "
+                "ConcatMLPProbe and CrossAttentionFusion pool ECG without a mask"
+            )
+        out["ecg"] = torch.stack([b["ecg"] for b in batch])
     return out

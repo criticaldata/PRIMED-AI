@@ -62,8 +62,17 @@ def expand(df: pd.DataFrame, column: str, prefix: str) -> tuple[pd.DataFrame, li
 
     ``ecg_only`` selects its features by column prefix rather than reading an array
     column, so the manifest has to be flattened before it can train.
+
+    Clip-level (2-D) columns are rejected: ravelling them would silently emit
+    ``n_clips * dim`` feature columns whose meaning changes row to row.
     """
-    mat = np.vstack([np.asarray(v, dtype=np.float64).ravel() for v in df[column]])
+    vectors = [np.asarray(v, dtype=np.float64) for v in df[column]]
+    ragged = {v.ndim for v in vectors} - {1}
+    if ragged:
+        raise ValueError(
+            f"{column} holds {sorted(ragged)}-D token matrices; expand() needs vectors"
+        )
+    mat = np.vstack(vectors)
     cols = [f"{prefix}{i}" for i in range(mat.shape[1])]
     flat = pd.DataFrame(mat, columns=cols, index=df.index)
     return df.drop(columns=[column]).join(flat), cols
