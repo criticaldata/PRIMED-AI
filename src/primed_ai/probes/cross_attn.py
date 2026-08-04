@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from primed_ai.probes import manifest
 from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
@@ -127,23 +128,35 @@ def _eval_condition(
 
 
 def prepare_fused_probe_data(
-    cohort_path, echo_embedding_path, ecg_embedding_path
+    cohort_path, echo_embedding_path=None, ecg_embedding_path=None
 ) -> dict[str, pd.DataFrame]:
-    """Load paired cohort + cached embeddings and return train/val/test frames."""
-    coh = read_table(cohort_path)
-    echo_emb = read_table(echo_embedding_path)
-    ecg_emb = read_table(ecg_embedding_path)
-    echo_key = "echo_study_id" if "echo_study_id" in coh.columns else "subject_id"
-    ecg_key = "ecg_record_id"
-    if echo_key not in echo_emb.columns:
-        echo_emb = echo_emb.rename(columns={echo_emb.columns[0]: echo_key})
-    if ecg_key not in ecg_emb.columns:
-        if "ecg_study_id" in ecg_emb.columns:
-            ecg_emb = ecg_emb.rename(columns={"ecg_study_id": ecg_key})
-        else:
-            ecg_emb = ecg_emb.rename(columns={ecg_emb.columns[0]: ecg_key})
+    """Load paired cohort + cached embeddings and return train/val/test frames.
 
-    df = coh.merge(echo_emb, on=echo_key, how="inner").merge(ecg_emb, on=ecg_key, how="inner")
+    With both embedding paths omitted, ``cohort_path`` is read as a joined manifest
+    that already carries ``echo_embedding``/``ecg_embedding`` inline.
+    """
+    if echo_embedding_path is None and ecg_embedding_path is None:
+        df = manifest.load(cohort_path)
+    elif echo_embedding_path is None or ecg_embedding_path is None:
+        raise ValueError(
+            "pass both embedding paths for the two-table layout, or neither to read "
+            "cohort_path as a joined manifest"
+        )
+    else:
+        coh = read_table(cohort_path)
+        echo_emb = read_table(echo_embedding_path)
+        ecg_emb = read_table(ecg_embedding_path)
+        echo_key = "echo_study_id" if "echo_study_id" in coh.columns else "subject_id"
+        ecg_key = "ecg_record_id"
+        if echo_key not in echo_emb.columns:
+            echo_emb = echo_emb.rename(columns={echo_emb.columns[0]: echo_key})
+        if ecg_key not in ecg_emb.columns:
+            if "ecg_study_id" in ecg_emb.columns:
+                ecg_emb = ecg_emb.rename(columns={"ecg_study_id": ecg_key})
+            else:
+                ecg_emb = ecg_emb.rename(columns={ecg_emb.columns[0]: ecg_key})
+
+        df = coh.merge(echo_emb, on=echo_key, how="inner").merge(ecg_emb, on=ecg_key, how="inner")
     df = _ensure_tokens(df)
     df = _ensure_ecg_tokens(df)
     finite = (
@@ -200,8 +213,8 @@ def predict_missing_modality(
 
 def run(
     cohort_path,
-    echo_embedding_path,
-    ecg_embedding_path,
+    echo_embedding_path=None,
+    ecg_embedding_path=None,
     out_dir="probes/cross_attn_fused",
     *,
     embed_dim: int = 16,

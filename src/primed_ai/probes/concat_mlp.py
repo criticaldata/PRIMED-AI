@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from primed_ai.probes import manifest
 from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
@@ -89,8 +90,8 @@ def _eval_model(model, loader, device) -> dict:
 
 def run(
     cohort_path,
-    echo_embedding_path,
-    ecg_embedding_path,
+    echo_embedding_path=None,
+    ecg_embedding_path=None,
     out_dir="probes/concat_mlp",
     *,
     echo_dim: int = 16,
@@ -106,20 +107,28 @@ def run(
     torch.manual_seed(seed)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    coh = read_table(cohort_path)
-    echo_emb = read_table(echo_embedding_path)
-    ecg_emb = read_table(ecg_embedding_path)
+    if echo_embedding_path is None and ecg_embedding_path is None:
+        df = manifest.load(cohort_path)  # embeddings already inline, nothing to join
+    elif echo_embedding_path is None or ecg_embedding_path is None:
+        raise ValueError(
+            "pass both embedding paths for the two-table layout, or neither to read "
+            "cohort_path as a joined manifest"
+        )
+    else:
+        coh = read_table(cohort_path)
+        echo_emb = read_table(echo_embedding_path)
+        ecg_emb = read_table(ecg_embedding_path)
 
-    echo_key = "echo_study_id" if "echo_study_id" in coh.columns else "subject_id"
-    ecg_key = "ecg_record_id"
-    if echo_key not in echo_emb.columns:
-        echo_emb = echo_emb.rename(columns={echo_emb.columns[0]: echo_key})
-    if ecg_key not in ecg_emb.columns:
-        ecg_emb = ecg_emb.rename(columns={ecg_emb.columns[0]: ecg_key})
+        echo_key = "echo_study_id" if "echo_study_id" in coh.columns else "subject_id"
+        ecg_key = "ecg_record_id"
+        if echo_key not in echo_emb.columns:
+            echo_emb = echo_emb.rename(columns={echo_emb.columns[0]: echo_key})
+        if ecg_key not in ecg_emb.columns:
+            ecg_emb = ecg_emb.rename(columns={ecg_emb.columns[0]: ecg_key})
 
-    df = coh.merge(echo_emb, on=echo_key, how="inner").merge(
-        ecg_emb, on=ecg_key, how="inner", suffixes=("", "_ecg")
-    )
+        df = coh.merge(echo_emb, on=echo_key, how="inner").merge(
+            ecg_emb, on=ecg_key, how="inner", suffixes=("", "_ecg")
+        )
     df = _ensure_tokens(df)
     df = _ensure_ecg_tokens(df)
 

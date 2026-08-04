@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from primed_ai.probes import manifest
 from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
@@ -114,7 +115,7 @@ def _eval_model(model, loader, device) -> dict:
 
 def run(
     cohort_path,
-    embedding_path,
+    embedding_path=None,
     out_dir="probes/echo_only",
     *,
     embed_dim: int = 16,
@@ -130,12 +131,15 @@ def run(
     torch.manual_seed(seed)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    coh = read_table(cohort_path)
-    emb = read_table(embedding_path)
-    key = "echo_study_id" if "echo_study_id" in coh.columns else coh.columns[0]
-    if key not in emb.columns:
-        emb = emb.rename(columns={emb.columns[0]: key})
-    df = coh.merge(emb, on=key, how="inner")
+    if embedding_path is None:
+        df = manifest.load(cohort_path)  # embeddings already inline, nothing to join
+    else:
+        coh = read_table(cohort_path)
+        emb = read_table(embedding_path)
+        key = "echo_study_id" if "echo_study_id" in coh.columns else coh.columns[0]
+        if key not in emb.columns:
+            emb = emb.rename(columns={emb.columns[0]: key})
+        df = coh.merge(emb, on=key, how="inner")
     df = _ensure_tokens(df)
 
     def split(name: str) -> pd.DataFrame:
