@@ -16,6 +16,7 @@ pytest.importorskip("pyarrow")
 pytest.importorskip("torch")
 
 from primed_ai.probes import manifest
+from primed_ai.probes.common import drop_non_finite
 from primed_ai.probes.concat_mlp import run as run_concat
 from primed_ai.probes.cross_attn import prepare_fused_probe_data
 from primed_ai.probes.cross_attn import run as run_fused
@@ -106,10 +107,58 @@ def test_expand_flattens_ecg_into_prefixed_columns(tmp_path):
 
 
 def test_fused_data_prep_splits_without_an_explicit_join(tmp_path):
-    parts = prepare_fused_probe_data(_manifest(tmp_path / "m.parquet"))
+    parts, n_dropped = prepare_fused_probe_data(_manifest(tmp_path / "m.parquet"))
     assert set(parts) == {"train", "val", "test"}
     assert all(len(p) > 0 for p in parts.values())
     assert np.asarray(parts["train"]["echo_tokens"].iloc[0]).shape[-1] == ECHO_DIM
+    assert n_dropped == 0
+
+
+def _manifest_with_non_finite_ecg(path, n=60, bad=(0, 1, 2)):
+    """Manifest whose ECG vectors carry NaN/inf inside otherwise present cells.
+
+    This is the real-data failure @kevzho hit on the 1,208-row cohort: twelve rows held
+    non-finite HuBERT-ECG vectors. ``manifest.load``'s ``require_both`` misses them
+    because ``.notna()`` asks whether the cell is null, not what the vector contains.
+    """
+    _manifest(path, n=n)
+    df = pd.read_parquet(path)
+    ecg = np.vstack([np.asarray(v, dtype=np.float32) for v in df["ecg_embedding"]])
+    for row, value in zip(bad, (np.nan, np.inf, -np.inf)):
+        ecg[row, 0] = value
+    df["ecg_embedding"] = list(ecg)
+    df.to_parquet(path, index=False)
+    return path
+
+
+@pytest.mark.parametrize("name", ["ecg", "echo", "concat", "fused"])
+def test_non_finite_embeddings_are_dropped_not_trained_on(tmp_path, name):
+    """Every probe must survive non-finite vectors, and say how many rows it lost."""
+    path = _manifest_with_non_finite_ecg(tmp_path / "m.parquet")
+    out = tmp_path / name
+    kwargs = {"out_dir": str(out)}
+    if name == "ecg":
+        res = run_ecg(path, n_bootstrap=20, **kwargs)
+    elif name == "echo":
+        res = run_echo(path, embed_dim=ECHO_DIM, epochs=2, **kwargs)
+    elif name == "concat":
+        res = run_concat(path, echo_dim=ECHO_DIM, ecg_dim=ECG_DIM, epochs=2, **kwargs)
+    else:
+        res = run_fused(
+            path, embed_dim=ECHO_DIM, echo_dim=ECHO_DIM, ecg_dim=ECG_DIM, epochs=2, **kwargs
+        )
+
+    # echo vectors are untouched, so the echo-only probe legitimately keeps every row
+    expected = 0 if name == "echo" else 3
+    assert res["n_dropped_nonfinite"] == expected
+    assert sum(res["n"].values()) == 60 - expected
+
+
+def test_drop_non_finite_also_catches_a_bad_label(tmp_path):
+    df = pd.read_parquet(_manifest(tmp_path / "m.parquet"))
+    df.loc[0, "lvef"] = np.nan
+    kept, dropped = drop_non_finite(df, ("ecg_embedding",))
+    assert dropped == 1 and len(kept) == len(df) - 1
 
 
 def test_half_specified_embedding_paths_are_rejected(tmp_path):

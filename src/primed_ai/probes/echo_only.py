@@ -16,6 +16,7 @@ from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
     collate_tokens,
+    drop_non_finite,
     git_sha,
     read_table,
     regression_metrics,
@@ -157,6 +158,7 @@ def run(
             emb = emb.rename(columns={emb.columns[0]: key})
         df = coh.merge(emb, on=key, how="inner")
     df = _ensure_tokens(df)
+    df, n_dropped = drop_non_finite(df, ("echo_tokens",))
 
     def split(name: str) -> pd.DataFrame:
         return df[df["split"] == name].reset_index(drop=True)
@@ -204,6 +206,7 @@ def run(
         "seed": seed,
         "git_sha": git_sha(),
         "embed_dim": embed_dim,
+        "n_dropped_nonfinite": n_dropped,
         "n": {"train": len(train_df), "val": len(val_df), "test": len(test_df)},
         "val": {"attentive": val_attn, "linear": val_lin},
         "test": {"attentive": test_attn},

@@ -15,6 +15,7 @@ from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
     collate_tokens,
+    drop_non_finite,
     git_sha,
     read_table,
     regression_metrics,
@@ -150,6 +151,7 @@ def run(
         )
     df = _ensure_tokens(df)
     df = _ensure_ecg_tokens(df)
+    df, n_dropped = drop_non_finite(df, ("echo_tokens", "ecg_tokens"))
 
     parts = {s: df[df["split"] == s].reset_index(drop=True) for s in ("train", "val", "test")}
     if min(len(parts[s]) for s in parts) == 0:
@@ -185,6 +187,7 @@ def run(
         "git_sha": git_sha(),
         "echo_dim": echo_dim,
         "ecg_dim": ecg_dim,
+        "n_dropped_nonfinite": n_dropped,
         "n": {k: len(v) for k, v in parts.items()},
         "val": _eval_model(model, loader(parts["val"], False), device),
         "test": _eval_model(model, loader(parts["test"], False), device),

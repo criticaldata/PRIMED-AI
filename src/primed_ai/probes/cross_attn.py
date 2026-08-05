@@ -16,6 +16,7 @@ from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
     collate_tokens,
+    drop_non_finite,
     git_sha,
     read_table,
     regression_metrics,
@@ -137,8 +138,9 @@ def _eval_condition(
 
 def prepare_fused_probe_data(
     cohort_path, echo_embedding_path=None, ecg_embedding_path=None
-) -> dict[str, pd.DataFrame]:
-    """Load paired cohort + cached embeddings and return train/val/test frames.
+) -> tuple[dict[str, pd.DataFrame], int]:
+    """Load paired cohort + cached embeddings; return train/val/test frames and the
+    number of rows dropped for holding non-finite values.
 
     With both embedding paths omitted, ``cohort_path`` is read as a joined manifest
     that already carries ``echo_embedding``/``ecg_embedding`` inline.
@@ -167,16 +169,11 @@ def prepare_fused_probe_data(
         df = coh.merge(echo_emb, on=echo_key, how="inner").merge(ecg_emb, on=ecg_key, how="inner")
     df = _ensure_tokens(df)
     df = _ensure_ecg_tokens(df)
-    finite = (
-        df["lvef"].map(np.isfinite)
-        & df["echo_tokens"].map(lambda value: np.isfinite(np.asarray(value)).all())
-        & df["ecg_tokens"].map(lambda value: np.isfinite(np.asarray(value)).all())
-    )
-    df = df[finite].reset_index(drop=True)
+    df, n_dropped = drop_non_finite(df, ("echo_tokens", "ecg_tokens"))
     parts = {s: df[df["split"] == s].reset_index(drop=True) for s in ("train", "val", "test")}
     if min(len(parts[s]) for s in parts) == 0:
         raise ValueError("train/val/test must all be non-empty")
-    return parts
+    return parts, n_dropped
 
 
 def fused_probe_loader(
@@ -241,7 +238,9 @@ def run(
     echo_dim = echo_dim or embed_dim
     ecg_dim = ecg_dim or embed_dim
 
-    parts = prepare_fused_probe_data(cohort_path, echo_embedding_path, ecg_embedding_path)
+    parts, n_dropped = prepare_fused_probe_data(
+        cohort_path, echo_embedding_path, ecg_embedding_path
+    )
 
     model = CrossAttnFusedProbe(embed_dim, echo_dim=echo_dim, ecg_dim=ecg_dim).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
@@ -278,6 +277,7 @@ def run(
         "git_sha": git_sha(),
         "fusion_dim": embed_dim,
         "echo_dim": echo_dim,
+        "n_dropped_nonfinite": n_dropped,
         "ecg_dim": ecg_dim,
         "n": {k: len(v) for k, v in parts.items()},
         "val": evaluate_missing_modality(model, val_loader, device),

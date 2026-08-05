@@ -50,6 +50,21 @@ def save_results(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2))
 
 
+def drop_non_finite(df: pd.DataFrame, columns) -> tuple[pd.DataFrame, int]:
+    """Drop rows whose ``lvef`` or any of ``columns`` holds a non-finite value.
+
+    Encoders emit NaN/inf inside otherwise present vectors, so a null check on the
+    manifest cell does not catch them -- ``.notna()`` asks whether the cell exists, not
+    what is in it. Every probe has to filter before fitting or sklearn raises deep in the
+    metrics. Returns the frame plus how many rows went, so callers can report it instead
+    of losing rows silently.
+    """
+    keep = df["lvef"].map(np.isfinite)
+    for col in columns:
+        keep &= df[col].map(lambda v: bool(np.isfinite(np.asarray(v, dtype=np.float64)).all()))
+    return df[keep].reset_index(drop=True), int((~keep).sum())
+
+
 class TokenEmbeddingDataset(Dataset):
     """Cohort rows with variable-length token embeddings stored as arrays."""
 

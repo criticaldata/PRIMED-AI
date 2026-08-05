@@ -92,7 +92,9 @@ def run(
     if not checkpoint.is_file():
         raise FileNotFoundError(f"M09 checkpoint not found: {checkpoint}")
 
-    parts = prepare_fused_probe_data(cohort_path, echo_embedding_path, ecg_embedding_path)
+    parts, n_dropped = prepare_fused_probe_data(
+        cohort_path, echo_embedding_path, ecg_embedding_path
+    )
     test_loader = fused_probe_loader(parts["test"], embed_dim=echo_dim, batch_size=batch_size)
 
     model = CrossAttnFusedProbe(

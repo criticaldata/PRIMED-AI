@@ -29,6 +29,7 @@ from sklearn.metrics import mean_absolute_error, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 
 from primed_ai.probes import manifest
+from primed_ai.probes.common import drop_non_finite
 
 DEFAULT_ALPHAS = np.logspace(-1, 5, 25)
 DEFAULT_CS = np.logspace(-3, 2, 12)
@@ -56,10 +57,9 @@ def load_dataset(cohort_path, embedding_path=None, *, record_col="ecg_record_id"
     features by prefix, so it cannot read the array column directly.
     """
     if embedding_path is None:
-        flat, ve = manifest.expand(manifest.load(cohort_path), manifest.ECG_COLUMN, "ve")
-        flat = flat.drop(columns=[manifest.ECHO_COLUMN], errors="ignore")
-        finite = np.isfinite(flat[ve].to_numpy(np.float64)).all(axis=1)
-        return flat[finite].reset_index(drop=True), ve, int((~finite).sum())
+        df, n_dropped = drop_non_finite(manifest.load(cohort_path), (manifest.ECG_COLUMN,))
+        flat, ve = manifest.expand(df, manifest.ECG_COLUMN, "ve")
+        return flat.drop(columns=[manifest.ECHO_COLUMN], errors="ignore"), ve, n_dropped
 
     coh = _read(cohort_path)
     emb = _read(embedding_path)

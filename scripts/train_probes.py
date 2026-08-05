@@ -5,9 +5,10 @@ Only the ECG-only probe had a CLI before this; the other three were library-only
 All four now read the single manifest written by ``build_echo_hubert_manifest.py``
 instead of the older cohort + separate-embedding-table layout.
 
-Dims are read off the manifest rather than passed in — mismatched ``--embed-dim``
-against a checkpoint is the failure mode called out in the README, so there is no
-reason to make it a flag here.
+Encoder dims are read off the manifest rather than passed in — mismatched ``--embed-dim``
+against a checkpoint is the failure mode called out in the README. The fused probe's
+internal width is separate and stays a flag (``--fusion-dim``), since it is a capacity
+choice rather than a property of the data.
 
 Example:
   python scripts/train_probes.py --manifest data/processed/echo_hubert_manifest.parquet
@@ -26,7 +27,9 @@ from primed_ai.probes import run_concat_mlp, run_cross_attn, run_ecg_only, run_e
 PROBES = ("ecg", "echo", "concat", "fused")
 
 
-def _train(name: str, manifest_path: str, out_root: Path, *, epochs: int, seed: int) -> dict:
+def _train(
+    name: str, manifest_path: str, out_root: Path, *, epochs: int, seed: int, fusion_dim: int
+) -> dict:
     out = str(out_root / name)
     if name == "ecg":
         return run_ecg_only(manifest_path, out_dir=out, seed=seed)
@@ -48,7 +51,7 @@ def _train(name: str, manifest_path: str, out_root: Path, *, epochs: int, seed: 
     return run_cross_attn(
         manifest_path,
         out_dir=out,
-        embed_dim=echo_dim,
+        embed_dim=fusion_dim,
         echo_dim=echo_dim,
         ecg_dim=ecg_dim,
         epochs=epochs,
@@ -64,6 +67,14 @@ def main() -> None:
     ap.add_argument("--probe", choices=(*PROBES, "all"), default="all")
     ap.add_argument("--out-dir", default="probes")
     ap.add_argument("--epochs", type=int, default=50)
+    ap.add_argument(
+        "--fusion-dim",
+        type=int,
+        default=256,
+        help="Width the fused probe projects both modalities to. Defaults to the 256 the "
+        "existing checkpoint used; passing the echo dim instead is an 8.7x parameter jump "
+        "for no measured gain.",
+    )
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
@@ -78,7 +89,14 @@ def main() -> None:
     selected = PROBES if args.probe == "all" else (args.probe,)
     summary = {}
     for name in selected:
-        res = _train(name, args.manifest, out_root, epochs=args.epochs, seed=args.seed)
+        res = _train(
+            name,
+            args.manifest,
+            out_root,
+            epochs=args.epochs,
+            seed=args.seed,
+            fusion_dim=args.fusion_dim,
+        )
         summary[name] = res
         # ecg_only nests its metrics under "splits"; the torch probes put them at top level.
         metrics = res.get("splits", res)
