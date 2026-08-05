@@ -631,3 +631,44 @@ def test_every_probe_trains_from_the_manifest(tmp_path, name, build):
 
     assert (out / "results.json").exists()
     assert sum(res["n"].values()) > 0
+
+
+def test_missing_modality_scores_a_manifest_trained_checkpoint(tmp_path):
+    """E07 (#64) must score the checkpoint M10 produced, off the same manifest.
+
+    ``missing_modality.run`` required both embedding paths, so the canonical rerun could
+    not read a manifest even after the probes could. Fixture data; the metrics are
+    meaningless, only the plumbing is asserted.
+    """
+    from primed_ai.evaluation.missing_modality import run as run_missing
+
+    path = _manifest(tmp_path / "m.parquet")
+    probe_dir = tmp_path / "fused"
+    run_fused(
+        path,
+        out_dir=str(probe_dir),
+        embed_dim=ECHO_DIM,
+        echo_dim=ECHO_DIM,
+        ecg_dim=ECG_DIM,
+        epochs=2,
+    )
+
+    res = run_missing(
+        path,
+        checkpoint_path=probe_dir / "cross_attn_fused.pt",
+        output_path=str(tmp_path / "missing.json"),
+        embed_dim=ECHO_DIM,
+        echo_dim=ECHO_DIM,
+        ecg_dim=ECG_DIM,
+        hidden=256,
+        n_bootstrap=10,
+    )
+    assert set(res["test"]) == {"full", "echo_dropped", "ecg_dropped"}
+    assert (tmp_path / "missing.json").exists()
+
+
+def test_missing_modality_requires_a_checkpoint(tmp_path):
+    from primed_ai.evaluation.missing_modality import run as run_missing
+
+    with pytest.raises(ValueError, match="checkpoint_path is required"):
+        run_missing(_manifest(tmp_path / "m.parquet"))
