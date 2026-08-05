@@ -53,22 +53,27 @@ See [TECHNICAL.md](./TECHNICAL.md) for full pipeline details.
 
 ## Results
 
-Held-out test split, n = 245. One fused cross-attention checkpoint (M09) trained on both modalities, scored under three inference-time conditions — no separate unimodal models are trained for the dropped conditions.
+Held-out test split, n = 245 after dropping three non-finite HuBERT-ECG rows from the original 248-row test split. One fused cross-attention checkpoint (M09) trained on both modalities, scored under three inference-time conditions — no separate unimodal models are trained for the dropped conditions.
 
-| Condition | Inference input | LVEF MAE | EF≤40% AUROC |
-|-----------|-----------------|---------:|-------------:|
-| `full` | Echo + ECG present | **10.28** | **0.766** |
-| `ecg_dropped` | ECG branch masked, echo present | 15.13 | 0.750 |
-| `echo_dropped` | Echo branch masked, ECG present | 18.57 | 0.693 |
+| Condition | Inference input | LVEF MAE (95% CI) | EF≤40% AUROC (95% CI) |
+|-----------|-----------------|-------------------:|----------------------:|
+| `full` | Echo + ECG present | **10.42** (9.28–11.64) | **0.771** (0.697–0.839) |
+| `ecg_dropped` | ECG branch masked, echo present | 11.22 (10.00–12.39) | 0.383 (0.279–0.493) |
+| `echo_dropped` | Echo branch masked, ECG present | 20.55 (19.02–22.02) | 0.689 (0.605–0.765) |
 
-Dropping echo costs more than dropping ECG on both metrics. AUROC holds up better than MAE under either drop, which is the graceful-degradation pattern rather than silent failure.
+Dropping echo costs much more MAE than dropping ECG, while ECG-dropped AUROC falls sharply. This run is a pooled-manifest baseline: the echo branch still receives one mean-pooled vector per study, not retained clip tokens.
 
-**Provenance:** real run on cached EchoJEPA (`vjepa2.1-vitl-mimic-pt-100`) + HuBERT-ECG embeddings, point estimates transcribed from the E02 evaluation into `results/missing_modality.json`. Bootstrap confidence intervals need per-example predictions and are pending a canonical rerun. `results/` is gitignored, so that JSON is not in this repository — see [CONTRIBUTING.md](./CONTRIBUTING.md#reproducibility) for what reproducing these numbers takes.
+**Provenance:** real run on cached EchoJEPA (`vjepa2.1-vitl-mimic-pt-100`) + HuBERT-ECG embeddings, local Mac CPU, seed 42, fusion width 256, 1,000 bootstrap resamples. The canonical pooled fused checkpoint was selected by validation MAE from an all-probe M10 run (`full` val MAE 10.62). `results/` and `probes/` are gitignored, so checkpoints, per-example predictions, and figures are local artifacts — see [CONTRIBUTING.md](./CONTRIBUTING.md#reproducibility) for what reproducing these numbers takes.
 
 Reproduce with:
 
 ```bash
-python scripts/evaluate_missing_modality.py
+python scripts/evaluate_missing_modality.py \
+  --manifest data/processed/echo_hubert_manifest.parquet \
+  --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
+  --embed-dim 256 \
+  --echo-dim 1024 \
+  --ecg-dim 768
 ```
 
 Defaults assume the standard cohort/embedding/checkpoint layout; `--help` lists the paths. `--embed-dim`, `--echo-dim`, and `--ecg-dim` must match the checkpoint architecture or the `state_dict` load fails on shape.

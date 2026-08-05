@@ -54,7 +54,9 @@ For each echo study:
 1. Match on `subject_id` to the nearest ECG record within a **24–48 hour** temporal window (using MIMIC timestamps).
 2. Join to the structured **LVEF** label from MIMIC-IV-Echo.
 
-Expected cohort size: a few thousand to tens of thousands of paired rows (exact count depends on window strictness and label availability).
+Current synchronized manifest size is 1,208 paired rows. Without extracting more
+EchoJEPA studies, the hard ceiling is 6,617 echo studies from subjects who also have an
+ECG; larger cohorts require additional echo embedding coverage, not just a looser join.
 
 ### 3.2 Train / test split
 
@@ -108,7 +110,10 @@ Two ECG paths exist in this repo, and they are not interchangeable:
 Both are 768-d after pooling, so the probes accept either. Anything downstream that says "ECG
 embedding" below refers to the HuBERT-ECG Parquet unless stated otherwise.
 
-**Open decision:** pooling strategy for ECG embeddings — mean vs. attentive pooling. Resolve with a quick empirical check early in probe development.
+The current HuBERT-ECG Parquet stores one pooled vector per record. Mean-vs-attentive
+ECG pooling is therefore not a runnable ablation yet: attentive pooling over tiled copies
+of that vector is mathematically identical to mean pooling. Token-level ECG needs a
+re-extraction pass before this decision can be revisited.
 
 ---
 
@@ -174,7 +179,11 @@ For each condition, report:
 
 Plot a **degradation curve** across conditions. The key question: when echo is unavailable at inference, does the model degrade gracefully or fail silently?
 
-**Implementation note:** at echo-dropped evaluation, zero out or mask the echo branch of the fused probe rather than retraining a separate ECG-only model. This tests the actual deployed fused model under missing input.
+**Implementation note:** at dropped-modality evaluation, mask the selected fused-probe
+branch at inference time (`mask_echo` / `mask_ecg`) rather than retraining a unimodal
+model. This tests the deployed fused checkpoint under missing input. Learned null tokens
+and branch dropout are deferred unless the missing-modality rerun shows masking is
+unstable.
 
 ### 7.2 Fairness audit
 
@@ -218,9 +227,9 @@ Measured missing-modality numbers are in the [README results table](README.md#re
 
 | Resource | Requirement |
 |---|---|
-| GPU | H200 or equivalent; reserve early on ORCD |
-| Storage | Sufficient for cached embedding tensors across full paired cohort |
-| Runtime | Subsetting to paired cohort keeps extraction under ~1 hour (vs. hours for full 525K echo corpus) |
+| GPU | Not needed for cached-vector probe training; needed only for future ECG token re-extraction or new EchoJEPA extraction |
+| Storage | Current pooled manifest plus one-seed probe checkpoints fit under 25 MB; `--max-clips` echo manifests scale linearly with retained clips |
+| Runtime | Cached-vector probe training runs on CPU; the real pooled 1,208-row M10 run completed in 44.84s on a local Mac CPU |
 | Reproducibility | Fixed random seeds; logged hyperparameters; versioned embedding cache |
 
 Probe training after caching is CPU/GPU-light and completes in minutes.
@@ -242,12 +251,12 @@ This work differs from EchoingECG on three axes: frozen embeddings (no fine-tuni
 
 ## 11. Open technical decisions
 
-- [ ] ECG pooling: mean vs. attentive — empirical check on validation set
+- [ ] ECG pooling: mean vs. attentive -- deferred until token-level ECG exists (#72)
 - [ ] Echo↔ECG pairing window: 24h vs. 48h — sensitivity analysis or fixed choice with justification
-- [ ] Multi-match resolution: when multiple ECGs fall within the window, take nearest timestamp
-- [ ] EF≤40% prevalence in paired cohort — confirm before reporting AUROC
-- [ ] GPU + storage budget for embedding cache on ORCD
-- [ ] Missing-modality masking strategy: zero-out vs. learned null token vs. branch dropout at eval only
+- [x] Multi-match resolution: when multiple ECGs fall within the window, take nearest timestamp
+- [x] EF≤40% prevalence in paired cohort: train/test are reportable; validation has only 26 EF<=40 positives, so validation AUROC should be treated as unstable
+- [x] GPU + storage budget for cached probe training: no GPU needed; current pooled manifest and checkpoints are laptop-scale
+- [x] Missing-modality masking strategy: use inference-time branch masks; no learned null token or branch dropout for the canonical rerun
 
 ---
 
