@@ -8,6 +8,8 @@ splits, checkpoints, metric keys), not accuracy.
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -672,3 +674,37 @@ def test_missing_modality_requires_a_checkpoint(tmp_path):
 
     with pytest.raises(ValueError, match="checkpoint_path is required"):
         run_missing(_manifest(tmp_path / "m.parquet"))
+
+
+def test_training_writes_a_run_manifest_recording_the_pooling_regime(tmp_path):
+    """#63 wants each run to record its inputs; the pooled/clip regime is the key one."""
+    import subprocess
+    import sys
+
+    pooled = _manifest(tmp_path / "pooled.parquet")
+    clip = _clip_manifest(tmp_path / "clip.parquet")
+    assert manifest.is_clip_level(pooled) is False
+    assert manifest.is_clip_level(clip) is True
+
+    out = tmp_path / "run"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/train_probes.py",
+            "--manifest",
+            str(clip),
+            "--out-dir",
+            str(out),
+            "--probe",
+            "echo",
+            "--epochs",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    meta = json.loads((out / "run_metadata.json").read_text())
+    assert meta["echo_tokens_are_clip_level"] is True
+    assert meta["fusion_dim"] == 256 and meta["seed"] == 42
+    assert meta["manifest"] == str(clip.resolve())
+    assert meta["git_sha"] != ""

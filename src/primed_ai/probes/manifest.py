@@ -48,6 +48,19 @@ def load(path: str | Path, *, require_both: bool = True) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+def is_clip_level(path_or_frame) -> bool:
+    """True when echo embeddings are per-clip token matrices rather than one pooled vector.
+
+    Which regime a run used is the whole provenance question for the pooled-vs-clip
+    comparison, so it belongs in the run metadata rather than being inferred later.
+    """
+    df = path_or_frame if isinstance(path_or_frame, pd.DataFrame) else load(path_or_frame)
+    for value in df[ECHO_COLUMN]:
+        if value is not None:
+            return np.asarray(value).ndim == 2
+    return False
+
+
 def dims(df: pd.DataFrame) -> tuple[int, int]:
     """(echo_dim, ecg_dim) taken from the first row carrying both embeddings."""
     for _, row in df.iterrows():

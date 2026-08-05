@@ -23,6 +23,7 @@ from pathlib import Path
 
 from primed_ai.probes import manifest as manifest_io
 from primed_ai.probes import run_concat_mlp, run_cross_attn, run_ecg_only, run_echo_only
+from primed_ai.utils.run_manifest import save_run_metadata
 
 PROBES = ("ecg", "echo", "concat", "fused")
 
@@ -103,7 +104,25 @@ def main() -> None:
         print(f"{name:7s} val={metrics.get('val', {})} test={metrics.get('test', {})}")
 
     (out_root / "summary.json").write_text(json.dumps(summary, indent=2, default=str))
-    print(f"\nwrote {out_root / 'summary.json'}")
+
+    echo_dim, ecg_dim = manifest_io.dims(manifest_io.load(args.manifest))
+    save_run_metadata(
+        out_root,
+        {
+            "task": "M10_probe_training",
+            "manifest": str(Path(args.manifest).resolve()),
+            "probes": list(selected),
+            "seed": args.seed,
+            "epochs": args.epochs,
+            "fusion_dim": args.fusion_dim,
+            "echo_dim": echo_dim,
+            "ecg_dim": ecg_dim,
+            # a clip-level manifest carries (n_clips, dim) per study; pooled carries (dim,)
+            "echo_tokens_are_clip_level": manifest_io.is_clip_level(args.manifest),
+            "n_dropped_nonfinite": {k: v.get("n_dropped_nonfinite") for k, v in summary.items()},
+        },
+    )
+    print(f"\nwrote {out_root / 'summary.json'} and {out_root / 'run_metadata.json'}")
 
 
 if __name__ == "__main__":
