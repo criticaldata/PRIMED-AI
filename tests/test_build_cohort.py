@@ -12,6 +12,7 @@ from build_cohort import (
     write_demographics_coverage,
     write_flowchart,
 )
+from run_cohort_sensitivity import summarize_sensitivity
 
 
 def test_funnel_stages_window_mode():
@@ -91,3 +92,31 @@ def test_write_flowchart(tmp_path):
     text = path.read_text()
     assert "flowchart TD" in text
     assert "studies = 200" in text
+
+
+def test_summarize_sensitivity_compares_final_rows():
+    funnels = {
+        "window_24h": pd.DataFrame(
+            {
+                "stage": ["1. Echo", "2. Paired"],
+                "n_studies": [1000, 200],
+                "n_subjects": [900, 180],
+                "excluded_studies": [0, 800],
+            }
+        ),
+        "window_48h": pd.DataFrame(
+            {
+                "stage": ["1. Echo", "2. Paired"],
+                "n_studies": [1000, 260],
+                "n_subjects": [900, 230],
+                "excluded_studies": [0, 740],
+            }
+        ),
+    }
+
+    summary = summarize_sensitivity(funnels)
+
+    assert summary.loc[0, "scenario"] == "window_24h"
+    assert summary.loc[0, "final_rows"] == 200
+    assert summary.loc[1, "gain_vs_first"] == 60
+    assert summary.loc[1, "gain_vs_first_pct"] == 30.0
