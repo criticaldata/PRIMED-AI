@@ -7,6 +7,10 @@ import pytest
 
 pytest.importorskip("pyarrow")
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+from primed_ai.data import echo_hubert_manifest
 from primed_ai.data.echo_hubert_dataset import EchoHubertDataset
 from primed_ai.data.echo_hubert_manifest import (
     build_echo_study_embeddings,
@@ -70,7 +74,7 @@ def test_echo_hubert_manifest_and_dataset(tmp_path):
     )
 
     pooled = echo_frame.loc[echo_frame["echo_study_id"] == 10, "echo_embedding"].iloc[0]
-    assert pooled == [2.0, 4.0]
+    assert pooled.tolist() == [2.0, 4.0]
     assert summary["n_cohort_rows"] == 2
     assert summary["n_with_both_embeddings"] == 2
     assert summary["echo_embedding_dim"] == 2
@@ -86,6 +90,102 @@ def test_echo_hubert_manifest_and_dataset(tmp_path):
     assert item["echo_embedding"].tolist() == [2.0, 4.0]
     assert item["ecg_embedding"].tolist() == [0.5, 1.5]
     assert item["lvef"] == 35.0
+
+
+def test_max_clips_retains_an_even_stride_subsample(tmp_path):
+    """Synthetic clip shard fixture: five clips tagged 0..4 in the first coordinate."""
+    echo_dir = tmp_path / "echo"
+    echo_dir.mkdir()
+    pd.DataFrame(
+        {
+            "subject_id": [1] * 5 + [2],
+            "study_id": [10] * 5 + [20],
+            "embedding": [[float(i), 0.0] for i in range(5)] + [[9.0, 9.0]],
+        }
+    ).to_parquet(echo_dir / "shard.parquet", index=False)
+
+    clip_path = tmp_path / "clips.parquet"
+    frame = build_echo_study_embeddings(echo_dir, clip_path, max_clips=3)
+    kept = frame.loc[frame["echo_study_id"] == 10, "echo_embedding"].iloc[0]
+    assert [row[0] for row in kept] == [0.0, 2.0, 4.0]
+    assert frame.loc[frame["echo_study_id"] == 10, "n_echo_clips"].iloc[0] == 5
+    assert frame.loc[frame["echo_study_id"] == 10, "n_echo_clips_retained"].iloc[0] == 3
+
+    single = frame.loc[frame["echo_study_id"] == 20, "echo_embedding"].iloc[0]
+    assert single.tolist() == [[9.0, 9.0]]
+
+    # float32 on disk: a .tolist() round-trip would silently double the file
+    assert pq.read_schema(clip_path).field("echo_embedding").type == pa.list_(
+        pa.list_(pa.float32())
+    )
+
+    # default stays mean-pooled and 1-D
+    pooled_path = tmp_path / "pooled.parquet"
+    pooled = build_echo_study_embeddings(echo_dir, pooled_path)
+    mean_vector = pooled.loc[pooled["echo_study_id"] == 10, "echo_embedding"].iloc[0]
+    assert mean_vector.tolist() == [2.0, 0.0]
+    assert "n_echo_clips_retained" not in pooled.columns
+    assert pq.read_schema(pooled_path).field("echo_embedding").type == pa.list_(pa.float32())
+
+
+def test_null_clips_neither_burn_retention_slots_nor_drop_a_study(tmp_path):
+    """Synthetic clip shard fixture: study 10 has nulls on exactly the old stride picks.
+
+    Under a stride taken before parsing, 0/2/4/6/8 are all null and study 10 disappears
+    from the clip build while the pooled build keeps it.
+    """
+    echo_dir = tmp_path / "echo"
+    echo_dir.mkdir()
+    embeddings = [None if i % 2 == 0 else [float(i), 0.0] for i in range(10)]
+    pd.DataFrame(
+        {"subject_id": [1] * 10, "study_id": [10] * 10, "embedding": embeddings}
+    ).to_parquet(echo_dir / "shard.parquet", index=False)
+
+    clipped = build_echo_study_embeddings(echo_dir, tmp_path / "clips.parquet", max_clips=5)
+    pooled = build_echo_study_embeddings(echo_dir, tmp_path / "pooled.parquet")
+
+    kept = clipped["echo_embedding"].iloc[0]
+    assert [row[0] for row in kept] == [1.0, 5.0, 9.0]
+    assert clipped["n_echo_clips_retained"].iloc[0] == 3
+
+    # n_echo_clips counts parsed clips in both modes, so QC can reconcile the two builds
+    assert clipped["echo_study_id"].tolist() == pooled["echo_study_id"].tolist()
+    assert clipped["n_echo_clips"].tolist() == pooled["n_echo_clips"].tolist() == [5]
+
+
+def test_clip_payload_past_the_list_offset_ceiling_is_refused(tmp_path, monkeypatch):
+    """Parquet list offsets are int32, so the clip column has a hard 2^31-value ceiling.
+
+    ``pa.ListArray.from_arrays`` narrows int64 offsets to int32 whatever it is handed, and
+    ``build_joined_manifest`` re-writes the column through pandas as a plain ``list<>`` as
+    well, so the ceiling survives any large_list change made in the builder alone. It is
+    unreachable at the sizes this pipeline writes, so the real ceiling is monkeypatched down
+    rather than allocating 8 GB to reach it.
+    """
+    echo_dir = tmp_path / "echo"
+    echo_dir.mkdir()
+    pd.DataFrame(
+        {
+            "subject_id": [1, 1],
+            "study_id": [10, 10],
+            "embedding": [[1.0, 2.0], [3.0, 4.0]],
+        }
+    ).to_parquet(echo_dir / "shard.parquet", index=False)
+
+    monkeypatch.setattr(echo_hubert_manifest, "MAX_LIST_VALUES", 3)
+    with pytest.raises(ValueError, match="parquet list-offset ceiling"):
+        build_echo_study_embeddings(echo_dir, tmp_path / "clips.parquet", max_clips=2)
+
+
+def test_build_echo_raises_when_nothing_parses(tmp_path):
+    echo_dir = tmp_path / "echo"
+    echo_dir.mkdir()
+    pd.DataFrame(
+        {"subject_id": [1], "study_id": [10], "embedding": pd.Series([None], dtype=object)}
+    ).to_parquet(echo_dir / "shard.parquet", index=False)
+
+    with pytest.raises(ValueError, match="No parseable echo embeddings"):
+        build_echo_study_embeddings(echo_dir, tmp_path / "clips.parquet", max_clips=2)
 
 
 def test_subject_split_leakage_raises(tmp_path):

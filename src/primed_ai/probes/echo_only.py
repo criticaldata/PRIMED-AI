@@ -10,10 +10,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from primed_ai.data.echo_hubert_manifest import parse_embedding
+from primed_ai.probes import manifest
 from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
     collate_tokens,
+    drop_non_finite,
     git_sha,
     read_table,
     regression_metrics,
@@ -30,8 +33,8 @@ class EchoOnlyProbe(nn.Module):
         self.pool = AttentivePool(embed_dim)
         self.head = MLPHead(embed_dim, hidden=hidden)
 
-    def forward(self, echo_tokens: torch.Tensor) -> torch.Tensor:
-        return self.head(self.pool(echo_tokens))
+    def forward(self, echo_tokens: torch.Tensor, pad_mask: torch.Tensor | None = None):
+        return self.head(self.pool(echo_tokens, pad_mask))
 
 
 class LinearEchoProbe(nn.Module):
@@ -41,11 +44,20 @@ class LinearEchoProbe(nn.Module):
         super().__init__()
         self.head = nn.Linear(embed_dim, 1)
 
-    def forward(self, echo_tokens: torch.Tensor) -> torch.Tensor:
-        return self.head(echo_tokens.mean(dim=1)).squeeze(-1)
+    def forward(self, echo_tokens: torch.Tensor, pad_mask: torch.Tensor | None = None):
+        if pad_mask is None:
+            pooled = echo_tokens.mean(dim=1)
+        else:
+            # dividing by the padded length would rig the ablation in the attentive probe's favour
+            valid = (~pad_mask).unsqueeze(-1).to(echo_tokens.dtype)
+            pooled = (echo_tokens * valid).sum(dim=1) / valid.sum(dim=1).clamp(min=1.0)
+        return self.head(pooled).squeeze(-1)
 
 
 def _embedding_to_tokens(value, *, n_tokens: int) -> np.ndarray:
+    if isinstance(value, np.ndarray) and value.dtype == object:
+        # a raw parquet read of a clip matrix comes back as an array of per-clip arrays
+        value = parse_embedding(value)
     arr = np.asarray(value, dtype=np.float32)
     if arr.ndim == 1:
         return np.tile(arr, (n_tokens, 1)).reshape(n_tokens, arr.shape[0])
@@ -86,7 +98,7 @@ def _train_epoch(model, loader, optim, device) -> float:
         echo = batch["echo"].to(device)
         y = batch["lvef"].to(device)
         optim.zero_grad()
-        pred = model(echo)
+        pred = model(echo, batch["echo_mask"].to(device))
         loss = loss_fn(pred, y)
         loss.backward()
         optim.step()
@@ -95,26 +107,32 @@ def _train_epoch(model, loader, optim, device) -> float:
 
 
 @torch.no_grad()
-def _eval_model(model, loader, device) -> dict:
+def _predict(model, loader, device) -> dict:
     model.eval()
     ys, preds, ef = [], [], []
     for batch in loader:
         echo = batch["echo"].to(device)
-        pred = model(echo).cpu().numpy()
+        pred = model(echo, batch["echo_mask"].to(device)).cpu().numpy()
         ys.append(batch["lvef"].numpy())
         preds.append(pred)
         ef.append(batch["ef_le_40"].numpy())
-    y = np.concatenate(ys)
-    p = np.concatenate(preds)
-    ef = np.concatenate(ef).astype(bool)
-    metrics = regression_metrics(y, p)
-    metrics["ef40_auroc"] = round(auroc(ef, -p), 4)
+    return {
+        "lvef": np.concatenate(ys),
+        "prediction": np.concatenate(preds),
+        "ef_le_40": np.concatenate(ef).astype(bool),
+    }
+
+
+def _eval_model(model, loader, device) -> dict:
+    arrays = _predict(model, loader, device)
+    metrics = regression_metrics(arrays["lvef"], arrays["prediction"])
+    metrics["ef40_auroc"] = round(auroc(arrays["ef_le_40"], -arrays["prediction"]), 4)
     return metrics
 
 
 def run(
     cohort_path,
-    embedding_path,
+    embedding_path=None,
     out_dir="probes/echo_only",
     *,
     embed_dim: int = 16,
@@ -130,13 +148,17 @@ def run(
     torch.manual_seed(seed)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-    coh = read_table(cohort_path)
-    emb = read_table(embedding_path)
-    key = "echo_study_id" if "echo_study_id" in coh.columns else coh.columns[0]
-    if key not in emb.columns:
-        emb = emb.rename(columns={emb.columns[0]: key})
-    df = coh.merge(emb, on=key, how="inner")
+    if embedding_path is None:
+        df = manifest.load(cohort_path)  # embeddings already inline, nothing to join
+    else:
+        coh = read_table(cohort_path)
+        emb = read_table(embedding_path)
+        key = "echo_study_id" if "echo_study_id" in coh.columns else coh.columns[0]
+        if key not in emb.columns:
+            emb = emb.rename(columns={emb.columns[0]: key})
+        df = coh.merge(emb, on=key, how="inner")
     df = _ensure_tokens(df)
+    df, n_dropped = drop_non_finite(df, ("echo_tokens",))
 
     def split(name: str) -> pd.DataFrame:
         return df[df["split"] == name].reset_index(drop=True)
@@ -184,6 +206,7 @@ def run(
         "seed": seed,
         "git_sha": git_sha(),
         "embed_dim": embed_dim,
+        "n_dropped_nonfinite": n_dropped,
         "n": {"train": len(train_df), "val": len(val_df), "test": len(test_df)},
         "val": {"attentive": val_attn, "linear": val_lin},
         "test": {"attentive": test_attn},

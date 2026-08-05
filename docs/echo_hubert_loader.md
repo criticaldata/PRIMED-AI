@@ -221,6 +221,18 @@ python scripts/build_echo_hubert_manifest.py build-echo \
   --output data/interim/echo_study_embeddings_vjepa2.1-vitl-mimic-pt-100.parquet
 ```
 
+That mean-pools every clip into one 1024-d vector per study. Add `--max-clips 16` to
+keep an even-stride subsample of clip vectors instead — `echo_embedding` becomes
+`(n_clips, 1024)` and the metadata CSV gains `n_echo_clips_retained`. The attentive
+probes need this: identical tokens make the softmax uniform, so on a mean-pooled
+manifest `AttentivePool` is an exact identity and its query never receives gradient.
+
+Retained clips are held in memory until the write, so `--max-clips` costs
+`n_studies * max_clips * 1024 * 4` bytes of payload — about 475 MB for 7,251 studies at
+16 clips, and roughly 4x that in peak RSS. It scales linearly with the cap, so check the
+machine before raising it. `echo_embedding` is written as float32; `n_echo_clips` counts
+the clips that parsed in both modes, so the pooled and clip-level builds reconcile.
+
 For the current HuBERT Drive CSV, IDs are stored in `filename` paths like
 `files/p1000/p10000032/s40689238/40689238`, and embeddings are spread across
 `ve0001` to `ve0768`. The converter parses those paths automatically:

@@ -28,6 +28,9 @@ from sklearn.linear_model import LogisticRegressionCV, RidgeCV
 from sklearn.metrics import mean_absolute_error, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 
+from primed_ai.probes import manifest
+from primed_ai.probes.common import drop_non_finite
+
 DEFAULT_ALPHAS = np.logspace(-1, 5, 25)
 DEFAULT_CS = np.logspace(-3, 2, 12)
 
@@ -42,13 +45,22 @@ def _canon(v) -> str:
     return "".join(ch for ch in str(v).rsplit("/", 1)[-1] if ch.isdigit())
 
 
-def load_dataset(cohort_path, embedding_path, *, record_col="ecg_record_id"):
+def load_dataset(cohort_path, embedding_path=None, *, record_col="ecg_record_id"):
     """Join cohort labels/splits to per-record embeddings; drop non-finite rows.
 
     Returns (df, embedding_columns, n_dropped). Matching is on the canonical
     record id, so the embedding key may be a bare id, an ``s``-prefixed id, or a
     full path.
+
+    With ``embedding_path`` omitted, ``cohort_path`` is read as a joined manifest and
+    its inline ECG vectors are flattened into ``ve*`` columns — this probe selects its
+    features by prefix, so it cannot read the array column directly.
     """
+    if embedding_path is None:
+        df, n_dropped = drop_non_finite(manifest.load(cohort_path), (manifest.ECG_COLUMN,))
+        flat, ve = manifest.expand(df, manifest.ECG_COLUMN, "ve")
+        return flat.drop(columns=[manifest.ECHO_COLUMN], errors="ignore"), ve, n_dropped
+
     coh = _read(cohort_path)
     emb = _read(embedding_path)
 
@@ -92,7 +104,7 @@ def _ci(a) -> list:
 
 def run(
     cohort_path,
-    embedding_path,
+    embedding_path=None,
     out_dir="probes/ecg_only",
     *,
     seed: int = 42,

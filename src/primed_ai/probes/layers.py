@@ -15,8 +15,11 @@ class AttentivePool(nn.Module):
         super().__init__()
         self.query = nn.Parameter(torch.randn(dim) / math.sqrt(dim))
 
-    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+    def forward(self, tokens: torch.Tensor, pad_mask: torch.Tensor | None = None) -> torch.Tensor:
         scores = (tokens * self.query).sum(dim=-1) / math.sqrt(tokens.size(-1))
+        if pad_mask is not None:
+            # finfo.min rather than -inf: an all-padded row then pools to zero instead of NaN
+            scores = scores.masked_fill(pad_mask, torch.finfo(scores.dtype).min)
         weights = torch.softmax(scores, dim=-1)
         return (tokens * weights.unsqueeze(-1)).sum(dim=1)
 
@@ -55,6 +58,7 @@ class CrossAttentionFusion(nn.Module):
         *,
         mask_echo: bool = False,
         mask_ecg: bool = False,
+        echo_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if mask_echo:
             echo_tokens = torch.zeros_like(echo_tokens)
@@ -62,6 +66,8 @@ class CrossAttentionFusion(nn.Module):
             ecg_tokens = torch.zeros_like(ecg_tokens)
 
         echo_ctx, _ = self.echo_to_ecg(echo_tokens, ecg_tokens, ecg_tokens)
-        ecg_ctx, _ = self.ecg_to_echo(ecg_tokens, echo_tokens, echo_tokens)
-        fused = torch.cat([self.echo_pool(echo_ctx), self.ecg_pool(ecg_ctx)], dim=-1)
+        ecg_ctx, _ = self.ecg_to_echo(
+            ecg_tokens, echo_tokens, echo_tokens, key_padding_mask=echo_mask
+        )
+        fused = torch.cat([self.echo_pool(echo_ctx, echo_mask), self.ecg_pool(ecg_ctx)], dim=-1)
         return self.norm(fused)

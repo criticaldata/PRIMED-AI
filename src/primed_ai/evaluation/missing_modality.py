@@ -69,9 +69,9 @@ def _metrics_from_predictions(arrays: dict) -> dict:
 
 def run(
     cohort_path,
-    echo_embedding_path,
-    ecg_embedding_path,
-    checkpoint_path,
+    echo_embedding_path=None,
+    ecg_embedding_path=None,
+    checkpoint_path=None,
     output_path="results/missing_modality.json",
     *,
     embed_dim: int = 16,
@@ -83,16 +83,24 @@ def run(
     n_bootstrap: int = 1000,
     device: str | None = None,
 ) -> dict:
-    """Load one full-modality M09 checkpoint and evaluate held-out test conditions."""
+    """Load one full-modality M09 checkpoint and evaluate held-out test conditions.
+
+    Omit both embedding paths to read ``cohort_path`` as a joined manifest, matching how
+    the probes are trained -- E07 scores the checkpoint M10 produced, off the same table.
+    """
     torch.manual_seed(seed)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     echo_dim = echo_dim or embed_dim
     ecg_dim = ecg_dim or embed_dim
+    if checkpoint_path is None:
+        raise ValueError("checkpoint_path is required")
     checkpoint = Path(checkpoint_path)
     if not checkpoint.is_file():
         raise FileNotFoundError(f"M09 checkpoint not found: {checkpoint}")
 
-    parts = prepare_fused_probe_data(cohort_path, echo_embedding_path, ecg_embedding_path)
+    parts, n_dropped = prepare_fused_probe_data(
+        cohort_path, echo_embedding_path, ecg_embedding_path
+    )
     test_loader = fused_probe_loader(parts["test"], embed_dim=echo_dim, batch_size=batch_size)
 
     model = CrossAttnFusedProbe(

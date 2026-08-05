@@ -11,10 +11,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from primed_ai.probes import manifest
 from primed_ai.probes.common import (
     TokenEmbeddingDataset,
     auroc,
     collate_tokens,
+    drop_non_finite,
     git_sha,
     read_table,
     regression_metrics,
@@ -58,10 +60,17 @@ class CrossAttnFusedProbe(nn.Module):
         *,
         mask_echo: bool = False,
         mask_ecg: bool = False,
+        echo_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         echo_tokens = self.echo_proj(echo_tokens)
         ecg_tokens = self.ecg_proj(ecg_tokens)
-        fused = self.fusion(echo_tokens, ecg_tokens, mask_echo=mask_echo, mask_ecg=mask_ecg)
+        fused = self.fusion(
+            echo_tokens,
+            ecg_tokens,
+            mask_echo=mask_echo,
+            mask_ecg=mask_ecg,
+            echo_mask=echo_mask,
+        )
         return self.head(fused)
 
 
@@ -73,7 +82,7 @@ def _train_epoch(model, loader, optim, device) -> None:
         ecg = batch["ecg"].to(device)
         y = batch["lvef"].to(device)
         optim.zero_grad()
-        pred = model(echo, ecg)
+        pred = model(echo, ecg, echo_mask=batch["echo_mask"].to(device))
         loss = loss_fn(pred, y)
         loss.backward()
         optim.step()
@@ -97,6 +106,7 @@ def _condition_arrays(
                 batch["ecg"].to(device),
                 mask_echo=mask_echo,
                 mask_ecg=mask_ecg,
+                echo_mask=batch["echo_mask"].to(device),
             )
             .cpu()
             .numpy()
@@ -127,35 +137,43 @@ def _eval_condition(
 
 
 def prepare_fused_probe_data(
-    cohort_path, echo_embedding_path, ecg_embedding_path
-) -> dict[str, pd.DataFrame]:
-    """Load paired cohort + cached embeddings and return train/val/test frames."""
-    coh = read_table(cohort_path)
-    echo_emb = read_table(echo_embedding_path)
-    ecg_emb = read_table(ecg_embedding_path)
-    echo_key = "echo_study_id" if "echo_study_id" in coh.columns else "subject_id"
-    ecg_key = "ecg_record_id"
-    if echo_key not in echo_emb.columns:
-        echo_emb = echo_emb.rename(columns={echo_emb.columns[0]: echo_key})
-    if ecg_key not in ecg_emb.columns:
-        if "ecg_study_id" in ecg_emb.columns:
-            ecg_emb = ecg_emb.rename(columns={"ecg_study_id": ecg_key})
-        else:
-            ecg_emb = ecg_emb.rename(columns={ecg_emb.columns[0]: ecg_key})
+    cohort_path, echo_embedding_path=None, ecg_embedding_path=None
+) -> tuple[dict[str, pd.DataFrame], int]:
+    """Load paired cohort + cached embeddings; return train/val/test frames and the
+    number of rows dropped for holding non-finite values.
 
-    df = coh.merge(echo_emb, on=echo_key, how="inner").merge(ecg_emb, on=ecg_key, how="inner")
+    With both embedding paths omitted, ``cohort_path`` is read as a joined manifest
+    that already carries ``echo_embedding``/``ecg_embedding`` inline.
+    """
+    if echo_embedding_path is None and ecg_embedding_path is None:
+        df = manifest.load(cohort_path)
+    elif echo_embedding_path is None or ecg_embedding_path is None:
+        raise ValueError(
+            "pass both embedding paths for the two-table layout, or neither to read "
+            "cohort_path as a joined manifest"
+        )
+    else:
+        coh = read_table(cohort_path)
+        echo_emb = read_table(echo_embedding_path)
+        ecg_emb = read_table(ecg_embedding_path)
+        echo_key = "echo_study_id" if "echo_study_id" in coh.columns else "subject_id"
+        ecg_key = "ecg_record_id"
+        if echo_key not in echo_emb.columns:
+            echo_emb = echo_emb.rename(columns={echo_emb.columns[0]: echo_key})
+        if ecg_key not in ecg_emb.columns:
+            if "ecg_study_id" in ecg_emb.columns:
+                ecg_emb = ecg_emb.rename(columns={"ecg_study_id": ecg_key})
+            else:
+                ecg_emb = ecg_emb.rename(columns={ecg_emb.columns[0]: ecg_key})
+
+        df = coh.merge(echo_emb, on=echo_key, how="inner").merge(ecg_emb, on=ecg_key, how="inner")
     df = _ensure_tokens(df)
     df = _ensure_ecg_tokens(df)
-    finite = (
-        df["lvef"].map(np.isfinite)
-        & df["echo_tokens"].map(lambda value: np.isfinite(np.asarray(value)).all())
-        & df["ecg_tokens"].map(lambda value: np.isfinite(np.asarray(value)).all())
-    )
-    df = df[finite].reset_index(drop=True)
+    df, n_dropped = drop_non_finite(df, ("echo_tokens", "ecg_tokens"))
     parts = {s: df[df["split"] == s].reset_index(drop=True) for s in ("train", "val", "test")}
     if min(len(parts[s]) for s in parts) == 0:
         raise ValueError("train/val/test must all be non-empty")
-    return parts
+    return parts, n_dropped
 
 
 def fused_probe_loader(
@@ -200,8 +218,8 @@ def predict_missing_modality(
 
 def run(
     cohort_path,
-    echo_embedding_path,
-    ecg_embedding_path,
+    echo_embedding_path=None,
+    ecg_embedding_path=None,
     out_dir="probes/cross_attn_fused",
     *,
     embed_dim: int = 16,
@@ -220,7 +238,9 @@ def run(
     echo_dim = echo_dim or embed_dim
     ecg_dim = ecg_dim or embed_dim
 
-    parts = prepare_fused_probe_data(cohort_path, echo_embedding_path, ecg_embedding_path)
+    parts, n_dropped = prepare_fused_probe_data(
+        cohort_path, echo_embedding_path, ecg_embedding_path
+    )
 
     model = CrossAttnFusedProbe(embed_dim, echo_dim=echo_dim, ecg_dim=ecg_dim).to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
@@ -257,6 +277,7 @@ def run(
         "git_sha": git_sha(),
         "fusion_dim": embed_dim,
         "echo_dim": echo_dim,
+        "n_dropped_nonfinite": n_dropped,
         "ecg_dim": ecg_dim,
         "n": {k: len(v) for k, v in parts.items()},
         "val": evaluate_missing_modality(model, val_loader, device),

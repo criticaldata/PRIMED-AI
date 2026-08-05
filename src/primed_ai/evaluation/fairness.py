@@ -106,7 +106,15 @@ def predict_on_df(
     with torch.no_grad():
         for batch in loader:
             try:
-                p = model(batch["echo"].to(device), batch["ecg"].to(device)).cpu().numpy()
+                p = (
+                    model(
+                        batch["echo"].to(device),
+                        batch["ecg"].to(device),
+                        echo_mask=batch["echo_mask"].to(device),
+                    )
+                    .cpu()
+                    .numpy()
+                )
             except ValueError as e:
                 raise ValueError(
                     f"Model forward failed: {e}. Check embed_dim={embed_dim} vs token feature dim (first batch: {batch['echo'].shape})"

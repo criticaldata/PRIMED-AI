@@ -17,6 +17,9 @@ import pyarrow.parquet as pq
 
 DEFAULT_ECHO_MODEL = "vjepa2.1-vitl-mimic-pt-100"
 DEFAULT_ECG_MODEL = "hubert"
+# pa.ListArray offsets are int32 whatever dtype from_arrays is handed, and build_joined_manifest
+# re-writes the column through pandas as plain list<> as well, so this ceiling is real end to end.
+MAX_LIST_VALUES = int(np.iinfo(np.int32).max)
 ECG_FILENAME_RE = re.compile(r"(?:^|/)p\d+/p(?P<subject_id>\d+)/s(?P<study_id>\d+)/")
 
 
@@ -59,15 +62,16 @@ def require_column(
     raise ValueError(f"Could not infer {label} column from: {sorted(columns)}")
 
 
-def parse_embedding(value: Any) -> list[float] | None:
-    """Return a float vector from common CSV/Parquet embedding representations."""
+def parse_embedding(value: Any) -> list | None:
+    """Return a float vector (or clip matrix) from CSV/Parquet embedding representations."""
 
     if value is None or (isinstance(value, float) and np.isnan(value)):
         return None
-    if isinstance(value, np.ndarray):
-        return value.astype(float).tolist()
-    if isinstance(value, (list, tuple)):
-        return [float(item) for item in value]
+    if isinstance(value, np.ndarray) and value.dtype == object:
+        # pyarrow hands a list<list<double>> column back as an array of per-clip arrays
+        value = [np.asarray(item, dtype=float) for item in value]
+    if isinstance(value, (np.ndarray, list, tuple)):
+        return np.asarray(value, dtype=float).tolist()
     if hasattr(value, "as_py"):
         return parse_embedding(value.as_py())
     if isinstance(value, str):
@@ -89,7 +93,7 @@ def embedding_dim(series: pd.Series) -> int | None:
     for value in series:
         parsed = parse_embedding(value)
         if parsed is not None:
-            return len(parsed)
+            return int(np.asarray(parsed).shape[-1])
     return None
 
 
@@ -113,6 +117,32 @@ def parquet_files(path: Path) -> list[Path]:
     return files
 
 
+def _echo_clip_batches(
+    files: Sequence[Path],
+    subject_col: str | None,
+    study_col: str | None,
+    embedding_col: str | None,
+    batch_size: int,
+    *,
+    with_embedding: bool,
+) -> Iterable[pd.DataFrame]:
+    for file_path in files:
+        parquet_file = pq.ParquetFile(file_path)
+        columns = parquet_file.schema_arrow.names
+        read_columns = [
+            require_column(columns, subject_col, ["subject_id"], "echo subject_id"),
+            require_column(columns, study_col, ["study_id", "echo_study_id"], "echo study_id"),
+        ]
+        if with_embedding:
+            read_columns.append(
+                require_column(
+                    columns, embedding_col, ["embedding", "echo_embedding"], "echo embedding"
+                )
+            )
+        for batch in parquet_file.iter_batches(batch_size=batch_size, columns=read_columns):
+            yield batch.to_pandas()
+
+
 def build_echo_study_embeddings(
     input_path: Path,
     output_path: Path,
@@ -122,59 +152,125 @@ def build_echo_study_embeddings(
     embedding_col: str | None = None,
     echo_model: str = DEFAULT_ECHO_MODEL,
     batch_size: int = 1024,
+    max_clips: int | None = None,
 ) -> pd.DataFrame:
-    """Mean-pool clip-level EchoJEPA embeddings to one vector per echo study."""
+    """Reduce clip-level EchoJEPA embeddings to one row per echo study.
+
+    By default every clip is mean-pooled into a 1-D ``echo_embedding``. Pass ``max_clips``
+    to keep an even-stride subsample of that many clip vectors instead, which makes
+    ``echo_embedding`` a ``(n_retained, dim)`` matrix that attentive pooling can actually
+    discriminate between. Clip order is whatever the source shards use; the stride is
+    deterministic so no seed has to be recorded.
+
+    Retained clips are held as float32 until the write, so the payload is
+    ``n_studies * max_clips * dim * 4`` bytes — ~475 MB at 7,251 studies x 16 clips x 1024
+    dims. Budget about 4x that for peak RSS (the accumulator, the contiguous copy the
+    parquet column is built from, and the writer's own buffer). ``max_clips`` scales it
+    linearly, so a big cap on a small machine will page.
+    """
+
+    if max_clips is not None and max_clips < 1:
+        raise ValueError(f"max_clips must be >= 1, got {max_clips}")
+
+    files = parquet_files(input_path)
+    totals: defaultdict[tuple[Any, Any], int] = defaultdict(int)
+    if max_clips:
+        # Counting pass reads the id columns only; the stride needs the per-study total.
+        for frame in _echo_clip_batches(
+            files, subject_col, study_col, embedding_col, batch_size, with_embedding=False
+        ):
+            for key in frame.itertuples(index=False, name=None):
+                totals[key] += 1
 
     sums: dict[tuple[Any, Any], np.ndarray] = {}
+    clips: dict[tuple[Any, Any], list[np.ndarray]] = {}
+    dims: dict[tuple[Any, Any], int] = {}
     counts: defaultdict[tuple[Any, Any], int] = defaultdict(int)
 
-    for file_path in parquet_files(input_path):
-        parquet_file = pq.ParquetFile(file_path)
-        columns = parquet_file.schema_arrow.names
-        resolved_subject = require_column(columns, subject_col, ["subject_id"], "echo subject_id")
-        resolved_study = require_column(
-            columns, study_col, ["study_id", "echo_study_id"], "echo study_id"
-        )
-        resolved_embedding = require_column(
-            columns, embedding_col, ["embedding", "echo_embedding"], "echo embedding"
-        )
-        read_columns = [resolved_subject, resolved_study, resolved_embedding]
-        for batch in parquet_file.iter_batches(batch_size=batch_size, columns=read_columns):
-            frame = batch.to_pandas()
-            for row in frame.itertuples(index=False):
-                subject_id, study_id, raw_embedding = row
-                vector = parse_embedding(raw_embedding)
-                if vector is None:
+    for frame in _echo_clip_batches(
+        files, subject_col, study_col, embedding_col, batch_size, with_embedding=True
+    ):
+        for subject_id, study_id, raw_embedding in frame.itertuples(index=False, name=None):
+            key = (subject_id, study_id)
+            vector = parse_embedding(raw_embedding)
+            if vector is None:
+                continue
+            arr = np.asarray(vector, dtype=np.float64)
+            if arr.ndim != 1:
+                raise ValueError(f"Expected a 1-D clip embedding for {key}, got shape {arr.shape}")
+            dim = dims.setdefault(key, arr.shape[0])
+            if dim != arr.shape[0]:
+                raise ValueError(
+                    f"Inconsistent echo embedding dimension for {key}: {dim} vs {arr.shape[0]}"
+                )
+            index = counts[key]
+            counts[key] += 1
+            if max_clips:
+                # Stride over the clips that parsed, not the raw rows, so nulls never burn a
+                # retention slot or empty a study out. totals is still the raw count, so a
+                # study with nulls keeps a little under max_clips; index 0 always survives.
+                if totals[key] > max_clips and (index * max_clips) % totals[key] >= max_clips:
                     continue
-                key = (subject_id, study_id)
-                arr = np.asarray(vector, dtype=np.float64)
-                if key not in sums:
-                    sums[key] = np.zeros_like(arr)
-                if sums[key].shape != arr.shape:
-                    raise ValueError(
-                        f"Inconsistent echo embedding dimension for {key}: "
-                        f"{sums[key].shape[0]} vs {arr.shape[0]}"
-                    )
+                clips.setdefault(key, []).append(arr.astype(np.float32))
+            elif key in sums:
                 sums[key] += arr
-                counts[key] += 1
+            else:
+                sums[key] = arr
 
-    rows = [
+    keys = sorted(clips if max_clips else sums)
+    if not keys:
+        raise ValueError(f"No parseable echo embeddings found under {input_path}")
+    study_dims = set(dims.values())
+    if len(study_dims) > 1:
+        raise ValueError(
+            f"Inconsistent echo embedding dimension across studies: {sorted(study_dims)}"
+        )
+    dim = study_dims.pop()
+
+    # One contiguous float32 block: .tolist() here would turn every value into a 32-byte
+    # Python float and land in parquet as double.
+    lengths = [len(clips[key]) for key in keys] if max_clips else [1] * len(keys)
+    n_values = sum(lengths) * dim
+    if n_values > MAX_LIST_VALUES:
+        # Reported here, with the numbers, instead of as an opaque ArrowInvalid from the writer.
+        raise ValueError(
+            f"{sum(lengths)} clips x {dim} dims = {n_values} float32 values exceeds the "
+            f"{MAX_LIST_VALUES} parquet list-offset ceiling; lower max_clips or shard the input"
+        )
+    flat = np.empty((sum(lengths), dim), dtype=np.float32)
+    offset = 0
+    for key, length in zip(keys, lengths):
+        if max_clips:
+            flat[offset : offset + length] = clips.pop(key)
+        else:
+            flat[offset] = sums.pop(key) / counts[key]
+        offset += length
+
+    clip_offsets = np.arange(len(flat) + 1) * dim
+    column = pa.ListArray.from_arrays(clip_offsets, pa.array(flat.reshape(-1), type=pa.float32()))
+    if max_clips:
+        study_offsets = np.zeros(len(keys) + 1, dtype=np.int32)
+        study_offsets[1:] = np.cumsum(lengths)
+        column = pa.ListArray.from_arrays(study_offsets, column)
+        embeddings = [flat[end - n : end] for end, n in zip(study_offsets[1:], lengths)]
+    else:
+        embeddings = list(flat)
+
+    frame = pd.DataFrame(
         {
-            "subject_id": subject_id,
-            "echo_study_id": echo_study_id,
-            "n_echo_clips": counts[(subject_id, echo_study_id)],
-            "echo_embedding": (
-                sums[(subject_id, echo_study_id)] / counts[(subject_id, echo_study_id)]
-            )
-            .astype(np.float32)
-            .tolist(),
+            "subject_id": [key[0] for key in keys],
+            "echo_study_id": [key[1] for key in keys],
+            "n_echo_clips": [counts[key] for key in keys],
+            "echo_embedding": embeddings,
             "echo_model": echo_model,
         }
-        for subject_id, echo_study_id in sorted(sums)
-    ]
+    )
+    if max_clips:
+        frame["n_echo_clips_retained"] = lengths
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    frame = pd.DataFrame(rows)
-    frame.to_parquet(output_path, index=False)
+    table = pa.Table.from_pandas(frame.drop(columns=["echo_embedding"]), preserve_index=False)
+    pq.write_table(table.add_column(3, "echo_embedding", column), output_path)
     return frame
 
 
@@ -379,6 +475,7 @@ def build_joined_manifest(
         "age",
         "race",
         "n_echo_clips",
+        "n_echo_clips_retained",
         "has_echo_embedding",
         "has_ecg_embedding",
         "echo_model",

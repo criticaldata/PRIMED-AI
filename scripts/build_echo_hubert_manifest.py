@@ -32,6 +32,16 @@ def parse_args() -> argparse.Namespace:
     echo.add_argument("--study-col")
     echo.add_argument("--embedding-col")
     echo.add_argument("--echo-model", default=DEFAULT_ECHO_MODEL)
+    echo.add_argument(
+        "--max-clips",
+        type=int,
+        help=(
+            "keep an even-stride subsample of up to N clip vectors per study instead of "
+            "mean-pooling them; echo_embedding becomes (n_clips, dim). 16 is a sane start. "
+            "Holds n_studies * N * dim * 4 bytes in memory until the write (7,251 studies "
+            "x 16 x 1024 is ~475 MB, ~4x that in peak RSS), so raise it against the machine."
+        ),
+    )
 
     ecg = subparsers.add_parser("convert-ecg", help="Convert HuBERT CSV to parquet.")
     ecg.add_argument("--csv", type=Path, required=True)
@@ -116,6 +126,7 @@ def parse_args() -> argparse.Namespace:
         default=Path("logs/echo_hubert_join_summary.json"),
     )
     all_steps.add_argument("--chunksize", type=int, default=50_000)
+    all_steps.add_argument("--max-clips", type=int)
     return parser.parse_args()
 
 
@@ -153,6 +164,7 @@ def main() -> None:
             study_col=args.study_col,
             embedding_col=args.embedding_col,
             echo_model=args.echo_model,
+            max_clips=args.max_clips,
         )
         print(f"Wrote {len(frame)} echo study embeddings to {args.output}")
     elif args.command == "convert-ecg":
@@ -180,7 +192,7 @@ def main() -> None:
         )
         print_summary(summary)
     elif args.command == "all":
-        build_echo_study_embeddings(args.echo_input, args.echo_output)
+        build_echo_study_embeddings(args.echo_input, args.echo_output, max_clips=args.max_clips)
         convert_hubert_csv_to_parquet(args.hubert_csv, args.ecg_output, chunksize=args.chunksize)
         _, summary = build_joined_manifest(
             args.cohort,

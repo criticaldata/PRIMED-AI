@@ -21,6 +21,12 @@ from primed_ai.evaluation.missing_modality import run
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--manifest",
+        default=None,
+        help="Joined EchoJEPA + HuBERT manifest. Supersedes --cohort/--echo-embeddings/"
+        "--ecg-embeddings, and is what train_probes.py produces checkpoints from.",
+    )
     parser.add_argument("--cohort", default="data/raw/cohort/paired_with_splits.parquet")
     parser.add_argument(
         "--echo-embeddings",
@@ -40,10 +46,15 @@ def main() -> None:
     parser.add_argument("--device", default=None)
     args = parser.parse_args()
 
+    # a manifest carries both embeddings inline, so the two-table args drop out
+    cohort = args.manifest or args.cohort
+    echo_emb = None if args.manifest else args.echo_embeddings
+    ecg_emb = None if args.manifest else args.ecg_embeddings
+
     results = run(
-        args.cohort,
-        args.echo_embeddings,
-        args.ecg_embeddings,
+        cohort,
+        echo_emb,
+        ecg_emb,
         args.checkpoint,
         args.output,
         embed_dim=args.embed_dim,
