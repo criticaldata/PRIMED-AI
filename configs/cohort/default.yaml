@@ -1,4 +1,7 @@
-pairing_window_hours: 48
+# Symmetric window in hours on EACH side of the echo (build_cohort.py --window-hours
+# semantics). The canonical 1,208-row manifest was built at 24, i.e. ECG within +/-24h
+# of the echo; the built manifest's max |delta_hours| is 23.98.
+pairing_window_hours: 24
 split_seed: 42
 train_frac: 0.70
 val_frac: 0.10

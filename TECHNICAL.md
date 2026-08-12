@@ -51,12 +51,19 @@ Build the paired cohort **before** running any embedding extraction. Do not proc
 
 For each echo study:
 
-1. Match on `subject_id` to the nearest ECG record within a **24–48 hour** temporal window (using MIMIC timestamps).
+1. Match on `subject_id` to the nearest ECG record within a symmetric **±24 hour** window
+   (`build_cohort.py --window-hours 24`, the canonical build; the built manifest's
+   max |delta_hours| is 23.98).
 2. Join to the structured **LVEF** label from MIMIC-IV-Echo.
 
 Current synchronized manifest size is 1,208 paired rows. Without extracting more
 EchoJEPA studies, the hard ceiling is 6,617 echo studies from subjects who also have an
 ECG; larger cohorts require additional echo embedding coverage, not just a looser join.
+
+Window sensitivity, measured on the built manifest: tightening to ±12h keeps 767 of the
+1,208 rows and ±6h keeps 515. Widening beyond ±24h cannot be measured from the manifest —
+it needs a cohort-database rebuild (`scripts/run_cohort_sensitivity.py` wraps the
+24h/48h/admission comparison into one command for whoever has BigQuery access).
 
 ### 3.2 Train / test split
 
@@ -147,6 +154,20 @@ All probes are trained on cached embeddings. Recommended build order: quick conc
 
 All four predict continuous LVEF; the EF≤40% gate is derived from that output.
 
+**What the cross-attention block can actually attend to (#72).** With the current inputs
+the fusion is one-directional at best. The HuBERT-ECG side arrives as one pooled vector
+tiled into identical tokens, so the `echo_to_ecg` attention output is provably independent
+of the echo query — identical keys force uniform softmax weights, and identical values make
+the weighted sum equal that value. That direction reduces to a fixed linear image of the
+pooled ECG vector (pinned by `test_echo_to_ecg_attention_is_degenerate_on_tiled_ecg_tokens`).
+`ecg_to_echo` attends genuinely only when clip-level echo tokens are retained
+(`build_echo_study_embeddings --max-clips`); on the pooled manifest both directions
+degenerate and the fused probe is equivalent to a concat model with per-modality linear
+pre-maps. Reported pooled-manifest numbers should be read accordingly. Decision: keep the
+cross-attention architecture — it fuses for real once clip-level echo tokens are in the
+manifest — and treat token-level ECG (which needs a re-extraction pass from raw waveforms;
+the parquet stores pooled vectors only) as the gate for restoring the second direction.
+
 ### 6.5 Prediction targets
 
 | Target | Type | Use |
@@ -202,9 +223,16 @@ Report per-stratum:
 
 Flag known MIMIC gender-curation bias in documentation. This analysis is cheap and directly addresses the equity evaluation pillar.
 
-### 7.3 Calibration (optional stretch)
+### 7.3 Calibration
 
-If time permits, assess calibration of the EF≤40% binary gate (e.g., reliability diagram, expected calibration error). A deployable risk score should produce well-calibrated probabilities, not just high AUROC.
+Assess calibration of the EF≤40% binary gate (reliability diagram, expected calibration
+error). A deployable risk score should produce well-calibrated probabilities, not just high
+AUROC. The Platt scaler is fit on val predictions only and applied to test
+(`scripts/evaluate_calibration.py`); measured numbers are in the
+[README results](README.md#results). Caveat when reading dropped-condition ECE: a model
+whose predictions collapse toward the training mean can look well calibrated after Platt
+scaling while discriminating no better than chance — report ECE alongside AUROC, never
+alone.
 
 ---
 
@@ -212,10 +240,22 @@ If time permits, assess calibration of the EF≤40% binary gate (e.g., reliabili
 
 | Metric | Target | Baseline references |
 |---|---|---|
-| LVEF MAE | Continuous regression | EchoJEPA: 5.97 MAE |
-| EF≤40% AUROC | Binary clinical gate | ECG-FM: 0.929 AUROC |
+| LVEF MAE | Continuous regression | EchoJEPA: 5.97 MAE (published, different cohort) · in-cohort echo-only probe: 11.09 |
+| EF≤40% AUROC | Binary clinical gate | ECG-FM: 0.929 AUROC (published, different cohort) · in-cohort ECG-only probe: 0.671 |
 | Missing-modality degradation | Δ MAE / Δ AUROC across conditions | No external baseline — this is the novel result |
 | Fairness gap | Δ MAE / Δ AUROC across demographic strata | No external baseline |
+
+The published solo numbers are **not** like-for-like with this cohort. On identical splits
+(seed 42, 245-row test frame, `scripts/diagnose_baseline_gap.py`): fused 10.42 MAE / 0.771
+AUROC vs echo-only 11.09 / 0.771, ECG-only 11.60 / 0.671, concat 10.93 / 0.716. Paired
+bootstrap deltas: fused beats ECG-only on both metrics (ΔMAE −1.17, 95% CI [−1.99, −0.33];
+ΔAUROC +0.100, CI [0.03, 0.17]) and is never behind either solo probe. The gap to the
+published baselines is therefore a property of the cohort and label regime, not a fusion
+failure — even the in-cohort echo-only probe (same encoder as the published 5.97) lands at
+11.09. Contributing factors, measured: 821 training rows after the non-finite drop (829 in
+the split); heterogeneous LVEF label sources (the `lvef_upper` fallback contributes 6 test
+rows at 43.0 MAE — 18 of its 24 cohort rows carry a physiologically implausible 100.0 —
+versus 5.2 MAE on `lvef_3d` rows); and the mean-pooled echo regime (§6.4).
 
 **Pre-flight check:** confirm EF≤40% prevalence in the paired cohort is high enough for stable AUROC estimation before locking results (`scripts/check_ef40_prevalence.py`).
 
@@ -228,8 +268,8 @@ Measured missing-modality numbers are in the [README results table](README.md#re
 | Resource | Requirement |
 |---|---|
 | GPU | Not needed for cached-vector probe training; needed only for future ECG token re-extraction or new EchoJEPA extraction |
-| Storage | Current pooled manifest plus one-seed probe checkpoints fit under 25 MB; `--max-clips` echo manifests scale linearly with retained clips |
-| Runtime | Cached-vector probe training runs on CPU; the real pooled 1,208-row M10 run completed in 44.84s on a local Mac CPU |
+| Storage | Pooled manifest 14 MB, one four-probe checkpoint set 7 MB, full results tree ~1 MB — everything fits under `data/`, `probes/`, `results/` in the repo working copy; `--max-clips` echo manifests scale linearly with retained clips |
+| Runtime | All CPU, measured on an Apple M1 Pro (16 GB): four-probe M10 training 47.7s wall-clock, missing-modality eval with 1,000 bootstrap resamples 11.8s, fairness stratification 8.3s, per-condition calibration ~5s. A full train + evaluate cycle is about 90 seconds |
 | Reproducibility | Fixed random seeds; logged hyperparameters; versioned embedding cache |
 
 Probe training after caching is CPU/GPU-light and completes in minutes.
@@ -251,8 +291,13 @@ This work differs from EchoingECG on three axes: frozen embeddings (no fine-tuni
 
 ## 11. Open technical decisions
 
-- [ ] ECG pooling: mean vs. attentive -- deferred until token-level ECG exists (#72)
-- [ ] Echo↔ECG pairing window: 24h vs. 48h — sensitivity analysis or fixed choice with justification
+- [x] ECG pooling: mean — the parquet stores one pooled vector per record, and attentive
+      pooling over tiled copies of it is mathematically identical to mean pooling, so this
+      is the only runnable choice. Revisit only after a token-level ECG re-extraction (#72).
+- [x] Echo↔ECG pairing window: fixed at ±24h — this is what the canonical cohort was built
+      with (max |delta_hours| 23.98). Within-manifest tightening loses rows fast (767 at
+      ±12h, 515 at ±6h); widening to 48h needs a cohort-database rebuild and is scoped
+      under D07 (#62) via `scripts/run_cohort_sensitivity.py`.
 - [x] Multi-match resolution: when multiple ECGs fall within the window, take nearest timestamp
 - [x] EF≤40% prevalence in paired cohort: train/test are reportable; validation has only 26 EF<=40 positives, so validation AUROC should be treated as unstable
 - [x] GPU + storage budget for cached probe training: no GPU needed; current pooled manifest and checkpoints are laptop-scale
