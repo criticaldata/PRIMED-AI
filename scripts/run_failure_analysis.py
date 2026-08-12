@@ -9,6 +9,11 @@ Real cached embeddings (Ridge probe; uses the cohort `split` column for train/te
     --echo-embeddings data/interim/echo_study_embeddings_vjepa2.1-vitl-mimic-pt-100.parquet \
     --ecg-embeddings  data/interim/hubert_ecg_embeddings.parquet \
     --out results/failure
+
+Joined manifest (same table the probes train from; trains on `split == "train"`,
+reports on `split == "test"`):
+  python scripts/run_failure_analysis.py \
+    --manifest data/processed/echo_hubert_manifest.parquet --out results/failure
 """
 
 from __future__ import annotations
@@ -65,6 +70,43 @@ def _run_demo(seed: int, out: str) -> None:
     _emit(report, out)
 
 
+def _run_manifest(manifest_path: str, out: str) -> None:
+    from primed_ai.probes import manifest as manifest_io
+    from primed_ai.probes.common import drop_non_finite
+
+    df = manifest_io.load(manifest_path)
+    if manifest_io.is_clip_level(df):
+        raise SystemExit(
+            "clip-level manifest: the ridge harness works on study vectors — "
+            "rebuild the manifest pooled, or mean-pool the clips first"
+        )
+    df, n_dropped = drop_non_finite(df, ("echo_embedding", "ecg_embedding"))
+    if n_dropped:
+        print(f"dropped {n_dropped} rows with non-finite values")
+    embeddings = {
+        "echo": np.vstack(df["echo_embedding"].to_numpy()),
+        "ecg": np.vstack(df["ecg_embedding"].to_numpy()),
+    }
+    lvef = df["lvef"].to_numpy(float)
+    ef = df["ef_le_40"].to_numpy(bool)
+    train = (df["split"] == "train").to_numpy()
+    test = (df["split"] == "test").to_numpy()  # strictly test; val stays out
+    if not train.any() or not test.any():
+        raise SystemExit("manifest needs non-empty 'train' and 'test' splits")
+    groups = {a: df[a].to_numpy() for a in ("sex", "age_band", "race") if a in df}
+    predict_full = masked_ridge_predict_fn(embeddings, lvef, train)
+    emb_te = {m: embeddings[m][test] for m in embeddings}
+    g_te = {a: v[test] for a, v in groups.items()}
+    report = analyze_modality_failure(
+        emb_te,
+        lvef[test],
+        ef[test],
+        lambda present: predict_full(present)[test],
+        groups=g_te or None,
+    )
+    _emit(report, out)
+
+
 def _run_real(cohort: str, echo: str, ecg: str, out: str) -> None:
     import pandas as pd
 
@@ -101,12 +143,15 @@ def main() -> None:
     )
     p.add_argument("--demo", action="store_true", help="run on planted synthetic data")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--manifest", help="joined manifest; supersedes the three-table flags")
     p.add_argument("--cohort")
     p.add_argument("--echo-embeddings")
     p.add_argument("--ecg-embeddings")
     p.add_argument("--out", default="results/failure")
     a = p.parse_args()
-    if a.demo or not (a.cohort and a.echo_embeddings and a.ecg_embeddings):
+    if a.manifest and not a.demo:
+        _run_manifest(a.manifest, a.out)
+    elif a.demo or not (a.cohort and a.echo_embeddings and a.ecg_embeddings):
         _run_demo(a.seed, a.out if a.demo else "results/failure_demo")
     else:
         _run_real(a.cohort, a.echo_embeddings, a.ecg_embeddings, a.out)
