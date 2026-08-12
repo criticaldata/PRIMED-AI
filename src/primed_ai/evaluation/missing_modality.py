@@ -101,6 +101,7 @@ def run(
     parts, n_dropped = prepare_fused_probe_data(
         cohort_path, echo_embedding_path, ecg_embedding_path
     )
+    val_loader = fused_probe_loader(parts["val"], embed_dim=echo_dim, batch_size=batch_size)
     test_loader = fused_probe_loader(parts["test"], embed_dim=echo_dim, batch_size=batch_size)
 
     model = CrossAttnFusedProbe(
@@ -112,6 +113,8 @@ def run(
     state = torch.load(checkpoint, map_location=device)
     model.load_state_dict(state)
 
+    # Val predictions ride along so E09 can fit its Platt scaler on val without rescoring.
+    val_predictions = predict_missing_modality(model, val_loader, device)
     test_predictions = predict_missing_modality(model, test_loader, device)
     test_metrics = {
         condition: _metrics_from_predictions(arrays)
@@ -144,12 +147,16 @@ def run(
             "n_bootstrap": n_bootstrap,
             "device": device,
         },
-        "n": {"test": len(parts["test"])},
+        "n": {"val": len(parts["val"]), "test": len(parts["test"])},
         "test": test_metrics,
         "bootstrap": bootstrap,
         "predictions": {
             condition: _serializable_predictions(arrays)
             for condition, arrays in test_predictions.items()
+        },
+        "predictions_val": {
+            condition: _serializable_predictions(arrays)
+            for condition, arrays in val_predictions.items()
         },
         "metrics_table": [
             {

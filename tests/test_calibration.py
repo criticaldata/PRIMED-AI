@@ -60,3 +60,34 @@ def test_run_calibration_end_to_end(tmp_path):
     assert res["n"] == n
     assert (tmp_path / "calibration" / "calibration.json").exists()
     assert (tmp_path / "calibration" / "reliability.pdf").exists()
+
+
+def test_run_calibration_fits_on_val_when_present(tmp_path):
+    """E09 (#66): the scaler must be fit on val predictions, never on test.
+
+    Val and test carry opposite score-label relationships, so a val-fit scaler is
+    confidently wrong on test (huge ECE) while an in-sample fit would look calibrated.
+    """
+    rng = np.random.default_rng(3)
+    n = 100
+    test_pred = rng.uniform(20, 70, size=n)
+    test_labels = (test_pred <= 40).astype(int).tolist()  # low prediction => positive
+    val_pred = rng.uniform(20, 70, size=n)
+    val_labels = (val_pred > 40).astype(int).tolist()  # inverted relationship
+    pj = tmp_path / "missing_modality.json"
+    pj.write_text(
+        json.dumps(
+            {
+                "predictions": {
+                    "full": {"ef_le_40": test_labels, "prediction": test_pred.tolist()}
+                },
+                "predictions_val": {
+                    "full": {"ef_le_40": val_labels, "prediction": val_pred.tolist()}
+                },
+            }
+        )
+    )
+
+    res = run_calibration(pj, tmp_path / "calibration", condition="full", n_bins=10)
+    assert res["scaler_fit_on"] == "val"
+    assert res["ece"] > 0.5

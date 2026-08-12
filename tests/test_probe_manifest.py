@@ -667,6 +667,9 @@ def test_missing_modality_scores_a_manifest_trained_checkpoint(tmp_path):
     )
     assert set(res["test"]) == {"full", "echo_dropped", "ecg_dropped"}
     assert (tmp_path / "missing.json").exists()
+    # E09 fits its Platt scaler on val, so val predictions must ride along per condition
+    assert set(res["predictions_val"]) == {"full", "echo_dropped", "ecg_dropped"}
+    assert res["n"]["val"] == len(res["predictions_val"]["full"]["prediction"])
 
 
 def test_missing_modality_requires_a_checkpoint(tmp_path):
@@ -708,3 +711,30 @@ def test_training_writes_a_run_manifest_recording_the_pooling_regime(tmp_path):
     assert meta["fusion_dim"] == 256 and meta["seed"] == 42
     assert meta["manifest"] == str(clip.resolve())
     assert meta["git_sha"] != ""
+
+
+def test_echo_to_ecg_attention_is_degenerate_on_tiled_ecg_tokens():
+    """Pins the #72 finding: tiling one pooled ECG vector kills echo->ECG attention.
+
+    Synthetic fixture. Identical keys force uniform softmax weights and identical values
+    make the weighted sum equal that value, so ``echo_to_ecg`` output cannot depend on the
+    echo query. Until token-level ECG embeddings exist, the fused probe's echo->ECG
+    direction is a fixed linear image of the pooled ECG vector, not cross-modal attention.
+    """
+    import torch
+
+    from primed_ai.probes.layers import CrossAttentionFusion
+
+    torch.manual_seed(0)
+    fusion = CrossAttentionFusion(ECHO_DIM).eval()
+    rng = np.random.default_rng(5)
+    ecg_tiled = torch.as_tensor(
+        np.tile(rng.standard_normal((2, 1, ECHO_DIM)), (1, 4, 1)), dtype=torch.float32
+    )
+    echo_a = torch.as_tensor(rng.standard_normal((2, 6, ECHO_DIM)), dtype=torch.float32)
+    echo_b = 100.0 * torch.as_tensor(rng.standard_normal((2, 6, ECHO_DIM)), dtype=torch.float32)
+
+    with torch.no_grad():
+        ctx_a, _ = fusion.echo_to_ecg(echo_a, ecg_tiled, ecg_tiled)
+        ctx_b, _ = fusion.echo_to_ecg(echo_b, ecg_tiled, ecg_tiled)
+    torch.testing.assert_close(ctx_a, ctx_b)
