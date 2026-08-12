@@ -16,13 +16,21 @@ from primed_ai.probes.common import (
     auroc,
     collate_tokens,
     git_sha,
-    read_table,
     regression_metrics,
 )
-from primed_ai.probes.concat_mlp import _ensure_ecg_tokens
-from primed_ai.probes.echo_only import _ensure_tokens
+from primed_ai.probes.cross_attn import (
+    MISSING_MODALITY_CONDITIONS,
+    _condition_arrays,
+    fused_probe_loader,
+    prepare_fused_probe_data,
+)
 
 logger = logging.getLogger(__name__)
+
+MIMIC_BIAS_NOTE = (
+    "MIMIC-IV records administrative gender as 'sex' and admission-reported race; both "
+    "carry known curation bias (see MIMIC-IV documentation), so strata inherit it."
+)
 
 
 def _safe_json(obj):
@@ -36,32 +44,6 @@ def _safe_json(obj):
             return None
         return float(obj)
     return obj
-
-
-def load_and_merge(
-    cohort_path: str | Path, echo_path: str | Path, ecg_path: str | Path
-) -> pd.DataFrame:
-    coh = read_table(cohort_path)
-    echo = read_table(echo_path)
-    ecg = read_table(ecg_path)
-
-    echo_key = "echo_study_id" if "echo_study_id" in coh.columns else "subject_id"
-    ecg_key = "ecg_record_id"
-    if echo_key not in echo.columns:
-        logger.debug("Renaming first echo embedding column -> %s", echo_key)
-        echo = echo.rename(columns={echo.columns[0]: echo_key})
-    if ecg_key not in ecg.columns:
-        logger.debug("Renaming first ecg embedding column -> %s", ecg_key)
-        ecg = ecg.rename(columns={ecg.columns[0]: ecg_key})
-
-    df = coh.merge(echo, on=echo_key, how="inner").merge(ecg, on=ecg_key, how="inner")
-    return df
-
-
-def prepare_tokens(df: pd.DataFrame) -> pd.DataFrame:
-    df2 = _ensure_tokens(df)
-    df2 = _ensure_ecg_tokens(df2)
-    return df2
 
 
 def load_model(
@@ -164,6 +146,8 @@ def compute_stratified_results(
         if s not in df.columns:
             logger.warning("Stratum column %s not in DataFrame; filling 'unknown'", s)
             df[s] = "unknown"
+        # cohorts with missing demographics mix NaN into string columns; sorted() would choke
+        df[s] = df[s].where(df[s].notna(), "unknown")
         groups = {}
         for val in sorted(df[s].unique()):
             mask = (df[s] == val).to_numpy()
@@ -247,32 +231,64 @@ def save_outputs(results: dict, out_dir: str | Path):
 
 def run_fairness(
     cohort_path,
-    echo_path,
-    ecg_path,
-    checkpoint,
+    echo_path=None,
+    ecg_path=None,
+    checkpoint=None,
     out_dir="results/fairness",
     embed_dim=16,
     echo_dim=None,
     ecg_dim=None,
     batch_size=64,
     device=None,
+    conditions=("full",),
 ):
-    df = load_and_merge(cohort_path, echo_path, ecg_path)
-    df = prepare_tokens(df)
-    test_df = df[df.get("split") == "test"].reset_index(drop=True)
-    if test_df.empty:
-        raise RuntimeError("test split is empty; ensure 'split' column contains 'test' partition")
+    """Stratify test predictions by demographics, per missing-modality condition.
+
+    Omit both embedding paths to read ``cohort_path`` as a joined manifest (matching the
+    probes and the missing-modality eval). Either way the data goes through
+    ``prepare_fused_probe_data``, so non-finite rows are dropped the same way and the
+    stratified n lines up with the canonical rerun.
+    """
+    if checkpoint is None:
+        raise ValueError("checkpoint is required")
+    unknown = set(conditions) - set(MISSING_MODALITY_CONDITIONS)
+    if unknown:
+        raise ValueError(
+            f"unknown conditions {sorted(unknown)}; pick from {MISSING_MODALITY_CONDITIONS}"
+        )
+
+    parts, n_dropped = prepare_fused_probe_data(cohort_path, echo_path, ecg_path)
+    test_df = parts["test"]
+
     model, device = load_model(checkpoint, embed_dim, device, echo_dim=echo_dim, ecg_dim=ecg_dim)
-    y_pred, y_true, ef_flags = predict_on_df(
-        model, test_df, embed_dim, batch_size, device, echo_dim=echo_dim
-    )
+    loader = fused_probe_loader(test_df, embed_dim=echo_dim or embed_dim, batch_size=batch_size)
     results = {
         "task": "E03_fairness_stratification",
         "checkpoint": str(checkpoint),
         "git_sha": git_sha(),
         "n_test": int(len(test_df)),
+        # aggregate count across train/val/test, not test-only — mirrors the run metadata
+        "n_dropped_nonfinite_all_splits": n_dropped,
+        "bias_note": MIMIC_BIAS_NOTE,
+        "conditions": {},
     }
-    strat = compute_stratified_results(test_df, y_true, y_pred, ef_flags)
-    results.update(strat)
-    save_outputs(results, out_dir)
+    out = Path(out_dir)
+    provenance = dict(results)
+    del provenance["conditions"]
+    for condition in conditions:
+        arrays = _condition_arrays(model, loader, device, condition)
+        strat = compute_stratified_results(
+            test_df,
+            np.asarray(arrays["lvef"]),
+            np.asarray(arrays["prediction"]).flatten(),
+            np.asarray(arrays["ef_le_40"], dtype=bool),
+        )
+        results["conditions"][condition] = strat
+        save_outputs({**provenance, "condition": condition, **strat}, out / condition)
+    # keep the full-condition metrics at top level too: aggregate.py reads overall/by there
+    results.update(results["conditions"].get("full", {}))
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "fairness_metrics.json").write_text(
+        json.dumps(_safe_json(results), indent=2), encoding="utf-8"
+    )
     return results
