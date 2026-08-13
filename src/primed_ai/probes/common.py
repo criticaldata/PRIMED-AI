@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -26,6 +27,20 @@ def git_sha() -> str:
         ).strip()
     except Exception:
         return "unknown"
+
+
+def sha256_file(path: str | Path | None) -> str | None:
+    """Hex digest of a file, or None when it is missing — provenance must not kill a run."""
+    if path is None:
+        return None
+    p = Path(path)
+    if not p.is_file():
+        return None
+    h = hashlib.sha256()
+    with p.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def auroc(y_true: np.ndarray, score: np.ndarray) -> float:

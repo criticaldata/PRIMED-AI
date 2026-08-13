@@ -78,6 +78,9 @@ def test_run_calibration_fits_on_val_when_present(tmp_path):
     pj.write_text(
         json.dumps(
             {
+                "checkpoint": "probes/fused/cross_attn_fused.pt",
+                "checkpoint_sha256": "abc123",
+                "seed": 42,
                 "predictions": {
                     "full": {"ef_le_40": test_labels, "prediction": test_pred.tolist()}
                 },
@@ -91,3 +94,10 @@ def test_run_calibration_fits_on_val_when_present(tmp_path):
     res = run_calibration(pj, tmp_path / "calibration", condition="full", n_bins=10)
     assert res["scaler_fit_on"] == "val"
     assert res["ece"] > 0.5
+    # the artifact must be traceable on its own: source checkpoint/seed ride along
+    assert res["predictions_path"] == str(pj)
+    assert res["prediction_source"] == {
+        "checkpoint": "probes/fused/cross_attn_fused.pt",
+        "checkpoint_sha256": "abc123",
+        "seed": 42,
+    }

@@ -7,7 +7,13 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from primed_ai.probes.common import auroc, git_sha, regression_metrics, save_results
+from primed_ai.probes.common import (
+    auroc,
+    git_sha,
+    regression_metrics,
+    save_results,
+    sha256_file,
+)
 from primed_ai.probes.cross_attn import (
     MISSING_MODALITY_CONDITIONS,
     CrossAttnFusedProbe,
@@ -135,6 +141,8 @@ def run(
         "seed": seed,
         "git_sha": git_sha(),
         "checkpoint": str(checkpoint),
+        "checkpoint_sha256": sha256_file(checkpoint),
+        "manifest_sha256": sha256_file(cohort_path),
         "config": {
             "cohort_path": str(cohort_path),
             "echo_embedding_path": str(echo_embedding_path),

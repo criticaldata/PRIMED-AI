@@ -8,7 +8,7 @@ Usage:
     --cohort cohort/paired.parquet \
     --echo-embeddings embeddings/echo/pairs.parquet \
     --ecg-embeddings embeddings/ecg/pairs.parquet \
-    --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
+    --checkpoint probes/fused/cross_attn_fused.pt \
     --out results/fairness
 """
 

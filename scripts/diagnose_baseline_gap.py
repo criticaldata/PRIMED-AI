@@ -23,7 +23,7 @@ import numpy as np
 import torch
 
 from primed_ai.probes import manifest as manifest_io
-from primed_ai.probes.common import auroc, git_sha, regression_metrics, save_results
+from primed_ai.probes.common import auroc, git_sha, regression_metrics, save_results, sha256_file
 from primed_ai.probes.concat_mlp import ConcatMLPProbe
 from primed_ai.probes.concat_mlp import _predict as predict_concat
 from primed_ai.probes.cross_attn import (
@@ -170,6 +170,13 @@ def main() -> None:
         "seed": args.seed,
         "git_sha": git_sha(),
         "manifest": str(args.manifest),
+        "manifest_sha256": sha256_file(args.manifest),
+        "checkpoint_sha256": {
+            "fused": sha256_file(probes / "fused" / "cross_attn_fused.pt"),
+            "concat": sha256_file(probes / "concat" / "concat_mlp.pt"),
+            "echo_only": sha256_file(probes / "echo" / "echo_only.pt"),
+            "ecg_only": sha256_file(probes / "ecg" / "ecg_only.joblib"),
+        },
         "probes_dir": str(probes),
         "device": device,
         "n_test": len(test),

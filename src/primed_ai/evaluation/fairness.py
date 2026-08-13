@@ -17,6 +17,7 @@ from primed_ai.probes.common import (
     collate_tokens,
     git_sha,
     regression_metrics,
+    sha256_file,
 )
 from primed_ai.probes.cross_attn import (
     MISSING_MODALITY_CONDITIONS,
@@ -265,6 +266,8 @@ def run_fairness(
     results = {
         "task": "E03_fairness_stratification",
         "checkpoint": str(checkpoint),
+        "checkpoint_sha256": sha256_file(checkpoint),
+        "manifest_sha256": sha256_file(cohort_path),
         "git_sha": git_sha(),
         "n_test": int(len(test_df)),
         # aggregate count across train/val/test, not test-only — mirrors the run metadata

@@ -2,7 +2,7 @@
 
 Example:
   python scripts/evaluate_missing_modality.py \
-    --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
+    --checkpoint probes/fused/cross_attn_fused.pt \
     --cohort data/raw/cohort/paired_with_splits.parquet \
     --echo-embeddings data/interim/echo_study_embeddings_vjepa2.1-vitl-mimic-pt-100.parquet \
     --ecg-embeddings data/interim/hubert_ecg_embeddings.parquet \
@@ -33,7 +33,7 @@ def main() -> None:
         default="data/interim/echo_study_embeddings_vjepa2.1-vitl-mimic-pt-100.parquet",
     )
     parser.add_argument("--ecg-embeddings", default="data/interim/hubert_ecg_embeddings.parquet")
-    parser.add_argument("--checkpoint", default="probes/cross_attn_fused/cross_attn_fused.pt")
+    parser.add_argument("--checkpoint", default="probes/fused/cross_attn_fused.pt")
     parser.add_argument("--output", "--out", dest="output", default="results/missing_modality.json")
     # All three must match the checkpoint being loaded, or the state_dict load fails on shape.
     parser.add_argument("--embed-dim", type=int, default=256, help="Shared fusion dimension.")

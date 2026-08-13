@@ -119,6 +119,10 @@ def test_run_fairness_reads_manifest_and_stratifies_per_condition(tmp_path):
 
     assert set(res["conditions"]) == {"full", "echo_dropped"}
     assert res["n_dropped_nonfinite_all_splits"] == 1
+    from primed_ai.probes.common import sha256_file
+
+    assert res["checkpoint_sha256"] == sha256_file(ckpt)
+    assert res["manifest_sha256"] == sha256_file(path)
     assert res["n_test"] == 9  # 10 test rows minus the non-finite one
     assert res["bias_note"] == MIMIC_BIAS_NOTE
     full = res["conditions"]["full"]

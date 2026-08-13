@@ -145,9 +145,17 @@ def run_calibration(
 
     out_dir = Path(out_dir)
     figure = plot_reliability(labels, prob, out_dir / "reliability.pdf", n_bins=n_bins)
+    # carry the prediction source's provenance so this artifact is traceable on its own
+    source = {
+        key: payload[key]
+        for key in ("checkpoint", "checkpoint_sha256", "manifest_sha256", "seed", "git_sha")
+        if key in payload
+    }
     result = {
         "task": "E04_ef40_calibration",
         "git_sha": git_sha(),
+        "predictions_path": str(predictions_path),
+        "prediction_source": source,
         "condition": condition,
         "n": int(len(labels)),
         "n_bins": n_bins,

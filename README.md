@@ -63,14 +63,14 @@ Held-out test split, n = 245 after dropping three non-finite HuBERT-ECG rows fro
 
 Dropping echo costs much more MAE than dropping ECG, while ECG-dropped AUROC falls sharply. This run is a pooled-manifest baseline: the echo branch still receives one mean-pooled vector per study, not retained clip tokens — and on pooled inputs the cross-attention block provably cannot attend across modalities, so these numbers describe a concat-equivalent model (see [TECHNICAL.md §6.4](./TECHNICAL.md#6-probes)).
 
-**Provenance:** real run on cached EchoJEPA (`vjepa2.1-vitl-mimic-pt-100`) + HuBERT-ECG embeddings, local Mac CPU, seed 42, fusion width 256, 1,000 bootstrap resamples. The canonical pooled fused checkpoint was selected by validation MAE from an all-probe M10 run (`full` val MAE 10.62). `results/` and `probes/` are gitignored, so checkpoints, per-example predictions, and figures are local artifacts — see [CONTRIBUTING.md](./CONTRIBUTING.md#reproducibility) for what reproducing these numbers takes.
+**Provenance:** real run on cached EchoJEPA (`vjepa2.1-vitl-mimic-pt-100`) + HuBERT-ECG embeddings, local Mac CPU, seed 42, fusion width 256, 1,000 bootstrap resamples. The canonical fused checkpoint is the one `scripts/train_probes.py` writes to `probes/fused/cross_attn_fused.pt`, selected by validation MAE from the all-probe M10 run (`full` val MAE 10.62); manifest SHA-256 `81694c9b…`, checkpoint SHA-256 `bac18bb8…`. `results/` and `probes/` are gitignored (per-example predictions and checkpoints stay local), but sanitized aggregate copies of every result JSON plus the full checksums are committed under [docs/results/](./docs/results/) — verify a reproduction with `shasum -c docs/results/SHA256SUMS`. See [CONTRIBUTING.md](./CONTRIBUTING.md#reproducibility) for what reproducing takes.
 
 Reproduce with:
 
 ```bash
 python scripts/evaluate_missing_modality.py \
   --manifest data/processed/echo_hubert_manifest.parquet \
-  --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
+  --checkpoint probes/fused/cross_attn_fused.pt \
   --embed-dim 256 \
   --echo-dim 1024 \
   --ecg-dim 768

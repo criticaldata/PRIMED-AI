@@ -670,6 +670,11 @@ def test_missing_modality_scores_a_manifest_trained_checkpoint(tmp_path):
     # E09 fits its Platt scaler on val, so val predictions must ride along per condition
     assert set(res["predictions_val"]) == {"full", "echo_dropped", "ecg_dropped"}
     assert res["n"]["val"] == len(res["predictions_val"]["full"]["prediction"])
+    # reproduction provenance: hashes of exactly what was scored
+    from primed_ai.probes.common import sha256_file
+
+    assert res["manifest_sha256"] == sha256_file(path)
+    assert res["checkpoint_sha256"] == sha256_file(probe_dir / "cross_attn_fused.pt")
 
 
 def test_missing_modality_requires_a_checkpoint(tmp_path):
