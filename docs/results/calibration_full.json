@@ -1,0 +1,91 @@
+{
+  "task": "E04_ef40_calibration",
+  "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a",
+  "predictions_path": "results/missing_modality.json",
+  "prediction_source": {
+    "checkpoint": "probes/fused/cross_attn_fused.pt",
+    "checkpoint_sha256": "bac18bb84edb93ba8ea8b60a6ad9e6b568b37919a5ac2605da1dc30242163cdb",
+    "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
+    "seed": 42,
+    "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a"
+  },
+  "condition": "full",
+  "n": 245,
+  "n_bins": 10,
+  "scaler_fit_on": "val",
+  "ece": 0.0724,
+  "bins": [
+    {
+      "bin_low": 0.0,
+      "bin_high": 0.1,
+      "count": 157,
+      "confidence": 0.0531,
+      "accuracy": 0.0955
+    },
+    {
+      "bin_low": 0.1,
+      "bin_high": 0.2,
+      "count": 30,
+      "confidence": 0.1402,
+      "accuracy": 0.2667
+    },
+    {
+      "bin_low": 0.2,
+      "bin_high": 0.3,
+      "count": 20,
+      "confidence": 0.2543,
+      "accuracy": 0.35
+    },
+    {
+      "bin_low": 0.3,
+      "bin_high": 0.4,
+      "count": 6,
+      "confidence": 0.3643,
+      "accuracy": 0.1667
+    },
+    {
+      "bin_low": 0.4,
+      "bin_high": 0.5,
+      "count": 9,
+      "confidence": 0.4394,
+      "accuracy": 0.4444
+    },
+    {
+      "bin_low": 0.5,
+      "bin_high": 0.6,
+      "count": 3,
+      "confidence": 0.5733,
+      "accuracy": 0.3333
+    },
+    {
+      "bin_low": 0.6,
+      "bin_high": 0.7,
+      "count": 6,
+      "confidence": 0.6555,
+      "accuracy": 0.5
+    },
+    {
+      "bin_low": 0.7,
+      "bin_high": 0.8,
+      "count": 4,
+      "confidence": 0.756,
+      "accuracy": 0.25
+    },
+    {
+      "bin_low": 0.8,
+      "bin_high": 0.9,
+      "count": 5,
+      "confidence": 0.8467,
+      "accuracy": 0.8
+    },
+    {
+      "bin_low": 0.9,
+      "bin_high": 1.0,
+      "count": 5,
+      "confidence": 0.9556,
+      "accuracy": 1.0
+    }
+  ],
+  "figure": "results/calibration/full/reliability.pdf",
+  "note": "Platt scaler fit on val predictions, applied to test."
+}

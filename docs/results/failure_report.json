@@ -1,0 +1,194 @@
+{
+  "task": "modality_failure_analysis",
+  "modalities": [
+    "echo",
+    "ecg"
+  ],
+  "n": 245,
+  "threshold": 40.0,
+  "tolerance": 5.0,
+  "conditions": {
+    "full": {
+      "mae": 10.1873,
+      "taxonomy": {
+        "correct": 84,
+        "imprecise": 123,
+        "critical": 38
+      }
+    },
+    "drop_echo": {
+      "mae": 117.5006,
+      "taxonomy": {
+        "correct": 0,
+        "imprecise": 49,
+        "critical": 196
+      }
+    },
+    "drop_ecg": {
+      "mae": 16.6486,
+      "taxonomy": {
+        "correct": 28,
+        "imprecise": 139,
+        "critical": 78
+      }
+    }
+  },
+  "complementarity": {
+    "full_mae": 10.1873,
+    "solo_mae": {
+      "echo": 16.6486,
+      "ecg": 117.5006
+    },
+    "marginal_value": {
+      "echo": 107.3133,
+      "ecg": 6.4613
+    },
+    "fusion_gain_vs_best_solo": 6.4613,
+    "per_example_winners": {
+      "echo": 245,
+      "ecg": 0
+    },
+    "matrix": {
+      "modalities": [
+        "echo",
+        "ecg"
+      ],
+      "values": [
+        [
+          16.6486,
+          10.1873
+        ],
+        [
+          10.1873,
+          117.5006
+        ]
+      ]
+    },
+    "winners_by_group": {
+      "sex": {
+        "F": {
+          "echo": 144,
+          "ecg": 0
+        },
+        "M": {
+          "echo": 101,
+          "ecg": 0
+        }
+      },
+      "age_band": {
+        "18-39": {
+          "echo": 12,
+          "ecg": 0
+        },
+        "40-54": {
+          "echo": 37,
+          "ecg": 0
+        },
+        "55-64": {
+          "echo": 57,
+          "ecg": 0
+        },
+        "65-74": {
+          "echo": 57,
+          "ecg": 0
+        },
+        "75-89": {
+          "echo": 77,
+          "ecg": 0
+        },
+        "90+": {
+          "echo": 5,
+          "ecg": 0
+        }
+      },
+      "race": {
+        "AMERICAN INDIAN/ALASKA NATIVE": {
+          "echo": 1,
+          "ecg": 0
+        },
+        "ASIAN": {
+          "echo": 1,
+          "ecg": 0
+        },
+        "ASIAN - CHINESE": {
+          "echo": 7,
+          "ecg": 0
+        },
+        "BLACK/AFRICAN": {
+          "echo": 3,
+          "ecg": 0
+        },
+        "BLACK/AFRICAN AMERICAN": {
+          "echo": 36,
+          "ecg": 0
+        },
+        "BLACK/CAPE VERDEAN": {
+          "echo": 2,
+          "ecg": 0
+        },
+        "BLACK/CARIBBEAN ISLAND": {
+          "echo": 2,
+          "ecg": 0
+        },
+        "HISPANIC/LATINO - DOMINICAN": {
+          "echo": 1,
+          "ecg": 0
+        },
+        "HISPANIC/LATINO - HONDURAN": {
+          "echo": 1,
+          "ecg": 0
+        },
+        "HISPANIC/LATINO - PUERTO RICAN": {
+          "echo": 4,
+          "ecg": 0
+        },
+        "OTHER": {
+          "echo": 8,
+          "ecg": 0
+        },
+        "PATIENT DECLINED TO ANSWER": {
+          "echo": 1,
+          "ecg": 0
+        },
+        "PORTUGUESE": {
+          "echo": 1,
+          "ecg": 0
+        },
+        "UNKNOWN": {
+          "echo": 2,
+          "ecg": 0
+        },
+        "WHITE": {
+          "echo": 157,
+          "ecg": 0
+        },
+        "WHITE - OTHER EUROPEAN": {
+          "echo": 6,
+          "ecg": 0
+        },
+        "WHITE - RUSSIAN": {
+          "echo": 12,
+          "ecg": 0
+        }
+      }
+    }
+  },
+  "dropout": {
+    "drop_echo": {
+      "induced_critical": 188,
+      "silent": 188,
+      "loud": 0,
+      "silent_rate": 1.0,
+      "mean_output_shift": 116.399,
+      "mae_increase": 107.3133
+    },
+    "drop_ecg": {
+      "induced_critical": 59,
+      "silent": 16,
+      "loud": 43,
+      "silent_rate": 0.2712,
+      "mean_output_shift": 14.2229,
+      "mae_increase": 6.4613
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "task": "E01_missing_modality_evaluation",
+  "issue": 7,
+  "source_task": "M09_cross_attn_fused_probe",
+  "seed": 42,
+  "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a",
+  "checkpoint": "probes/fused/cross_attn_fused.pt",
+  "checkpoint_sha256": "bac18bb84edb93ba8ea8b60a6ad9e6b568b37919a5ac2605da1dc30242163cdb",
+  "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
+  "config": {
+    "cohort_path": "data/processed/echo_hubert_manifest.parquet",
+    "echo_embedding_path": "None",
+    "ecg_embedding_path": "None",
+    "fusion_dim": 256,
+    "echo_dim": 1024,
+    "ecg_dim": 768,
+    "hidden": 256,
+    "batch_size": 64,
+    "n_bootstrap": 1000,
+    "device": "cpu"
+  },
+  "n": {
+    "val": 130,
+    "test": 245
+  },
+  "test": {
+    "full": {
+      "baseline_mae": 11.701,
+      "mae": 10.4218,
+      "ef40_auroc": 0.7708
+    },
+    "echo_dropped": {
+      "baseline_mae": 11.701,
+      "mae": 20.5507,
+      "ef40_auroc": 0.689
+    },
+    "ecg_dropped": {
+      "baseline_mae": 11.701,
+      "mae": 11.2167,
+      "ef40_auroc": 0.3827
+    }
+  },
+  "bootstrap": {
+    "full": {
+      "mae_ci_low": 9.277,
+      "mae_ci_high": 11.6448,
+      "ef40_auroc_ci_low": 0.6968,
+      "ef40_auroc_ci_high": 0.8386
+    },
+    "echo_dropped": {
+      "mae_ci_low": 19.0182,
+      "mae_ci_high": 22.0169,
+      "ef40_auroc_ci_low": 0.605,
+      "ef40_auroc_ci_high": 0.7654
+    },
+    "ecg_dropped": {
+      "mae_ci_low": 9.9998,
+      "mae_ci_high": 12.3924,
+      "ef40_auroc_ci_low": 0.2793,
+      "ef40_auroc_ci_high": 0.4934
+    }
+  },
+  "metrics_table": [
+    {
+      "condition": "full",
+      "mae": 10.4218,
+      "ef40_auroc": 0.7708,
+      "baseline_mae": 11.701,
+      "mae_ci_low": 9.277,
+      "mae_ci_high": 11.6448,
+      "ef40_auroc_ci_low": 0.6968,
+      "ef40_auroc_ci_high": 0.8386
+    },
+    {
+      "condition": "echo_dropped",
+      "mae": 20.5507,
+      "ef40_auroc": 0.689,
+      "baseline_mae": 11.701,
+      "mae_ci_low": 19.0182,
+      "mae_ci_high": 22.0169,
+      "ef40_auroc_ci_low": 0.605,
+      "ef40_auroc_ci_high": 0.7654
+    },
+    {
+      "condition": "ecg_dropped",
+      "mae": 11.2167,
+      "ef40_auroc": 0.3827,
+      "baseline_mae": 11.701,
+      "mae_ci_low": 9.9998,
+      "mae_ci_high": 12.3924,
+      "ef40_auroc_ci_low": 0.2793,
+      "ef40_auroc_ci_high": 0.4934
+    }
+  ],
+  "notes": "Dropped conditions mask one branch at inference only; no unimodal retraining."
+}

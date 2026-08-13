@@ -1,0 +1,151 @@
+{
+  "task": "E10_baseline_gap_diagnosis",
+  "issue": 67,
+  "seed": 42,
+  "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a",
+  "manifest": "data/processed/echo_hubert_manifest.parquet",
+  "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
+  "checkpoint_sha256": {
+    "fused": "bac18bb84edb93ba8ea8b60a6ad9e6b568b37919a5ac2605da1dc30242163cdb",
+    "concat": "3f33b5bf67c6f081d297add31b9486cf219b5709961204eb5b99de2e2faf00e0",
+    "echo_only": "3b3d6cabd41dd2634dccacf83553d474685414cb193c38224613c698db645d96",
+    "ecg_only": "d327447e3004c2b33407d64752e7ae2a6bc17815b1f77a93cae17905a1f5b57e"
+  },
+  "probes_dir": "probes",
+  "device": "cpu",
+  "n_test": 245,
+  "n_dropped_nonfinite": 12,
+  "n_bootstrap": 1000,
+  "test_metrics": {
+    "fused": {
+      "baseline_mae": 11.701,
+      "mae": 10.4218,
+      "ef40_auroc": 0.7708,
+      "mae_ci95": [
+        9.2769,
+        11.6448
+      ],
+      "ef40_auroc_ci95": [
+        0.6968,
+        0.8386
+      ]
+    },
+    "concat": {
+      "baseline_mae": 11.701,
+      "mae": 10.9285,
+      "ef40_auroc": 0.7164,
+      "mae_ci95": [
+        9.773,
+        12.2162
+      ],
+      "ef40_auroc_ci95": [
+        0.634,
+        0.7947
+      ]
+    },
+    "echo_only": {
+      "baseline_mae": 11.701,
+      "mae": 11.0879,
+      "ef40_auroc": 0.7708,
+      "mae_ci95": [
+        9.7861,
+        12.2475
+      ],
+      "ef40_auroc_ci95": [
+        0.698,
+        0.8452
+      ]
+    },
+    "ecg_only": {
+      "baseline_mae": 11.701,
+      "mae": 11.5965,
+      "ef40_auroc": 0.6713,
+      "mae_ci95": [
+        10.3604,
+        12.8439
+      ],
+      "ef40_auroc_ci95": [
+        0.5816,
+        0.7556
+      ]
+    }
+  },
+  "paired_deltas_vs_fused": {
+    "fused_vs_echo_only": {
+      "delta_mae": -0.6661,
+      "delta_mae_ci95": [
+        -1.5517,
+        0.2733
+      ],
+      "delta_ef40_auroc": 0.0,
+      "delta_ef40_auroc_ci95": [
+        -0.0749,
+        0.0709
+      ]
+    },
+    "fused_vs_ecg_only": {
+      "delta_mae": -1.1747,
+      "delta_mae_ci95": [
+        -1.9865,
+        -0.3315
+      ],
+      "delta_ef40_auroc": 0.0995,
+      "delta_ef40_auroc_ci95": [
+        0.0322,
+        0.1686
+      ]
+    },
+    "fused_vs_concat": {
+      "delta_mae": -0.5067,
+      "delta_mae_ci95": [
+        -1.0543,
+        0.0807
+      ],
+      "delta_ef40_auroc": 0.0545,
+      "delta_ef40_auroc_ci95": [
+        0.0032,
+        0.1061
+      ]
+    }
+  },
+  "fused_mae_by_lvef_source": {
+    "biplane_lvef": {
+      "n": 32,
+      "mae": 8.2302
+    },
+    "lvef": {
+      "n": 200,
+      "mae": 9.9782
+    },
+    "lvef_3d": {
+      "n": 7,
+      "mae": 5.1668
+    },
+    "lvef_upper": {
+      "n": 6,
+      "mae": 43.0265
+    }
+  },
+  "fused_metrics_by_split": {
+    "train": {
+      "baseline_mae": 11.6691,
+      "mae": 8.719,
+      "ef40_auroc": 0.8865
+    },
+    "val": {
+      "baseline_mae": 12.5857,
+      "mae": 10.6228,
+      "ef40_auroc": 0.8898
+    },
+    "test": {
+      "baseline_mae": 11.701,
+      "mae": 10.4218,
+      "ef40_auroc": 0.7708
+    }
+  },
+  "published_baselines_for_context": {
+    "echojepa_solo_mae": 5.97,
+    "ecg_fm_solo_auroc": 0.929,
+    "note": "Different cohorts and setups; not like-for-like with this manifest."
+  }
+}
