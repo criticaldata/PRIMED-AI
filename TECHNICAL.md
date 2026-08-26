@@ -198,7 +198,14 @@ For each condition, report:
 - Continuous LVEF **MAE**
 - **EF≤40% AUROC**
 
-Plot a **degradation curve** across conditions. The key question: when echo is unavailable at inference, does the model degrade gracefully or fail silently?
+Plot a **degradation curve** across conditions. The key question: when a modality is unavailable
+at inference, does the model degrade gracefully or fail silently?
+
+On the canonical pooled run both answers show up in one table. Dropping echo degrades loudly —
+MAE nearly doubles (20.55 vs 10.42) while AUROC only slips to 0.689, so the damage is visible in
+the output. Dropping ECG does the opposite: MAE stays flat (11.22) while AUROC falls to 0.383 with
+a 95% interval of 0.279–0.493 that excludes 0.5, i.e. the gate ranking inverts. A monitor watching
+regression error would not catch it. Report AUROC per condition, never MAE alone.
 
 **Implementation note:** at dropped-modality evaluation, mask the selected fused-probe
 branch at inference time (`mask_echo` / `mask_ecg`) rather than retraining a unimodal
@@ -231,8 +238,11 @@ AUROC. The Platt scaler is fit on val predictions only and applied to test
 (`scripts/evaluate_calibration.py`); measured numbers are in the
 [README results](README.md#results). Caveat when reading dropped-condition ECE: a model
 whose predictions collapse toward the training mean can look well calibrated after Platt
-scaling while discriminating no better than chance — report ECE alongside AUROC, never
-alone.
+scaling while discriminating *below* chance. That is not hypothetical here — `ecg_dropped`
+posts the lowest ECE of the three conditions (0.015) on an AUROC of 0.383 whose interval
+excludes 0.5, and its bins show why: 234 of 245 cases land in one 0.1–0.2 bin whose mean
+confidence (0.168) and observed rate (0.171) differ by 0.003. A near-constant score is
+trivially calibrated. Report ECE alongside AUROC and the bin occupancy, never ECE alone.
 
 ---
 
