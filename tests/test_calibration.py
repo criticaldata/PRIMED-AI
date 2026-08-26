@@ -101,3 +101,42 @@ def test_run_calibration_fits_on_val_when_present(tmp_path):
         "checkpoint_sha256": "abc123",
         "seed": 42,
     }
+
+
+def test_cli_nests_artifacts_per_condition(tmp_path, monkeypatch):
+    """Three conditions used to land on one calibration.json, and the bundler reads
+    results/calibration/<cond>/, so the documented loop produced one file and exported none."""
+    import sys
+
+    import evaluate_calibration
+
+    rng = np.random.default_rng(5)
+    n = 60
+    lvef = rng.uniform(15, 70, size=n)
+    block = {
+        "ef_le_40": (lvef <= 40).astype(int).tolist(),
+        "prediction": (lvef + rng.normal(0, 5, size=n)).tolist(),
+    }
+    pj = tmp_path / "missing_modality.json"
+    pj.write_text(json.dumps({"predictions": {c: block for c in ("full", "ecg_dropped")}}))
+
+    out = tmp_path / "calibration"
+    for condition in ("full", "ecg_dropped"):
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "evaluate_calibration.py",
+                "--predictions",
+                str(pj),
+                "--condition",
+                condition,
+                "--out",
+                str(out),
+            ],
+        )
+        evaluate_calibration.main()
+
+    assert (out / "full" / "calibration.json").is_file()
+    assert (out / "ecg_dropped" / "calibration.json").is_file()
+    assert not (out / "calibration.json").exists()
