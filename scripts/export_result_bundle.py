@@ -75,8 +75,16 @@ def main() -> None:
         probes / "fused" / "cross_attn_fused.pt",
     ]
     raw.append(results / "missing_modality.json")
+    # Anything already in the bundle whose source was missing this run is still committed,
+    # so it must still get a line -- dropping it would let `shasum -c` pass over a file no
+    # run has verified. Checksum it and say so.
+    fresh = set(exported)
+    stale = sorted(p for p in out.glob("*.json") if p not in fresh)
+    if stale:
+        print("stale (source missing, checksummed as-is): " + ", ".join(p.name for p in stale))
+
     lines = []
-    for path in exported + [p for p in raw if p.is_file()]:
+    for path in exported + stale + [p for p in raw if p.is_file()]:
         lines.append(f"{sha256_file(path)}  {path.as_posix()}")
     (out / "SHA256SUMS").write_text("\n".join(lines) + "\n")
     print(f"exported {len(exported)} sanitized artifacts + SHA256SUMS to {out}")

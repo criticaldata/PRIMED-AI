@@ -289,7 +289,13 @@ def run_fairness(
         results["conditions"][condition] = strat
         save_outputs({**provenance, "condition": condition, **strat}, out / condition)
     # keep the full-condition metrics at top level too: aggregate.py reads overall/by there
-    results.update(results["conditions"].get("full", {}))
+    if "full" in results["conditions"]:
+        results.update(results["conditions"]["full"])
+    else:
+        results["top_level_note"] = (
+            "'full' was not scored, so no overall/by block is mirrored at the top level and "
+            "aggregate.py will render no fairness table for this run."
+        )
     out.mkdir(parents=True, exist_ok=True)
     (out / "fairness_metrics.json").write_text(
         json.dumps(_safe_json(results), indent=2), encoding="utf-8"

@@ -137,6 +137,21 @@ def test_run_fairness_reads_manifest_and_stratifies_per_condition(tmp_path):
         assert (tmp_path / "fairness" / condition / "fairness_summary.csv").exists()
     assert (tmp_path / "fairness" / "fairness_metrics.json").exists()
 
+    # A run without `full` has nothing to mirror at the top level; aggregate.py would show
+    # an empty fairness table, so the payload has to say why rather than look complete.
+    res_no_full = run_fairness(
+        path,
+        checkpoint=ckpt,
+        out_dir=tmp_path / "fairness_dropped_only",
+        embed_dim=EMBED,
+        echo_dim=ECHO,
+        ecg_dim=ECG,
+        device="cpu",
+        conditions=("echo_dropped",),
+    )
+    assert "overall" not in res_no_full and "by" not in res_no_full
+    assert "not scored" in res_no_full["top_level_note"]
+
 
 def test_run_fairness_rejects_unknown_conditions(tmp_path):
     import pytest
