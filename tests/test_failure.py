@@ -110,3 +110,17 @@ def test_split_has_healthy_prevalence():
     test = ~stratified_train_mask(ef, 0.7, seed=12345)
     prevalence = float(ef[test].mean())
     assert 0.15 < prevalence < 0.6  # both gate classes well represented in the held-out split
+
+
+def test_emitted_report_names_the_producing_model(tmp_path):
+    # A failure report and a fused-checkpoint report disagree badly on the dropped
+    # conditions, so an artifact that doesn't name its model can be read as the wrong one.
+    import run_failure_analysis
+
+    out = tmp_path / "failure_demo"
+    run_failure_analysis._run_demo(0, str(out))
+    payload = json.loads((out / "failure_report.json").read_text())
+
+    assert payload["provenance"]["model"] == run_failure_analysis.RIDGE_MODEL
+    assert payload["provenance"]["data"] == "synthetic_planted"
+    assert payload["conditions"]["full"]["mae"] > 0

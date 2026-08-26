@@ -36,15 +36,23 @@ from primed_ai.failure.plots import (
     plot_taxonomy,
 )
 
+RIDGE_MODEL = "masked_ridge_harness"
+RIDGE_NOTE = (
+    "Predictions come from a Ridge fitted on the concatenated embeddings with absent "
+    "modalities zeroed at inference -- NOT from the cross-attention fused checkpoint the "
+    "README results and the missing-modality eval report. The two disagree substantially "
+    "on the dropped conditions; do not mix them in one table."
+)
 
-def _emit(report, out: str) -> None:
+
+def _emit(report, out: str, provenance: dict) -> None:
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "failure_report.json").write_text(json.dumps(report.to_dict(), indent=2))
+    d = {**report.to_dict(), "provenance": provenance}
+    (out_dir / "failure_report.json").write_text(json.dumps(d, indent=2))
     plot_complementarity_matrix(report, out_dir / "complementarity.pdf")
     plot_dropout_profile(report, out_dir / "dropout_profile.pdf")
     plot_taxonomy(report, out_dir / "taxonomy.pdf")
-    d = report.to_dict()
     print("modalities          :", d["modalities"], f"(n_test={d['n']})")
     print("per-example winners :", d["complementarity"]["per_example_winners"])
     print("marginal value (LOO):", d["complementarity"]["marginal_value"])
@@ -55,6 +63,7 @@ def _emit(report, out: str) -> None:
             for k, v in d["dropout"].items()
         },
     )
+    print("producing model     :", provenance["model"])
     print("wrote               :", out_dir)
 
 
@@ -67,12 +76,12 @@ def _run_demo(seed: int, out: str) -> None:
     report = analyze_modality_failure(
         emb_te, lvef[test], ef[test], lambda present: predict_full(present)[test]
     )
-    _emit(report, out)
+    _emit(report, out, {"model": RIDGE_MODEL, "data": "synthetic_planted", "seed": seed})
 
 
 def _run_manifest(manifest_path: str, out: str) -> None:
     from primed_ai.probes import manifest as manifest_io
-    from primed_ai.probes.common import drop_non_finite
+    from primed_ai.probes.common import drop_non_finite, git_sha, sha256_file
 
     df = manifest_io.load(manifest_path)
     if manifest_io.is_clip_level(df):
@@ -104,11 +113,24 @@ def _run_manifest(manifest_path: str, out: str) -> None:
         lambda present: predict_full(present)[test],
         groups=g_te or None,
     )
-    _emit(report, out)
+    _emit(
+        report,
+        out,
+        {
+            "model": RIDGE_MODEL,
+            "manifest": str(manifest_path),
+            "manifest_sha256": sha256_file(manifest_path),
+            "git_sha": git_sha(),
+            "n_dropped_nonfinite": n_dropped,
+            "note": RIDGE_NOTE,
+        },
+    )
 
 
 def _run_real(cohort: str, echo: str, ecg: str, out: str) -> None:
     import pandas as pd
+
+    from primed_ai.probes.common import git_sha
 
     coh = pd.read_parquet(cohort)
     e = pd.read_parquet(echo)
@@ -134,7 +156,18 @@ def _run_real(cohort: str, echo: str, ecg: str, out: str) -> None:
         lambda present: predict_full(present)[test],
         groups=g_te or None,
     )
-    _emit(report, out)
+    _emit(
+        report,
+        out,
+        {
+            "model": RIDGE_MODEL,
+            "cohort": str(cohort),
+            "echo_embeddings": str(echo),
+            "ecg_embeddings": str(ecg),
+            "git_sha": git_sha(),
+            "note": RIDGE_NOTE,
+        },
+    )
 
 
 def main() -> None:

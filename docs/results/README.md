@@ -16,3 +16,16 @@ shasum -c docs/results/SHA256SUMS
 
 Lines for local raw artifacts fail with "No such file" until you have rebuilt them —
 that is the checklist of what your reproduction still has to produce.
+
+## Which model produced which file
+
+Every file here scores the cross-attention fused checkpoint
+(`probes/fused/cross_attn_fused.pt`, SHA-256 `bac18bb8…`) **except**
+`failure_report.ridge.json`, which comes from the harness's own Ridge on concatenated
+embeddings with absent modalities zeroed at inference.
+
+That is a different model, and it disagrees sharply on the dropped conditions — the ridge
+report puts drop-echo MAE at 117.5 where the fused checkpoint gives 20.55 — so the two
+must never share a table. Regenerating the file with the current code adds a `provenance`
+block naming the producing model; the copy committed here predates that field. #79 adds
+the fused-checkpoint failure report that the paper figures should be built from.
