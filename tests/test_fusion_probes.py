@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from primed_ai.evaluation.missing_modality import _bootstrap_ci
 from primed_ai.evaluation.missing_modality import run as run_missing_modality_eval
 from primed_ai.probes.concat_mlp import run as run_concat
 from primed_ai.probes.cross_attn import CrossAttnFusedProbe
@@ -122,3 +123,39 @@ def test_e01_missing_modality_eval_loads_checkpoint(tmp_path):
     assert set(res["predictions"]) == {"full", "echo_dropped", "ecg_dropped"}
     assert "mae_ci_low" in res["metrics_table"][0]
     assert "ef40_auroc_ci_high" in res["metrics_table"][0]
+    row = res["metrics_table"][0]
+    assert row["n_auroc_replicates"] + row["n_auroc_discarded"] == row["n_bootstrap"] == 20
+
+
+def test_bootstrap_ci_counts_discarded_auroc_replicates():
+    # Every replicate of a single-class EF vector has an undefined AUROC, so the interval
+    # has nothing to stand on -- it must be absent and the discards counted, not silently
+    # reported as if 50 replicates backed it.
+    rng = np.random.default_rng(0)
+    arrays = {
+        "lvef": rng.uniform(50, 70, size=40),
+        "prediction": rng.uniform(50, 70, size=40),
+        "ef_le_40": np.zeros(40, dtype=bool),
+    }
+    ci = _bootstrap_ci(arrays, n_bootstrap=50, seed=1)
+
+    assert ci["n_bootstrap"] == 50
+    assert ci["n_auroc_replicates"] == 0
+    assert ci["n_auroc_discarded"] == 50
+    assert "ef40_auroc_ci_low" not in ci
+    assert np.isfinite(ci["mae_ci_low"]) and np.isfinite(ci["mae_ci_high"])
+
+
+def test_bootstrap_ci_counts_add_up_when_auroc_is_defined():
+    rng = np.random.default_rng(3)
+    lvef = rng.uniform(20, 70, size=60)
+    arrays = {
+        "lvef": lvef,
+        "prediction": lvef + rng.standard_normal(60),
+        "ef_le_40": lvef <= 40,
+    }
+    ci = _bootstrap_ci(arrays, n_bootstrap=100, seed=7)
+
+    assert ci["n_auroc_replicates"] + ci["n_auroc_discarded"] == 100
+    assert ci["n_auroc_replicates"] > 0
+    assert ci["ef40_auroc_ci_low"] <= ci["ef40_auroc_ci_high"]

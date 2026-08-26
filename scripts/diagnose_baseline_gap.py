@@ -36,8 +36,17 @@ from primed_ai.probes.echo_only import EchoOnlyProbe
 from primed_ai.probes.echo_only import _predict as predict_echo
 
 
-def _ci95(a) -> list:
+def _ci95(a) -> list | None:
+    """95% percentile interval, or None when every replicate was discarded."""
+    if len(a) == 0:
+        return None
     return [round(float(np.quantile(a, 0.025)), 4), round(float(np.quantile(a, 0.975)), 4)]
+
+
+def _auroc_replicate_counts(kept: int, n_bootstrap: int) -> dict:
+    # AUROC is undefined on a resample that draws one EF class, so those replicates are
+    # dropped. Record both counts -- the interval rests on `kept`, not on n_bootstrap.
+    return {"n_auroc_replicates": kept, "n_auroc_discarded": n_bootstrap - kept}
 
 
 def _metrics(arrays: dict) -> dict:
@@ -58,11 +67,20 @@ def _bootstrap(arrays: dict, *, n_bootstrap: int, seed: int) -> dict:
         a = auroc(ef[i], -p[i])
         if np.isfinite(a):
             aucs.append(a)
-    return {"mae_ci95": _ci95(maes), "ef40_auroc_ci95": _ci95(aucs)}
+    return {
+        "n_bootstrap": n_bootstrap,
+        "mae_ci95": _ci95(maes),
+        "ef40_auroc_ci95": _ci95(aucs),
+        **_auroc_replicate_counts(len(aucs), n_bootstrap),
+    }
 
 
 def _paired_delta(fused: dict, other: dict, *, n_bootstrap: int, seed: int) -> dict:
-    """Paired bootstrap of (fused - other) on the shared rows; negative MAE delta = fusion wins."""
+    """Paired bootstrap of (fused - other) on the shared rows; negative MAE delta = fusion wins.
+
+    A replicate counts toward the AUROC delta only when *both* models have a defined AUROC
+    on it, so the delta interval can rest on fewer replicates than the per-model ones.
+    """
     y = np.asarray(fused["lvef"], dtype=np.float64)
     pf = np.asarray(fused["prediction"], dtype=np.float64)
     po = np.asarray(other["prediction"], dtype=np.float64)
@@ -76,10 +94,12 @@ def _paired_delta(fused: dict, other: dict, *, n_bootstrap: int, seed: int) -> d
         if np.isfinite(af) and np.isfinite(ao):
             d_auc.append(af - ao)
     return {
+        "n_bootstrap": n_bootstrap,
         "delta_mae": round(float(np.abs(y - pf).mean() - np.abs(y - po).mean()), 4),
         "delta_mae_ci95": _ci95(d_mae),
         "delta_ef40_auroc": round(auroc(ef, -pf) - auroc(ef, -po), 4),
         "delta_ef40_auroc_ci95": _ci95(d_auc),
+        **_auroc_replicate_counts(len(d_auc), n_bootstrap),
     }
 
 

@@ -30,7 +30,12 @@ def _bootstrap_ci(
     seed: int,
     alpha: float = 0.05,
 ) -> dict:
-    """Bootstrap MAE and EF<=40 AUROC intervals from per-example predictions."""
+    """Bootstrap MAE and EF<=40 AUROC intervals from per-example predictions.
+
+    A resample that happens to draw a single EF class has no defined AUROC. Those
+    replicates are dropped, so the AUROC interval rests on ``n_auroc_replicates``
+    rather than ``n_bootstrap``; both are recorded so the gap is visible.
+    """
     y = np.asarray(arrays["lvef"], dtype=np.float64)
     pred = np.asarray(arrays["prediction"], dtype=np.float64)
     ef = np.asarray(arrays["ef_le_40"], dtype=bool)
@@ -50,8 +55,11 @@ def _bootstrap_ci(
 
     lo, hi = alpha / 2, 1 - alpha / 2
     ci = {
+        "n_bootstrap": n_bootstrap,
         "mae_ci_low": round(float(np.quantile(mae_samples, lo)), 4),
         "mae_ci_high": round(float(np.quantile(mae_samples, hi)), 4),
+        "n_auroc_replicates": len(auroc_samples),
+        "n_auroc_discarded": n_bootstrap - len(auroc_samples),
     }
     if auroc_samples:
         ci["ef40_auroc_ci_low"] = round(float(np.quantile(auroc_samples, lo)), 4)
