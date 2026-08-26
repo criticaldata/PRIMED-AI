@@ -14,6 +14,11 @@ Joined manifest (same table the probes train from; trains on `split == "train"`,
 reports on `split == "test"`):
   python scripts/run_failure_analysis.py \
     --manifest data/processed/echo_hubert_manifest.parquet --out results/failure
+
+Fused checkpoint (E14/#79 -- the three views for the model the paper actually reports,
+read straight off the per-example dump `evaluate_missing_modality.py` already writes):
+  python scripts/run_failure_analysis.py \
+    --predictions results/missing_modality.json --out results/failure_fused
 """
 
 from __future__ import annotations
@@ -43,6 +48,17 @@ RIDGE_NOTE = (
     "README results and the missing-modality eval report. The two disagree substantially "
     "on the dropped conditions; do not mix them in one table."
 )
+
+FUSED_MODEL = "cross_attn_fused_checkpoint"
+
+# Which modalities are present under each masking condition the fused eval scores. With two
+# modalities these three subsets are everything the harness asks predict_fn for (full, each
+# singleton), so no refitting is needed -- the dump already holds every prediction.
+CONDITION_PRESENT = {
+    "full": frozenset({"echo", "ecg"}),
+    "echo_dropped": frozenset({"ecg"}),
+    "ecg_dropped": frozenset({"echo"}),
+}
 
 
 def _emit(report, out: str, provenance: dict) -> None:
@@ -77,6 +93,63 @@ def _run_demo(seed: int, out: str) -> None:
         emb_te, lvef[test], ef[test], lambda present: predict_full(present)[test]
     )
     _emit(report, out, {"model": RIDGE_MODEL, "data": "synthetic_planted", "seed": seed})
+
+
+def _run_predictions(predictions_path: str, out: str) -> None:
+    """Failure views for the fused checkpoint, off the per-example predictions it already wrote.
+
+    The ridge routes fit their own model, so their taxonomy/complementarity/dropout numbers
+    describe something the paper never reports. Here nothing is fitted: the conditions in
+    `missing_modality.json` are exactly the modality subsets the harness needs.
+    """
+    payload = json.loads(Path(predictions_path).read_text())
+    dump = payload.get("predictions")
+    if not dump:
+        raise SystemExit(
+            f"{predictions_path} has no per-example 'predictions' block -- point this at the "
+            "raw results/missing_modality.json, not the sanitized docs/results copy"
+        )
+    missing = set(CONDITION_PRESENT) - set(dump)
+    if missing:
+        raise SystemExit(f"predictions are missing condition(s): {sorted(missing)}")
+
+    preds = {
+        CONDITION_PRESENT[cond]: np.asarray(dump[cond]["prediction"], dtype=float)
+        for cond in CONDITION_PRESENT
+    }
+    lvef = np.asarray(dump["full"]["lvef"], dtype=float)
+    ef = np.asarray(dump["full"]["ef_le_40"], dtype=bool)
+    # All three conditions score the same rows in the same order; if they ever stop doing so
+    # the per-example views would silently compare different patients.
+    for cond, arrays in dump.items():
+        if cond in CONDITION_PRESENT and not np.array_equal(
+            np.asarray(arrays["lvef"], dtype=float), lvef
+        ):
+            raise SystemExit(f"condition '{cond}' has different labels than 'full'")
+
+    def predict(present):
+        if present not in preds:
+            raise SystemExit(f"no scored condition covers the modality subset {sorted(present)}")
+        return preds[present]
+
+    report = analyze_modality_failure(["echo", "ecg"], lvef, ef, predict)
+    _emit(
+        report,
+        out,
+        {
+            "model": FUSED_MODEL,
+            "predictions_path": str(predictions_path),
+            "checkpoint": payload.get("checkpoint"),
+            "checkpoint_sha256": payload.get("checkpoint_sha256"),
+            "manifest_sha256": payload.get("manifest_sha256"),
+            "seed": payload.get("seed"),
+            "source_git_sha": payload.get("git_sha"),
+            "note": (
+                "Same predictions, checkpoint and test rows as the reported missing-modality "
+                "table -- no model is fitted here."
+            ),
+        },
+    )
 
 
 def _run_manifest(manifest_path: str, out: str) -> None:
@@ -176,18 +249,29 @@ def main() -> None:
     )
     p.add_argument("--demo", action="store_true", help="run on planted synthetic data")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument(
+        "--predictions",
+        help="per-example dump from evaluate_missing_modality.py; scores the fused checkpoint",
+    )
     p.add_argument("--manifest", help="joined manifest; supersedes the three-table flags")
     p.add_argument("--cohort")
     p.add_argument("--echo-embeddings")
     p.add_argument("--ecg-embeddings")
-    p.add_argument("--out", default="results/failure")
+    p.add_argument(
+        "--out", help="default: results/failure, or results/failure_fused for --predictions"
+    )
     a = p.parse_args()
-    if a.manifest and not a.demo:
-        _run_manifest(a.manifest, a.out)
+    # Separate default per producer: a fused report landing on results/failure would
+    # overwrite the ridge one, which is the confusion this route exists to end.
+    out = a.out or ("results/failure_fused" if a.predictions and not a.demo else "results/failure")
+    if a.predictions and not a.demo:
+        _run_predictions(a.predictions, out)
+    elif a.manifest and not a.demo:
+        _run_manifest(a.manifest, out)
     elif a.demo or not (a.cohort and a.echo_embeddings and a.ecg_embeddings):
-        _run_demo(a.seed, a.out if a.demo else "results/failure_demo")
+        _run_demo(a.seed, out if a.demo else "results/failure_demo")
     else:
-        _run_real(a.cohort, a.echo_embeddings, a.ecg_embeddings, a.out)
+        _run_real(a.cohort, a.echo_embeddings, a.ecg_embeddings, out)
 
 
 if __name__ == "__main__":

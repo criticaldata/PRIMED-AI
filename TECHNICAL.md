@@ -244,6 +244,26 @@ excludes 0.5, and its bins show why: 234 of 245 cases land in one 0.1–0.2 bin 
 confidence (0.168) and observed rate (0.171) differ by 0.003. A near-constant score is
 trivially calibrated. Report ECE alongside AUROC and the bin occupancy, never ECE alone.
 
+### 7.4 Modality-failure views
+
+The three per-example views — failure taxonomy, complementarity matrix, loud-vs-silent
+dropout profile — are what `src/primed_ai/failure/` contributes, and
+`scripts/run_failure_analysis.py` can produce them from two different predictors:
+
+| Route | Predictor | Use |
+|---|---|---|
+| `--predictions results/missing_modality.json` | the fused checkpoint's own per-example predictions | the reported model; what the paper figures should be built from (#79) |
+| `--manifest` / `--cohort` | a Ridge on concatenated embeddings, absent modalities zeroed | harness validation on real embeddings, independent of probe training |
+| `--demo` | the same Ridge on planted synthetic structure | recovers known ground truth; no PHI |
+
+The first route fits nothing. With two modalities the harness only ever asks for the full
+set and each singleton, and the missing-modality eval has already scored exactly those
+three conditions, so the views are a re-reading of the reported predictions rather than a
+second model. The routes disagree substantially — the ridge harness puts drop-echo MAE at
+117.5 where the checkpoint gives 20.55 — so every report carries a `provenance` block
+naming its producer, and the exported bundle names the file after it
+(`failure_report.fused.json` vs `failure_report.ridge.json`).
+
 ---
 
 ## 8. Metrics

@@ -26,6 +26,17 @@ embeddings with absent modalities zeroed at inference.
 
 That is a different model, and it disagrees sharply on the dropped conditions — the ridge
 report puts drop-echo MAE at 117.5 where the fused checkpoint gives 20.55 — so the two
-must never share a table. Regenerating the file with the current code adds a `provenance`
-block naming the producing model; the copy committed here predates that field. #79 adds
-the fused-checkpoint failure report that the paper figures should be built from.
+must never share a table.
+
+`failure_report.fused.json` — **not yet in this bundle** — is the file the paper figures
+should be built from: the same three views computed off the fused checkpoint's own
+per-example predictions, with no model fitted in between. Produce it with
+
+```bash
+python scripts/run_failure_analysis.py --predictions results/missing_modality.json
+python scripts/export_result_bundle.py
+```
+
+on a machine that has the manifest and the raw `results/`. Every regenerated failure
+artifact carries a `provenance` block naming its producing model; the ridge copy committed
+here predates both that block and the fused route, so it is still the pre-#79 file.
