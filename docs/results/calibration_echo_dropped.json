@@ -1,74 +1,74 @@
 {
   "task": "E04_ef40_calibration",
-  "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a",
+  "git_sha": "b8493063fe98c093673896a101e9408dec25c1a3",
   "predictions_path": "results/missing_modality.json",
   "prediction_source": {
     "checkpoint": "probes/fused/cross_attn_fused.pt",
-    "checkpoint_sha256": "bac18bb84edb93ba8ea8b60a6ad9e6b568b37919a5ac2605da1dc30242163cdb",
+    "checkpoint_sha256": "7cae4f92a74ff5808231b966fb991aaf30fa2ad748b7d8b79ebac32742432767",
     "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
     "seed": 42,
-    "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a"
+    "git_sha": "b8493063fe98c093673896a101e9408dec25c1a3"
   },
   "condition": "echo_dropped",
   "n": 245,
   "n_bins": 10,
   "scaler_fit_on": "val",
-  "ece": 0.0427,
+  "ece": 0.0438,
   "bins": [
     {
       "bin_low": 0.0,
       "bin_high": 0.1,
       "count": 58,
-      "confidence": 0.0901,
+      "confidence": 0.0902,
       "accuracy": 0.0862
     },
     {
       "bin_low": 0.1,
       "bin_high": 0.2,
-      "count": 108,
-      "confidence": 0.1383,
-      "accuracy": 0.1389
+      "count": 109,
+      "confidence": 0.1388,
+      "accuracy": 0.1376
     },
     {
       "bin_low": 0.2,
       "bin_high": 0.3,
       "count": 34,
-      "confidence": 0.2403,
+      "confidence": 0.2431,
       "accuracy": 0.3529
     },
     {
       "bin_low": 0.3,
       "bin_high": 0.4,
-      "count": 15,
-      "confidence": 0.3418,
-      "accuracy": 0.4
+      "count": 14,
+      "confidence": 0.3447,
+      "accuracy": 0.4286
     },
     {
       "bin_low": 0.4,
       "bin_high": 0.5,
       "count": 12,
-      "confidence": 0.4528,
+      "confidence": 0.4529,
       "accuracy": 0.3333
     },
     {
       "bin_low": 0.5,
       "bin_high": 0.6,
       "count": 9,
-      "confidence": 0.5463,
+      "confidence": 0.5465,
       "accuracy": 0.4444
     },
     {
       "bin_low": 0.6,
       "bin_high": 0.7,
       "count": 7,
-      "confidence": 0.6561,
+      "confidence": 0.6564,
       "accuracy": 0.4286
     },
     {
       "bin_low": 0.7,
       "bin_high": 0.8,
       "count": 2,
-      "confidence": 0.7596,
+      "confidence": 0.7598,
       "accuracy": 0.0
     },
     {
