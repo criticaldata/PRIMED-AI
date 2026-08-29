@@ -1,19 +1,19 @@
 {
   "task": "E04_ef40_calibration",
-  "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a",
+  "git_sha": "b8493063fe98c093673896a101e9408dec25c1a3",
   "predictions_path": "results/missing_modality.json",
   "prediction_source": {
     "checkpoint": "probes/fused/cross_attn_fused.pt",
-    "checkpoint_sha256": "bac18bb84edb93ba8ea8b60a6ad9e6b568b37919a5ac2605da1dc30242163cdb",
+    "checkpoint_sha256": "7cae4f92a74ff5808231b966fb991aaf30fa2ad748b7d8b79ebac32742432767",
     "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
     "seed": 42,
-    "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a"
+    "git_sha": "b8493063fe98c093673896a101e9408dec25c1a3"
   },
   "condition": "ecg_dropped",
   "n": 245,
   "n_bins": 10,
   "scaler_fit_on": "val",
-  "ece": 0.0151,
+  "ece": 0.0166,
   "bins": [
     {
       "bin_low": 0.0,
@@ -26,22 +26,22 @@
       "bin_low": 0.1,
       "bin_high": 0.2,
       "count": 234,
-      "confidence": 0.168,
+      "confidence": 0.1666,
       "accuracy": 0.1709
     },
     {
       "bin_low": 0.2,
       "bin_high": 0.3,
-      "count": 2,
-      "confidence": 0.2315,
+      "count": 1,
+      "confidence": 0.2192,
       "accuracy": 1.0
     },
     {
       "bin_low": 0.3,
       "bin_high": 0.4,
       "count": 1,
-      "confidence": 0.3979,
-      "accuracy": 0.0
+      "confidence": 0.3089,
+      "accuracy": 1.0
     },
     {
       "bin_low": 0.4,
@@ -53,9 +53,9 @@
     {
       "bin_low": 0.5,
       "bin_high": 0.6,
-      "count": 0,
-      "confidence": null,
-      "accuracy": null
+      "count": 1,
+      "confidence": 0.5395,
+      "accuracy": 0.0
     },
     {
       "bin_low": 0.6,
@@ -68,7 +68,7 @@
       "bin_low": 0.7,
       "bin_high": 0.8,
       "count": 8,
-      "confidence": 0.738,
+      "confidence": 0.7453,
       "accuracy": 0.875
     },
     {

@@ -190,5 +190,13 @@
       "mean_output_shift": 14.2229,
       "mae_increase": 6.4613
     }
+  },
+  "provenance": {
+    "model": "masked_ridge_harness",
+    "manifest": "data/processed/echo_hubert_manifest.parquet",
+    "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
+    "git_sha": "b8493063fe98c093673896a101e9408dec25c1a3",
+    "n_dropped_nonfinite": 12,
+    "note": "Predictions come from a Ridge fitted on the concatenated embeddings with absent modalities zeroed at inference -- NOT from the cross-attention fused checkpoint the README results and the missing-modality eval report. The two disagree substantially on the dropped conditions; do not mix them in one table."
   }
 }

@@ -1,9 +1,9 @@
 {
   "task": "E03_fairness_stratification",
   "checkpoint": "probes/fused/cross_attn_fused.pt",
-  "checkpoint_sha256": "bac18bb84edb93ba8ea8b60a6ad9e6b568b37919a5ac2605da1dc30242163cdb",
+  "checkpoint_sha256": "7cae4f92a74ff5808231b966fb991aaf30fa2ad748b7d8b79ebac32742432767",
   "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
-  "git_sha": "035a258bf2cded97722d76db09c1a6ff164e7a8a",
+  "git_sha": "b8493063fe98c093673896a101e9408dec25c1a3",
   "n_test": 245,
   "n_dropped_nonfinite_all_splits": 12,
   "bias_note": "MIMIC-IV records administrative gender as 'sex' and admission-reported race; both carry known curation bias (see MIMIC-IV documentation), so strata inherit it.",
@@ -11,67 +11,67 @@
     "full": {
       "overall": {
         "n": 245,
-        "mae": 10.4218,
+        "mae": 10.4147,
         "baseline_mae": 11.701,
-        "ef40_auroc": 0.7708246563931695,
+        "ef40_auroc": 0.771137026239067,
         "small_n": false
       },
       "by": {
         "sex": {
           "F": {
             "n": 144,
-            "mae": 10.1294,
+            "mae": 10.1316,
             "baseline_mae": 10.5965,
-            "ef40_auroc": 0.7697466467958272,
+            "ef40_auroc": 0.7701192250372578,
             "small_n": false
           },
           "M": {
             "n": 101,
-            "mae": 10.8387,
+            "mae": 10.8182,
             "baseline_mae": 13.3897,
-            "ef40_auroc": 0.7632632632632632,
+            "ef40_auroc": 0.7637637637637638,
             "small_n": false
           }
         },
         "age_band": {
           "18-39": {
             "n": 12,
-            "mae": 8.9737,
+            "mae": 8.97,
             "baseline_mae": 8.625,
             "ef40_auroc": 0.7777777777777778,
             "small_n": true
           },
           "40-54": {
             "n": 37,
-            "mae": 8.9349,
+            "mae": 8.9395,
             "baseline_mae": 8.6779,
             "ef40_auroc": 0.7424242424242424,
             "small_n": false
           },
           "55-64": {
             "n": 57,
-            "mae": 9.4325,
+            "mae": 9.4358,
             "baseline_mae": 9.7938,
             "ef40_auroc": 0.726923076923077,
             "small_n": false
           },
           "65-74": {
             "n": 57,
-            "mae": 13.0964,
+            "mae": 13.0978,
             "baseline_mae": 15.8319,
             "ef40_auroc": 0.7523809523809524,
             "small_n": false
           },
           "75-89": {
             "n": 77,
-            "mae": 10.2899,
+            "mae": 10.2621,
             "baseline_mae": 12.2098,
-            "ef40_auroc": 0.7891156462585034,
+            "ef40_auroc": 0.788265306122449,
             "small_n": false
           },
           "90+": {
             "n": 5,
-            "mae": 7.7201,
+            "mae": 7.7186,
             "baseline_mae": 7.84,
             "ef40_auroc": 0.5,
             "small_n": true
@@ -80,37 +80,37 @@
         "race": {
           "ASIAN": {
             "n": 8,
-            "mae": 10.4771,
+            "mae": 10.4969,
             "baseline_mae": 9.375,
             "ef40_auroc": 0.0,
             "small_n": true
           },
           "BLACK": {
             "n": 43,
-            "mae": 6.6185,
+            "mae": 6.6139,
             "baseline_mae": 8.8156,
             "ef40_auroc": 0.9729729729729729,
             "small_n": false
           },
           "HISPANIC/LATINO": {
             "n": 6,
-            "mae": 7.9728,
+            "mae": 7.9975,
             "baseline_mae": 4.6667,
             "ef40_auroc": null,
             "small_n": true
           },
           "OTHER/UNKNOWN": {
             "n": 13,
-            "mae": 9.2042,
+            "mae": 9.2012,
             "baseline_mae": 6.426,
             "ef40_auroc": 0.27272727272727276,
             "small_n": true
           },
           "WHITE": {
             "n": 175,
-            "mae": 11.5282,
+            "mae": 11.5178,
             "baseline_mae": 13.0269,
-            "ef40_auroc": 0.7609259259259259,
+            "ef40_auroc": 0.7614814814814815,
             "small_n": false
           }
         }
@@ -119,23 +119,23 @@
     "echo_dropped": {
       "overall": {
         "n": 245,
-        "mae": 20.5507,
+        "mae": 20.5384,
         "baseline_mae": 11.701,
-        "ef40_auroc": 0.6889837567680133,
+        "ef40_auroc": 0.6886713869221158,
         "small_n": false
       },
       "by": {
         "sex": {
           "F": {
             "n": 144,
-            "mae": 21.1948,
+            "mae": 21.1825,
             "baseline_mae": 10.5965,
-            "ef40_auroc": 0.6747391952309986,
+            "ef40_auroc": 0.6743666169895679,
             "small_n": false
           },
           "M": {
             "n": 101,
-            "mae": 19.6322,
+            "mae": 19.62,
             "baseline_mae": 13.3897,
             "ef40_auroc": 0.6721721721721722,
             "small_n": false
@@ -144,42 +144,42 @@
         "age_band": {
           "18-39": {
             "n": 12,
-            "mae": 16.3999,
+            "mae": 16.3926,
             "baseline_mae": 8.625,
             "ef40_auroc": 0.40740740740740744,
             "small_n": true
           },
           "40-54": {
             "n": 37,
-            "mae": 20.4442,
+            "mae": 20.429,
             "baseline_mae": 8.6779,
             "ef40_auroc": 0.6969696969696969,
             "small_n": false
           },
           "55-64": {
             "n": 57,
-            "mae": 23.6714,
+            "mae": 23.6554,
             "baseline_mae": 9.7938,
             "ef40_auroc": 0.7615384615384615,
             "small_n": false
           },
           "65-74": {
             "n": 57,
-            "mae": 21.7085,
+            "mae": 21.7004,
             "baseline_mae": 15.8319,
             "ef40_auroc": 0.626984126984127,
             "small_n": false
           },
           "75-89": {
             "n": 77,
-            "mae": 18.2873,
+            "mae": 18.2755,
             "baseline_mae": 12.2098,
-            "ef40_auroc": 0.7508503401360545,
+            "ef40_auroc": 0.75,
             "small_n": false
           },
           "90+": {
             "n": 5,
-            "mae": 17.3801,
+            "mae": 17.3634,
             "baseline_mae": 7.84,
             "ef40_auroc": 0.25,
             "small_n": true
@@ -188,37 +188,37 @@
         "race": {
           "ASIAN": {
             "n": 8,
-            "mae": 21.7366,
+            "mae": 21.7283,
             "baseline_mae": 9.375,
             "ef40_auroc": 0.2857142857142857,
             "small_n": true
           },
           "BLACK": {
             "n": 43,
-            "mae": 21.4057,
+            "mae": 21.3931,
             "baseline_mae": 8.8156,
             "ef40_auroc": 0.8063063063063063,
             "small_n": false
           },
           "HISPANIC/LATINO": {
             "n": 6,
-            "mae": 26.8224,
+            "mae": 26.8051,
             "baseline_mae": 4.6667,
             "ef40_auroc": null,
             "small_n": true
           },
           "OTHER/UNKNOWN": {
             "n": 13,
-            "mae": 19.7079,
+            "mae": 19.6934,
             "baseline_mae": 6.426,
             "ef40_auroc": 0.3181818181818182,
             "small_n": true
           },
           "WHITE": {
             "n": 175,
-            "mae": 20.1339,
+            "mae": 20.1218,
             "baseline_mae": 13.0269,
-            "ef40_auroc": 0.6859259259259259,
+            "ef40_auroc": 0.6853703703703704,
             "small_n": false
           }
         }
@@ -227,67 +227,67 @@
   },
   "overall": {
     "n": 245,
-    "mae": 10.4218,
+    "mae": 10.4147,
     "baseline_mae": 11.701,
-    "ef40_auroc": 0.7708246563931695,
+    "ef40_auroc": 0.771137026239067,
     "small_n": false
   },
   "by": {
     "sex": {
       "F": {
         "n": 144,
-        "mae": 10.1294,
+        "mae": 10.1316,
         "baseline_mae": 10.5965,
-        "ef40_auroc": 0.7697466467958272,
+        "ef40_auroc": 0.7701192250372578,
         "small_n": false
       },
       "M": {
         "n": 101,
-        "mae": 10.8387,
+        "mae": 10.8182,
         "baseline_mae": 13.3897,
-        "ef40_auroc": 0.7632632632632632,
+        "ef40_auroc": 0.7637637637637638,
         "small_n": false
       }
     },
     "age_band": {
       "18-39": {
         "n": 12,
-        "mae": 8.9737,
+        "mae": 8.97,
         "baseline_mae": 8.625,
         "ef40_auroc": 0.7777777777777778,
         "small_n": true
       },
       "40-54": {
         "n": 37,
-        "mae": 8.9349,
+        "mae": 8.9395,
         "baseline_mae": 8.6779,
         "ef40_auroc": 0.7424242424242424,
         "small_n": false
       },
       "55-64": {
         "n": 57,
-        "mae": 9.4325,
+        "mae": 9.4358,
         "baseline_mae": 9.7938,
         "ef40_auroc": 0.726923076923077,
         "small_n": false
       },
       "65-74": {
         "n": 57,
-        "mae": 13.0964,
+        "mae": 13.0978,
         "baseline_mae": 15.8319,
         "ef40_auroc": 0.7523809523809524,
         "small_n": false
       },
       "75-89": {
         "n": 77,
-        "mae": 10.2899,
+        "mae": 10.2621,
         "baseline_mae": 12.2098,
-        "ef40_auroc": 0.7891156462585034,
+        "ef40_auroc": 0.788265306122449,
         "small_n": false
       },
       "90+": {
         "n": 5,
-        "mae": 7.7201,
+        "mae": 7.7186,
         "baseline_mae": 7.84,
         "ef40_auroc": 0.5,
         "small_n": true
@@ -296,37 +296,37 @@
     "race": {
       "ASIAN": {
         "n": 8,
-        "mae": 10.4771,
+        "mae": 10.4969,
         "baseline_mae": 9.375,
         "ef40_auroc": 0.0,
         "small_n": true
       },
       "BLACK": {
         "n": 43,
-        "mae": 6.6185,
+        "mae": 6.6139,
         "baseline_mae": 8.8156,
         "ef40_auroc": 0.9729729729729729,
         "small_n": false
       },
       "HISPANIC/LATINO": {
         "n": 6,
-        "mae": 7.9728,
+        "mae": 7.9975,
         "baseline_mae": 4.6667,
         "ef40_auroc": null,
         "small_n": true
       },
       "OTHER/UNKNOWN": {
         "n": 13,
-        "mae": 9.2042,
+        "mae": 9.2012,
         "baseline_mae": 6.426,
         "ef40_auroc": 0.27272727272727276,
         "small_n": true
       },
       "WHITE": {
         "n": 175,
-        "mae": 11.5282,
+        "mae": 11.5178,
         "baseline_mae": 13.0269,
-        "ef40_auroc": 0.7609259259259259,
+        "ef40_auroc": 0.7614814814814815,
         "small_n": false
       }
     }
