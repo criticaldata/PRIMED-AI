@@ -202,8 +202,8 @@ Plot a **degradation curve** across conditions. The key question: when a modalit
 at inference, does the model degrade gracefully or fail silently?
 
 On the canonical pooled run both answers show up in one table. Dropping echo degrades loudly —
-MAE nearly doubles (20.55 vs 10.42) while AUROC only slips to 0.689, so the damage is visible in
-the output. Dropping ECG does the opposite: MAE stays flat (11.22) while AUROC falls to 0.383 with
+MAE nearly doubles (20.54 vs 10.41) while AUROC only slips to 0.689, so the damage is visible in
+the output. Dropping ECG does the opposite: MAE stays flat (11.22) while AUROC falls to 0.382 with
 a 95% interval of 0.279–0.493 that excludes 0.5, i.e. the gate ranking inverts. A monitor watching
 regression error would not catch it. Report AUROC per condition, never MAE alone.
 
@@ -239,9 +239,9 @@ AUROC. The Platt scaler is fit on val predictions only and applied to test
 [README results](README.md#results). Caveat when reading dropped-condition ECE: a model
 whose predictions collapse toward the training mean can look well calibrated after Platt
 scaling while discriminating *below* chance. That is not hypothetical here — `ecg_dropped`
-posts the lowest ECE of the three conditions (0.015) on an AUROC of 0.383 whose interval
+posts the lowest ECE of the three conditions (0.017) on an AUROC of 0.382 whose interval
 excludes 0.5, and its bins show why: 234 of 245 cases land in one 0.1–0.2 bin whose mean
-confidence (0.168) and observed rate (0.171) differ by 0.003. A near-constant score is
+confidence (0.167) and observed rate (0.171) differ by 0.004. A near-constant score is
 trivially calibrated. Report ECE alongside AUROC and the bin occupancy, never ECE alone.
 
 ---
@@ -256,15 +256,15 @@ trivially calibrated. Report ECE alongside AUROC and the bin occupancy, never EC
 | Fairness gap | Δ MAE / Δ AUROC across demographic strata | No external baseline |
 
 The published solo numbers are **not** like-for-like with this cohort. On identical splits
-(seed 42, 245-row test frame, `scripts/diagnose_baseline_gap.py`): fused 10.42 MAE / 0.771
+(seed 42, 245-row test frame, `scripts/diagnose_baseline_gap.py`): fused 10.41 MAE / 0.771
 AUROC vs echo-only 11.09 / 0.771, ECG-only 11.60 / 0.671, concat 10.93 / 0.716. Paired
-bootstrap deltas: fused beats ECG-only on both metrics (ΔMAE −1.17, 95% CI [−1.99, −0.33];
+bootstrap deltas: fused beats ECG-only on both metrics (ΔMAE −1.18, 95% CI [−1.99, −0.33];
 ΔAUROC +0.100, CI [0.03, 0.17]) and is never behind either solo probe. The gap to the
 published baselines is therefore a property of the cohort and label regime, not a fusion
 failure — even the in-cohort echo-only probe (same encoder as the published 5.97) lands at
 11.09. Contributing factors, measured: 821 training rows after the non-finite drop (829 in
 the split); heterogeneous LVEF label sources (the `lvef_upper` fallback contributes 6 test
-rows at 43.0 MAE — 18 of its 24 cohort rows carry a physiologically implausible 100.0 —
+rows at 43.1 MAE — 18 of its 24 cohort rows carry a physiologically implausible 100.0 —
 versus 5.2 MAE on `lvef_3d` rows); and the mean-pooled echo regime (§6.4).
 
 **Pre-flight check:** confirm EF≤40% prevalence in the paired cohort is high enough for stable AUROC estimation before locking results (`scripts/check_ef40_prevalence.py`).
