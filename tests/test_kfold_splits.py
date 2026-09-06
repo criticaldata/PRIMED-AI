@@ -10,6 +10,7 @@ from make_kfold_splits import (  # noqa: E402
     verify_test_fold_coverage,
 )
 
+
 def test_five_fold_sizes_match_70_10_20():
     subjects = list(range(100))
 
