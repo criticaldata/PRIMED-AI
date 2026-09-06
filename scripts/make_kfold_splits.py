@@ -18,6 +18,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from check_ef40_prevalence import normalize_ef_le_40
 
 
 def file_sha256(path: Path) -> str:
@@ -87,6 +88,11 @@ def make_subject_folds(
     if not 0.0 < val_frac < 1.0:
         raise ValueError("val_frac must be between 0 and 1.")
 
+    if val_frac >= 1.0 - (1.0 / n_folds):
+        raise ValueError(
+            "val_frac is too large for the requested number of folds; "
+            "the training split would be empty."
+        )
     subjects = sorted(subjects, key=lambda x: str(x))
 
     if len(subjects) < n_folds:
@@ -189,6 +195,10 @@ def main() -> None:
         }
 
         fold_df = cohort.copy()
+
+        if "split" in fold_df.columns:
+            fold_df["split_canonical"] = fold_df["split"]
+
         fold_df["split"] = fold_df["subject_id"].map(split_lookup)
 
         if fold_df["split"].isna().any():
@@ -220,8 +230,16 @@ def main() -> None:
         row_counts = {
             split: int((fold_df["split"] == split).sum()) for split in ("train", "val", "test")
         }
+
         subject_counts = {
             split: int(fold_df.loc[fold_df["split"] == split, "subject_id"].nunique())
+            for split in ("train", "val", "test")
+        }
+
+        ef40_bool = normalize_ef_le_40(fold_df["ef_le_40"])
+
+        ef40_counts = {
+            split: int(ef40_bool.loc[fold_df["split"] == split].sum())
             for split in ("train", "val", "test")
         }
 
@@ -232,6 +250,7 @@ def main() -> None:
                 "subject_splits_path": str(subject_split_path),
                 "row_counts": row_counts,
                 "subject_counts": subject_counts,
+                "ef_le_40_counts": ef40_counts,
                 "split_subject_id_hashes": {
                     split: hash_values(subject_ids) for split, subject_ids in splits.items()
                 },
