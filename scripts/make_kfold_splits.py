@@ -11,7 +11,6 @@ E13 requirements:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -19,59 +18,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from check_ef40_prevalence import normalize_ef_le_40
-
-
-def file_sha256(path: Path) -> str:
-    """Compute SHA256 hash for an input file."""
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def hash_values(values: list[Any]) -> str:
-    """Hash sorted values for reproducibility without relying on file order."""
-    text = "\n".join(str(x) for x in sorted(values, key=lambda y: str(y)))
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def read_cohort(path: Path) -> pd.DataFrame:
-    """Read a CSV or Parquet cohort file."""
-    if path.suffix.lower() == ".csv":
-        return pd.read_csv(path)
-    if path.suffix.lower() == ".parquet":
-        return pd.read_parquet(path)
-    raise ValueError(f"Unsupported input format: {path.suffix}")
-
-
-def write_cohort(df: pd.DataFrame, path: Path) -> None:
-    """Write a CSV or Parquet cohort file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    if path.suffix.lower() == ".csv":
-        df.to_csv(path, index=False)
-        return
-
-    if path.suffix.lower() == ".parquet":
-        df.to_parquet(path, index=False)
-        return
-
-    raise ValueError(f"Unsupported output format: {path.suffix}")
-
-
-def verify_no_subject_overlap(splits: dict[str, list[Any]]) -> None:
-    """Assert that train, validation, and test subjects do not overlap."""
-    train = set(splits["train"])
-    val = set(splits["val"])
-    test = set(splits["test"])
-
-    if train & val:
-        raise AssertionError("Subject leakage detected: train and val overlap.")
-    if train & test:
-        raise AssertionError("Subject leakage detected: train and test overlap.")
-    if val & test:
-        raise AssertionError("Subject leakage detected: val and test overlap.")
+from make_splits import (
+    file_sha256,
+    hash_values,
+    read_cohort,
+    verify_no_subject_overlap,
+    write_cohort,
+)
 
 
 def make_subject_folds(
