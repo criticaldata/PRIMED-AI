@@ -263,8 +263,8 @@ bootstrap deltas: fused beats ECG-only on both metrics (ΔMAE −1.18, 95% CI [�
 published baselines is therefore a property of the cohort and label regime, not a fusion
 failure — even the in-cohort echo-only probe (same encoder as the published 5.97) lands at
 11.09. Contributing factors, measured: 821 training rows after the non-finite drop (829 in
-the split); heterogeneous LVEF label sources (the `lvef_upper` fallback contributes 6 test
-rows at 43.1 MAE — 18 of its 24 cohort rows carry a physiologically implausible 100.0 —
+the split); heterogeneous LVEF label sources (the `lvef_upper` fallback — dropped from the
+label chain by #75 after these numbers were produced — contributes 6 test rows at 43.1 MAE — 18 of its 24 cohort rows carry a physiologically implausible 100.0 —
 versus 5.2 MAE on `lvef_3d` rows); and the mean-pooled echo regime (§6.4).
 
 **Pre-flight check:** confirm EF≤40% prevalence in the paired cohort is high enough for stable AUROC estimation before locking results (`scripts/check_ef40_prevalence.py`).
