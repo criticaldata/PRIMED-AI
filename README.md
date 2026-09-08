@@ -57,13 +57,13 @@ Held-out test split, n = 245 after dropping three non-finite HuBERT-ECG rows fro
 
 | Condition | Inference input | LVEF MAE (95% CI) | EF≤40% AUROC (95% CI) |
 |-----------|-----------------|-------------------:|----------------------:|
-| `full` | Echo + ECG present | **10.42** (9.28–11.64) | **0.771** (0.697–0.839) |
-| `ecg_dropped` | ECG branch masked, echo present | 11.22 (10.00–12.39) | 0.383 (0.279–0.493) |
-| `echo_dropped` | Echo branch masked, ECG present | 20.55 (19.02–22.02) | 0.689 (0.605–0.765) |
+| `full` | Echo + ECG present | **10.41** (9.27–11.64) | **0.771** (0.698–0.839) |
+| `ecg_dropped` | ECG branch masked, echo present | 11.22 (10.00–12.40) | 0.382 (0.279–0.493) |
+| `echo_dropped` | Echo branch masked, ECG present | 20.54 (19.01–22.00) | 0.689 (0.605–0.765) |
 
-Dropping echo costs much more MAE than dropping ECG. The ECG-dropped row is the important one: its AUROC is 0.383 with a 95% interval of 0.279–0.493, which excludes 0.5, so the EF≤40% ranking is not merely uninformative but **inverted** — the gate reads below chance. MAE barely moves in that condition (11.22 vs 10.42), so the regression output looks healthy while the clinical decision it feeds is wrong. That is a silent failure, not graceful degradation, and it is the pattern this repo exists to surface. This run is a pooled-manifest baseline: the echo branch still receives one mean-pooled vector per study, not retained clip tokens — and on pooled inputs the cross-attention block provably cannot attend across modalities, so these numbers describe a concat-equivalent model (see [TECHNICAL.md §6.4](./TECHNICAL.md#6-probes)).
+Dropping echo costs much more MAE than dropping ECG. The ECG-dropped row is the important one: its AUROC is 0.382 with a 95% interval of 0.279–0.493, which excludes 0.5, so the EF≤40% ranking is not merely uninformative but **inverted** — the gate reads below chance. MAE barely moves in that condition (11.22 vs 10.41), so the regression output looks healthy while the clinical decision it feeds is wrong. That is a silent failure, not graceful degradation, and it is the pattern this repo exists to surface. This run is a pooled-manifest baseline: the echo branch still receives one mean-pooled vector per study, not retained clip tokens — and on pooled inputs the cross-attention block provably cannot attend across modalities, so these numbers describe a concat-equivalent model (see [TECHNICAL.md §6.4](./TECHNICAL.md#6-probes)).
 
-**Provenance:** real run on cached EchoJEPA (`vjepa2.1-vitl-mimic-pt-100`) + HuBERT-ECG embeddings, local Mac CPU, seed 42, fusion width 256, 1,000 bootstrap resamples. The canonical fused checkpoint is the one `scripts/train_probes.py` writes to `probes/fused/cross_attn_fused.pt`, selected by validation MAE from the all-probe M10 run (`full` val MAE 10.62); manifest SHA-256 `81694c9b…`, checkpoint SHA-256 `bac18bb8…`. `results/` and `probes/` are gitignored (per-example predictions and checkpoints stay local), but sanitized aggregate copies of every result JSON plus the full checksums are committed under [docs/results/](./docs/results/) — verify a reproduction with `shasum -c docs/results/SHA256SUMS`. See [CONTRIBUTING.md](./CONTRIBUTING.md#reproducibility) for what reproducing takes.
+**Provenance:** real run on cached EchoJEPA (`vjepa2.1-vitl-mimic-pt-100`) + HuBERT-ECG embeddings, local Mac CPU, seed 42, fusion width 256, 1,000 bootstrap resamples. The canonical fused checkpoint is the one `scripts/train_probes.py` writes to `probes/fused/cross_attn_fused.pt`, selected by validation MAE from the all-probe M10 run; manifest SHA-256 `81694c9b…`, checkpoint SHA-256 `7cae4f92…`. `results/` and `probes/` are gitignored (per-example predictions and checkpoints stay local), but sanitized aggregate copies of every result JSON plus the full checksums are committed under [docs/results/](./docs/results/) — verify a reproduction with `shasum -c docs/results/SHA256SUMS`. See [CONTRIBUTING.md](./CONTRIBUTING.md#reproducibility) for what reproducing takes.
 
 Reproduce with:
 
@@ -84,12 +84,12 @@ All four probes on identical splits (seed 42, same 245-row test frame, `scripts/
 
 | Probe | LVEF MAE (95% CI) | EF≤40% AUROC (95% CI) |
 |-------|-------------------:|----------------------:|
-| Cross-attention fused | **10.42** (9.28–11.64) | **0.771** (0.697–0.839) |
+| Cross-attention fused | **10.41** (9.27–11.64) | **0.771** (0.698–0.839) |
 | Concat-MLP | 10.93 (9.77–12.22) | 0.716 (0.634–0.795) |
 | Echo-only (attentive) | 11.09 (9.79–12.25) | 0.771 (0.698–0.845) |
 | ECG-only (ridge) | 11.60 (10.36–12.84) | 0.671 (0.582–0.756) |
 
-Fusion beats ECG-only on both metrics with paired-bootstrap significance (ΔMAE −1.17, CI −1.99 to −0.33; ΔAUROC +0.100, CI +0.03 to +0.17) and is never behind either solo probe — the gap to published single-modality baselines is a cohort and label-regime property, not a fusion failure ([TECHNICAL.md §8](./TECHNICAL.md#8-metrics)).
+Fusion beats ECG-only on both metrics with paired-bootstrap significance (ΔMAE −1.18, CI −1.99 to −0.33; ΔAUROC +0.100, CI +0.03 to +0.17) and is never behind either solo probe — the gap to published single-modality baselines is a cohort and label-regime property, not a fusion failure ([TECHNICAL.md §8](./TECHNICAL.md#8-metrics)).
 
 ### Fairness
 
@@ -97,16 +97,16 @@ Test-split stratification of the fused checkpoint (`scripts/evaluate_fairness.py
 
 | Stratum | n | MAE `full` | MAE `echo_dropped` | AUROC `full` |
 |---------|--:|-----------:|-------------------:|-------------:|
-| Sex F | 144 | 10.13 | 21.19 | 0.770 |
-| Sex M | 101 | 10.84 | 19.63 | 0.763 |
-| Age 40–54 | 37 | 8.93 | 20.44 | 0.742 |
-| Age 55–64 | 57 | 9.43 | 23.67 | 0.727 |
-| Age 65–74 | 57 | 13.10 | 21.71 | 0.752 |
-| Age 75–89 | 77 | 10.29 | 18.29 | 0.789 |
-| Race: Black | 43 | 6.62 | 21.41 | 0.973 |
-| Race: White | 175 | 11.53 | 20.13 | 0.761 |
+| Sex F | 144 | 10.13 | 21.18 | 0.770 |
+| Sex M | 101 | 10.82 | 19.62 | 0.764 |
+| Age 40–54 | 37 | 8.94 | 20.43 | 0.742 |
+| Age 55–64 | 57 | 9.44 | 23.66 | 0.727 |
+| Age 65–74 | 57 | 13.10 | 21.70 | 0.752 |
+| Age 75–89 | 77 | 10.26 | 18.28 | 0.788 |
+| Race: Black | 43 | 6.61 | 21.39 | 0.973 |
+| Race: White | 175 | 11.52 | 20.12 | 0.761 |
 
-The sex gap is small in both conditions. The largest full-condition gaps are age 65–74 (13.10 vs 10.42 overall) and the Black–White MAE difference (6.62 vs 11.53). Note that MIMIC-IV records administrative gender and admission-reported race, both with known curation bias, and the remaining race/age strata are too small for stable estimates (flagged, not silently included, in `results/fairness/`).
+The sex gap is small in both conditions. The largest full-condition gaps are age 65–74 (13.10 vs 10.41 overall) and the Black–White MAE difference (6.61 vs 11.52). Note that MIMIC-IV records administrative gender and admission-reported race, both with known curation bias, and the remaining race/age strata are too small for stable estimates (flagged, not silently included, in `results/fairness/`).
 
 ### Calibration
 
@@ -115,10 +115,10 @@ EF≤40% Platt scaler fit on val predictions only, applied to test (`scripts/eva
 | Condition | ECE |
 |-----------|----:|
 | `full` | 0.072 |
-| `echo_dropped` | 0.043 |
-| `ecg_dropped` | 0.015 |
+| `echo_dropped` | 0.044 |
+| `ecg_dropped` | 0.017 |
 
-Post-scaling ECE stays low even with a modality dropped, and `ecg_dropped` has the *lowest* ECE of the three. That number is an artifact of collapse, not of quality. Its reliability bins put **234 of 245** test cases in the single 0.1–0.2 bin, where mean confidence (0.168) and observed rate (0.171) nearly coincide — so ECE is small because almost every case gets the same near-constant probability, not because the score discriminates. Against that condition's 0.383 AUROC (CI 0.279–0.493, excluding 0.5) the reading is: well-calibrated probabilities attached to a below-chance gate, with what ranking survives pointing the wrong way. Low ECE is not evidence the degraded model is usable — here it is close to the opposite. Bins are in [`docs/results/calibration_ecg_dropped.json`](./docs/results/calibration_ecg_dropped.json).
+Post-scaling ECE stays low even with a modality dropped, and `ecg_dropped` has the *lowest* ECE of the three. That number is an artifact of collapse, not of quality. Its reliability bins put **234 of 245** test cases in the single 0.1–0.2 bin, where mean confidence (0.167) and observed rate (0.171) nearly coincide — so ECE is small because almost every case gets the same near-constant probability, not because the score discriminates. Against that condition's 0.382 AUROC (CI 0.279–0.493, excluding 0.5) the reading is: well-calibrated probabilities attached to a below-chance gate, with what ranking survives pointing the wrong way. Low ECE is not evidence the degraded model is usable — here it is close to the opposite. Bins are in [`docs/results/calibration_ecg_dropped.json`](./docs/results/calibration_ecg_dropped.json).
 
 ---
 

@@ -17,26 +17,33 @@ shasum -c docs/results/SHA256SUMS
 Lines for local raw artifacts fail with "No such file" until you have rebuilt them —
 that is the checklist of what your reproduction still has to produce.
 
+One caveat on what a pass certifies: probe training is not bit-reproducible across
+machines (the same manifest and seed give different checkpoint bytes), so the four
+checkpoint lines and the raw `results/missing_modality.json` line only pass on the
+machine that last regenerated this bundle. On an independent rerun expect those five to
+fail even when every reported number matches — the manifest line and the `docs/results/`
+lines are the ones that certify a reproduction.
+
 ## Which model produced which file
 
 Every file here scores the cross-attention fused checkpoint
-(`probes/fused/cross_attn_fused.pt`, SHA-256 `bac18bb8…`) **except**
+(`probes/fused/cross_attn_fused.pt`, SHA-256 `7cae4f92…`) **except**
 `failure_report.ridge.json`, which comes from the harness's own Ridge on concatenated
 embeddings with absent modalities zeroed at inference.
 
 That is a different model, and it disagrees sharply on the dropped conditions — the ridge
-report puts drop-echo MAE at 117.5 where the fused checkpoint gives 20.55 — so the two
-must never share a table.
+report puts drop-echo MAE at 117.5 where the fused checkpoint gives 20.54 — so the two
+must never share a table. Both committed copies carry a `provenance` block naming their
+producing model.
 
-`failure_report.fused.json` — **not yet in this bundle** — is the file the paper figures
-should be built from: the same three views computed off the fused checkpoint's own
-per-example predictions, with no model fitted in between. Produce it with
+`failure_report.fused.json` is the file the paper figures should be built from: the same
+three views computed off the fused checkpoint's own per-example predictions, with no model
+fitted in between — its provenance names the canonical checkpoint (`7cae4f92…`) and
+manifest. Regenerate it with
 
 ```bash
 python scripts/run_failure_analysis.py --predictions results/missing_modality.json
 python scripts/export_result_bundle.py
 ```
 
-on a machine that has the manifest and the raw `results/`. Every regenerated failure
-artifact carries a `provenance` block naming its producing model; the ridge copy committed
-here predates both that block and the fused route, so it is still the pre-#79 file.
+on a machine that has the manifest and the raw `results/`.
