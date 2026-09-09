@@ -33,7 +33,7 @@ from datasets import load_dataset
 
 ds = load_dataset(
     "MITCriticalData/mimic-iv-echo-jepa-embeddings",
-    data_dir="vjepa2.1-vitl-mimic-pt-100",   # variant used for the reported results
+    data_dir="vjepa2.1-vitl-mimic-pt-100",  # variant used for the reported results
 )
 ```
 

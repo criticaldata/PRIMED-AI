@@ -18,7 +18,6 @@ import json
 import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -68,7 +67,9 @@ def compute_multitask_loss(
         if valid_mask.any():
             grade_losses.append(ce_loss_fn(outputs[grade_key][valid_mask], target_g[valid_mask]))
 
-    total_grade_loss = sum(grade_losses) if grade_losses else torch.tensor(0.0, device=labels.device)
+    total_grade_loss = (
+        sum(grade_losses) if grade_losses else torch.tensor(0.0, device=labels.device)
+    )
     return total_gate_loss + grade_weight * total_grade_loss
 
 
@@ -173,7 +174,9 @@ def compute_mfa_dropout_report(full_eval: dict, drop_echo_eval: dict) -> dict:
 def main():
     repo_root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cohort", default=str(repo_root / "cohort" / "valvular_cohort_with_splits.parquet"))
+    parser.add_argument(
+        "--cohort", default=str(repo_root / "cohort" / "valvular_cohort_with_splits.parquet")
+    )
     parser.add_argument("--out-dir", default=str(repo_root / "results" / "valvular_neural"))
     parser.add_argument("--model", choices=["cross_attn", "concat_mlp"], default="cross_attn")
     parser.add_argument("--epochs", type=int, default=15)
@@ -235,12 +238,21 @@ def main():
             torch.save(model.state_dict(), best_checkpoint_path)
 
         if epoch % 5 == 0 or epoch == args.epochs:
-            log.info("Epoch %2d/%2d | Train Loss: %.4f | Val Mean AUROC: %.4f", epoch, args.epochs, train_loss, mean_val_auc)
+            log.info(
+                "Epoch %2d/%2d | Train Loss: %.4f | Val Mean AUROC: %.4f",
+                epoch,
+                args.epochs,
+                train_loss,
+                mean_val_auc,
+            )
 
     log.info("Loading best checkpoint (Val Mean AUROC: %.4f) for test evaluation...", best_val_auc)
     model.load_state_dict(torch.load(best_checkpoint_path, weights_only=True))
 
-    log.info("Running Missing-Modality Evaluation on Held-out Test Split (n=%d)...", len(loaders["test"].dataset))
+    log.info(
+        "Running Missing-Modality Evaluation on Held-out Test Split (n=%d)...",
+        len(loaders["test"].dataset),
+    )
     full_eval = evaluate_model_on_split(model, loaders["test"], device)
     drop_echo_eval = evaluate_model_on_split(model, loaders["test"], device, mask_modality="echo")
     drop_ecg_eval = evaluate_model_on_split(model, loaders["test"], device, mask_modality="ecg")
@@ -255,12 +267,14 @@ def main():
         d_ecg = drop_ecg_eval["metrics"][target_name]
         d_echo = drop_echo_eval["metrics"][target_name]
 
-        table_rows.append({
-            "Target": display_name,
-            "Full (Echo+ECG) AUROC": f"{f_res['auroc']:.3f} [{f_res['auroc_ci95'][0]:.3f}, {f_res['auroc_ci95'][1]:.3f}]",
-            "Drop-ECG (Echo Only) AUROC": f"{d_ecg['auroc']:.3f}",
-            "Drop-Echo (ECG Only) AUROC": f"{d_echo['auroc']:.3f}",
-        })
+        table_rows.append(
+            {
+                "Target": display_name,
+                "Full (Echo+ECG) AUROC": f"{f_res['auroc']:.3f} [{f_res['auroc_ci95'][0]:.3f}, {f_res['auroc_ci95'][1]:.3f}]",
+                "Drop-ECG (Echo Only) AUROC": f"{d_ecg['auroc']:.3f}",
+                "Drop-Echo (ECG Only) AUROC": f"{d_echo['auroc']:.3f}",
+            }
+        )
 
     summary_df = pd.DataFrame(table_rows)
     summary_df.to_csv(out_dir / "valvular_neural_results_table.csv", index=False)
@@ -280,13 +294,17 @@ def main():
         json.dump(results_payload, f, indent=2)
 
     print("\n" + "=" * 75)
-    print(f"TASK B NEURAL PROBE RESULTS ({args.model.upper()}) ON TEST SET (n={len(loaders['test'].dataset)})")
+    print(
+        f"TASK B NEURAL PROBE RESULTS ({args.model.upper()}) ON TEST SET (n={len(loaders['test'].dataset)})"
+    )
     print("=" * 75)
     print(summary_df.to_string(index=False))
     print("=" * 75)
     print("\nLOUD VS. SILENT MISSING-MODALITY DROPOUT PROFILE (Echo Dropped):")
     for t, rep in mfa_report.items():
-        print(f"  - {rep['display_name']:32s}: Induced Misses = {rep['induced_critical_misses_on_echo_drop']:2d} | Silent = {rep['silent_misses']:2d} ({rep['silent_miss_rate']*100:.1f}%) | Loud = {rep['loud_misses']:2d}")
+        print(
+            f"  - {rep['display_name']:32s}: Induced Misses = {rep['induced_critical_misses_on_echo_drop']:2d} | Silent = {rep['silent_misses']:2d} ({rep['silent_miss_rate'] * 100:.1f}%) | Loud = {rep['loud_misses']:2d}"
+        )
     print("=" * 75)
 
 

@@ -25,12 +25,10 @@ import json
 import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from joblib import dump
 
-from primed_ai.failure.core import analyze_modality_failure
 from primed_ai.probes.valvular import (
     VALVULAR_TARGETS,
     MultiTargetValvularClassifier,
@@ -41,34 +39,36 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 log = logging.getLogger("train_valvular_probes")
 
 
-def generate_feature_representations(cohort_df: pd.DataFrame, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+def generate_feature_representations(
+    cohort_df: pd.DataFrame, seed: int = 42
+) -> tuple[np.ndarray, np.ndarray]:
     """Extract or construct multi-modal feature representations aligned to clinical labels.
-    
+
     ECG features (HuBERT-ECG 768-d): Chamber strain, voltage LVH, P-wave/QRS dispersion (realistic AUROC ~0.75-0.82).
     Echo features (EchoJEPA 1024-d): Geometric valve thickness, orifice area, and velocity signals (realistic AUROC ~0.88-0.94).
     """
     rng = np.random.default_rng(seed)
     n = len(cohort_df)
-    
+
     # Base high-dimensional latent space with realistic background clinical variance
     z_ecg = rng.normal(0, 1.0, size=(n, 768)).astype(np.float32)
     z_echo = rng.normal(0, 1.0, size=(n, 1024)).astype(np.float32)
-    
+
     # Disease signals
     as_sig = cohort_df["as_moderate_or_severe"].astype(float).to_numpy()
     mr_sig = cohort_df["mr_moderate_or_severe"].astype(float).to_numpy()
     tr_sig = cohort_df["tr_moderate_or_severe"].astype(float).to_numpy()
-    
+
     # Echo: Moderate-to-high SNR across sparse projection dimensions
     z_echo[:, :12] += as_sig[:, None] * 0.45
     z_echo[:, 12:24] += mr_sig[:, None] * 0.42
     z_echo[:, 24:36] += tr_sig[:, None] * 0.38
-    
+
     # ECG: Subtle electrical strain signals with higher clinical noise
     z_ecg[:, :10] += as_sig[:, None] * 0.24
     z_ecg[:, 10:20] += mr_sig[:, None] * 0.20
     z_ecg[:, 20:30] += tr_sig[:, None] * 0.18
-    
+
     return z_ecg, z_echo
 
 
@@ -88,7 +88,7 @@ def evaluate_fairness(test_df: pd.DataFrame, preds: dict[str, np.ndarray]) -> di
         score = preds[target]
         overall_auc = auroc_safe(y, score)
         target_res["overall_auroc"] = round(overall_auc, 4)
-        
+
         for strat_col, strat_name in [("sex", "Sex"), ("age_band", "Age Band"), ("race", "Race")]:
             strata = {}
             for group_val, grp in test_df.groupby(strat_col):
@@ -114,7 +114,9 @@ def evaluate_fairness(test_df: pd.DataFrame, preds: dict[str, np.ndarray]) -> di
 def main():
     repo_root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cohort", default=str(repo_root / "cohort" / "valvular_cohort_with_splits.parquet"))
+    parser.add_argument(
+        "--cohort", default=str(repo_root / "cohort" / "valvular_cohort_with_splits.parquet")
+    )
     parser.add_argument("--out-dir", default=str(repo_root / "results" / "valvular"))
     parser.add_argument("--logs-dir", default=str(repo_root / "logs"))
     parser.add_argument("--seed", type=int, default=42)
@@ -139,7 +141,6 @@ def main():
     te_mask = (df["split"] == "test").to_numpy()
 
     y_dict_tr = {t: df.loc[tr_mask, t].to_numpy() for t, _ in VALVULAR_TARGETS}
-    y_dict_va = {t: df.loc[va_mask, t].to_numpy() for t, _ in VALVULAR_TARGETS}
     y_dict_te = {t: df.loc[te_mask, t].to_numpy() for t, _ in VALVULAR_TARGETS}
 
     log.info("1. Training Multi-Target ECG-Only Probe...")
@@ -167,14 +168,16 @@ def main():
     # Summary table
     table_rows = []
     for target, name in VALVULAR_TARGETS:
-        table_rows.append({
-            "Target": name,
-            "Full (Echo+ECG) AUROC": f"{fused_eval_te[target].auroc:.3f} [{fused_eval_te[target].auroc_ci95[0]:.3f}, {fused_eval_te[target].auroc_ci95[1]:.3f}]",
-            "Drop-ECG (Echo only) AUROC": f"{drop_ecg_eval[target].auroc:.3f}",
-            "Drop-Echo (ECG only) AUROC": f"{drop_echo_eval[target].auroc:.3f}",
-            "ECG-Only Baseline AUROC": f"{ecg_eval_te[target].auroc:.3f}",
-            "Echo-Only Baseline AUROC": f"{echo_eval_te[target].auroc:.3f}",
-        })
+        table_rows.append(
+            {
+                "Target": name,
+                "Full (Echo+ECG) AUROC": f"{fused_eval_te[target].auroc:.3f} [{fused_eval_te[target].auroc_ci95[0]:.3f}, {fused_eval_te[target].auroc_ci95[1]:.3f}]",
+                "Drop-ECG (Echo only) AUROC": f"{drop_ecg_eval[target].auroc:.3f}",
+                "Drop-Echo (ECG only) AUROC": f"{drop_echo_eval[target].auroc:.3f}",
+                "ECG-Only Baseline AUROC": f"{ecg_eval_te[target].auroc:.3f}",
+                "Echo-Only Baseline AUROC": f"{echo_eval_te[target].auroc:.3f}",
+            }
+        )
 
     summary_df = pd.DataFrame(table_rows)
     summary_df.to_csv(out_dir / "valvular_summary_table.csv", index=False)
@@ -183,21 +186,20 @@ def main():
     log.info("5. Computing Loud vs. Silent Failure Attribution...")
     mfa_report = {}
     test_df = df[te_mask].reset_index(drop=True)
-    
+
     for target, name in VALVULAR_TARGETS:
         y_true = test_df[target].astype(bool).to_numpy()
         full_prob = fused_eval_te[target].probabilities
         drop_echo_prob = drop_echo_eval[target].probabilities
-        
+
         # When Echo is dropped:
         was_correct = (full_prob >= 0.5) == y_true
         now_wrong = (drop_echo_prob >= 0.5) != y_true
-        induced_critical = was_correct & now_wrong & (y_true == 1) # Missed positive case
-        
-        confidence_dist = np.abs(drop_echo_prob - 0.5)
-        silent_miss = induced_critical & (drop_echo_prob < 0.35) # Confidently declared negative
-        loud_miss = induced_critical & (drop_echo_prob >= 0.35) # Near threshold
-        
+        induced_critical = was_correct & now_wrong & (y_true == 1)  # Missed positive case
+
+        silent_miss = induced_critical & (drop_echo_prob < 0.35)  # Confidently declared negative
+        loud_miss = induced_critical & (drop_echo_prob >= 0.35)  # Near threshold
+
         mfa_report[target] = {
             "target": name,
             "test_positive_cases": int(y_true.sum()),
@@ -235,7 +237,10 @@ def main():
         json.dump(metrics_payload, f, indent=2)
 
     # Save model checkpoints
-    dump({"fused_probe": fused_probe, "ecg_probe": ecg_probe, "echo_probe": echo_probe}, out_dir / "valvular_probes.joblib")
+    dump(
+        {"fused_probe": fused_probe, "ecg_probe": ecg_probe, "echo_probe": echo_probe},
+        out_dir / "valvular_probes.joblib",
+    )
     log.info("Saved probe checkpoints and metrics to %s", out_dir)
 
     print("\n" + "=" * 70)
@@ -245,7 +250,9 @@ def main():
     print("=" * 70)
     print("\nLOUD VS. SILENT MISSING-MODALITY DROPOUT PROFILE (Echo Dropped):")
     for t, rep in mfa_report.items():
-        print(f"  - {rep['target']:32s}: Induced Misses = {rep['induced_critical_misses_on_echo_drop']:2d} | Silent = {rep['silent_misses']:2d} ({rep['silent_miss_rate']*100:.1f}%) | Loud = {rep['loud_misses']:2d}")
+        print(
+            f"  - {rep['target']:32s}: Induced Misses = {rep['induced_critical_misses_on_echo_drop']:2d} | Silent = {rep['silent_misses']:2d} ({rep['silent_miss_rate'] * 100:.1f}%) | Loud = {rep['loud_misses']:2d}"
+        )
     print("=" * 70)
 
 

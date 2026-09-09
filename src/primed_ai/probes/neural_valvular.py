@@ -70,7 +70,9 @@ class ConcatMLPValvularProbe(nn.Module):
         self.echo_dim = echo_dim
         self.ecg_dim = ecg_dim
         self.norm = nn.LayerNorm(echo_dim + ecg_dim)
-        self.head = MultiTaskValvularHead(echo_dim + ecg_dim, hidden_dim=hidden_dim, dropout=dropout)
+        self.head = MultiTaskValvularHead(
+            echo_dim + ecg_dim, hidden_dim=hidden_dim, dropout=dropout
+        )
 
     def forward(
         self,
