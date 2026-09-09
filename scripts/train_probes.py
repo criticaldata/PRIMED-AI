@@ -23,6 +23,7 @@ from pathlib import Path
 
 from primed_ai.probes import manifest as manifest_io
 from primed_ai.probes import run_concat_mlp, run_cross_attn, run_ecg_only, run_echo_only
+from primed_ai.probes.common import sha256_file
 from primed_ai.utils.run_manifest import save_run_metadata
 
 PROBES = ("ecg", "echo", "concat", "fused")
@@ -105,12 +106,22 @@ def main() -> None:
 
     (out_root / "summary.json").write_text(json.dumps(summary, indent=2, default=str))
 
+    checkpoint_files = {
+        "ecg": "ecg_only.joblib",
+        "echo": "echo_only.pt",
+        "concat": "concat_mlp.pt",
+        "fused": "cross_attn_fused.pt",
+    }
     echo_dim, ecg_dim = manifest_io.dims(manifest_io.load(args.manifest))
     save_run_metadata(
         out_root,
         {
             "task": "M10_probe_training",
             "manifest": str(Path(args.manifest).resolve()),
+            "manifest_sha256": sha256_file(args.manifest),
+            "checkpoint_sha256": {
+                name: sha256_file(out_root / name / checkpoint_files[name]) for name in selected
+            },
             "probes": list(selected),
             "seed": args.seed,
             "epochs": args.epochs,

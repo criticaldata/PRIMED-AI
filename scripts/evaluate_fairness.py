@@ -8,7 +8,7 @@ Usage:
     --cohort cohort/paired.parquet \
     --echo-embeddings embeddings/echo/pairs.parquet \
     --ecg-embeddings embeddings/ecg/pairs.parquet \
-    --checkpoint probes/cross_attn_fused/cross_attn_fused.pt \
+    --checkpoint probes/fused/cross_attn_fused.pt \
     --out results/fairness
 """
 
@@ -21,11 +21,18 @@ from primed_ai.evaluation.fairness import run_fairness
 
 def main():
     p = argparse.ArgumentParser(description="E03: Post-hoc fairness stratification (wrapper).")
-    p.add_argument("--cohort", required=True, help="Cohort path (with demographics)")
-    p.add_argument("--echo-embeddings", required=True, help="Echo embedding path")
-    p.add_argument("--ecg-embeddings", required=True, help="ECG embedding path")
+    p.add_argument("--cohort", help="Cohort path (with demographics)")
+    p.add_argument("--manifest", help="Joined manifest path; supersedes the three-table flags")
+    p.add_argument("--echo-embeddings", help="Echo embedding path")
+    p.add_argument("--ecg-embeddings", help="ECG embedding path")
     p.add_argument("--checkpoint", required=True, help="M09 checkpoint path")
     p.add_argument("--out", default="results/fairness", help="Output directory")
+    p.add_argument(
+        "--conditions",
+        nargs="+",
+        default=["full", "echo_dropped"],
+        help="Missing-modality conditions to stratify under",
+    )
     # All three must match the checkpoint being loaded, or the state_dict load fails on shape.
     p.add_argument(
         "--embed-dim", type=int, default=256, help="Fusion dimension (matches the checkpoint)."
@@ -36,10 +43,17 @@ def main():
     p.add_argument("--device", default=None, help="Device (cuda or cpu)")
     args = p.parse_args()
 
+    if args.manifest:
+        cohort, echo, ecg = args.manifest, None, None
+    elif args.cohort and args.echo_embeddings and args.ecg_embeddings:
+        cohort, echo, ecg = args.cohort, args.echo_embeddings, args.ecg_embeddings
+    else:
+        p.error("pass --manifest, or all of --cohort/--echo-embeddings/--ecg-embeddings")
+
     run_fairness(
-        args.cohort,
-        args.echo_embeddings,
-        args.ecg_embeddings,
+        cohort,
+        echo,
+        ecg,
         args.checkpoint,
         out_dir=args.out,
         embed_dim=args.embed_dim,
@@ -47,6 +61,7 @@ def main():
         ecg_dim=args.ecg_dim,
         batch_size=args.batch_size,
         device=args.device,
+        conditions=tuple(args.conditions),
     )
     print(f"Wrote fairness outputs to: {args.out}")
 

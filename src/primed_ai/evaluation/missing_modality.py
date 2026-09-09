@@ -7,7 +7,13 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from primed_ai.probes.common import auroc, git_sha, regression_metrics, save_results
+from primed_ai.probes.common import (
+    auroc,
+    git_sha,
+    regression_metrics,
+    save_results,
+    sha256_file,
+)
 from primed_ai.probes.cross_attn import (
     MISSING_MODALITY_CONDITIONS,
     CrossAttnFusedProbe,
@@ -24,7 +30,12 @@ def _bootstrap_ci(
     seed: int,
     alpha: float = 0.05,
 ) -> dict:
-    """Bootstrap MAE and EF<=40 AUROC intervals from per-example predictions."""
+    """Bootstrap MAE and EF<=40 AUROC intervals from per-example predictions.
+
+    A resample that happens to draw a single EF class has no defined AUROC. Those
+    replicates are dropped, so the AUROC interval rests on ``n_auroc_replicates``
+    rather than ``n_bootstrap``; both are recorded so the gap is visible.
+    """
     y = np.asarray(arrays["lvef"], dtype=np.float64)
     pred = np.asarray(arrays["prediction"], dtype=np.float64)
     ef = np.asarray(arrays["ef_le_40"], dtype=bool)
@@ -44,8 +55,11 @@ def _bootstrap_ci(
 
     lo, hi = alpha / 2, 1 - alpha / 2
     ci = {
+        "n_bootstrap": n_bootstrap,
         "mae_ci_low": round(float(np.quantile(mae_samples, lo)), 4),
         "mae_ci_high": round(float(np.quantile(mae_samples, hi)), 4),
+        "n_auroc_replicates": len(auroc_samples),
+        "n_auroc_discarded": n_bootstrap - len(auroc_samples),
     }
     if auroc_samples:
         ci["ef40_auroc_ci_low"] = round(float(np.quantile(auroc_samples, lo)), 4)
@@ -101,6 +115,7 @@ def run(
     parts, n_dropped = prepare_fused_probe_data(
         cohort_path, echo_embedding_path, ecg_embedding_path
     )
+    val_loader = fused_probe_loader(parts["val"], embed_dim=echo_dim, batch_size=batch_size)
     test_loader = fused_probe_loader(parts["test"], embed_dim=echo_dim, batch_size=batch_size)
 
     model = CrossAttnFusedProbe(
@@ -112,6 +127,8 @@ def run(
     state = torch.load(checkpoint, map_location=device)
     model.load_state_dict(state)
 
+    # Val predictions ride along so E09 can fit its Platt scaler on val without rescoring.
+    val_predictions = predict_missing_modality(model, val_loader, device)
     test_predictions = predict_missing_modality(model, test_loader, device)
     test_metrics = {
         condition: _metrics_from_predictions(arrays)
@@ -132,6 +149,8 @@ def run(
         "seed": seed,
         "git_sha": git_sha(),
         "checkpoint": str(checkpoint),
+        "checkpoint_sha256": sha256_file(checkpoint),
+        "manifest_sha256": sha256_file(cohort_path),
         "config": {
             "cohort_path": str(cohort_path),
             "echo_embedding_path": str(echo_embedding_path),
@@ -144,12 +163,16 @@ def run(
             "n_bootstrap": n_bootstrap,
             "device": device,
         },
-        "n": {"test": len(parts["test"])},
+        "n": {"val": len(parts["val"]), "test": len(parts["test"])},
         "test": test_metrics,
         "bootstrap": bootstrap,
         "predictions": {
             condition: _serializable_predictions(arrays)
             for condition, arrays in test_predictions.items()
+        },
+        "predictions_val": {
+            condition: _serializable_predictions(arrays)
+            for condition, arrays in val_predictions.items()
         },
         "metrics_table": [
             {

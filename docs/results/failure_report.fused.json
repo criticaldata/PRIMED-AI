@@ -1,0 +1,96 @@
+{
+  "task": "modality_failure_analysis",
+  "modalities": [
+    "echo",
+    "ecg"
+  ],
+  "n": 245,
+  "threshold": 40.0,
+  "tolerance": 5.0,
+  "conditions": {
+    "full": {
+      "mae": 10.4147,
+      "taxonomy": {
+        "correct": 78,
+        "imprecise": 125,
+        "critical": 42
+      }
+    },
+    "drop_echo": {
+      "mae": 20.5384,
+      "taxonomy": {
+        "correct": 28,
+        "imprecise": 36,
+        "critical": 181
+      }
+    },
+    "drop_ecg": {
+      "mae": 11.2201,
+      "taxonomy": {
+        "correct": 76,
+        "imprecise": 125,
+        "critical": 44
+      }
+    }
+  },
+  "complementarity": {
+    "full_mae": 10.4147,
+    "solo_mae": {
+      "echo": 11.2201,
+      "ecg": 20.5384
+    },
+    "marginal_value": {
+      "echo": 10.1237,
+      "ecg": 0.8054
+    },
+    "fusion_gain_vs_best_solo": 0.8054,
+    "per_example_winners": {
+      "echo": 191,
+      "ecg": 54
+    },
+    "matrix": {
+      "modalities": [
+        "echo",
+        "ecg"
+      ],
+      "values": [
+        [
+          11.2201,
+          10.4147
+        ],
+        [
+          10.4147,
+          20.5384
+        ]
+      ]
+    }
+  },
+  "dropout": {
+    "drop_echo": {
+      "induced_critical": 174,
+      "silent": 39,
+      "loud": 135,
+      "silent_rate": 0.2241,
+      "mean_output_shift": 20.7916,
+      "mae_increase": 10.1237
+    },
+    "drop_ecg": {
+      "induced_critical": 7,
+      "silent": 6,
+      "loud": 1,
+      "silent_rate": 0.8571,
+      "mean_output_shift": 7.2061,
+      "mae_increase": 0.8054
+    }
+  },
+  "provenance": {
+    "model": "cross_attn_fused_checkpoint",
+    "predictions_path": "results/missing_modality.json",
+    "checkpoint": "probes/fused/cross_attn_fused.pt",
+    "checkpoint_sha256": "7cae4f92a74ff5808231b966fb991aaf30fa2ad748b7d8b79ebac32742432767",
+    "manifest_sha256": "81694c9ba20fbf4af596c942c0fa3acf76275248142204e02324681f7c7a982d",
+    "seed": 42,
+    "source_git_sha": "b8493063fe98c093673896a101e9408dec25c1a3",
+    "note": "Same predictions, checkpoint and test rows as the reported missing-modality table -- no model is fitted here."
+  }
+}

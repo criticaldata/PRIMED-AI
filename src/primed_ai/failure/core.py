@@ -83,7 +83,7 @@ class FailureReport:
 
 
 def analyze_modality_failure(
-    embeddings: dict,
+    modalities,
     lvef,
     ef_le_40,
     predict_fn: PredictFn,
@@ -97,8 +97,9 @@ def analyze_modality_failure(
 
     Parameters
     ----------
-    embeddings : ``{modality_name: array}`` -- only the keys (modality names) are used here;
-        masking/prediction is the caller's job, exposed through ``predict_fn``.
+    modalities : the modality names, or any mapping keyed by them (``{name: array}``) -- the
+        embedding *values* are never read here, so a caller that already holds predictions
+        can pass the names alone. Masking is the caller's job, via ``predict_fn``.
     predict_fn : ``predict_fn(present: frozenset[str]) -> np.ndarray`` -- continuous prediction
         per example given the present modalities (others masked).
     threshold : clinical gate threshold on the continuous target (e.g. EF <= 40).
@@ -108,7 +109,7 @@ def analyze_modality_failure(
         sits at least this far on the wrong side of the gate (confidently wrong), else *loud*.
     groups : optional ``{attribute: array}`` for per-stratum win attribution.
     """
-    modalities = list(embeddings.keys())
+    modalities = list(modalities)
     if len(modalities) < 2:
         raise ValueError("Need >= 2 modalities for failure attribution / dropout analysis.")
     y = np.asarray(lvef, dtype=float)

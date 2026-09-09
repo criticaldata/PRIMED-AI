@@ -1,3 +1,6 @@
+# Intentionally a local override: raw MIMIC access is only needed to re-extract
+# embeddings or rebuild the cohort. Probe training and every evaluation script read the
+# joined manifest at data/processed/echo_hubert_manifest.parquet instead.
 data_root: /path/to/mimic
 cohort_dir: cohort
 embedding_dir: embeddings

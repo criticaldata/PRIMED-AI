@@ -6,7 +6,8 @@ plus a small inclusion/exclusion funnel.
 
 Inclusion criteria (applied in order; counts logged at each step):
   1. Patient has an echocardiogram study            (mimiciv_echo.echo_study_list)
-  2. A structured LVEF measurement was recorded      (mimiciv_echo.structured_measurement)
+  2. A structured point-estimate LVEF was recorded   (mimiciv_echo.structured_measurement)
+     (range upper-bound readings are excluded, #75)
   3. A matched ECG study exists within +/- WINDOW_HOURS of the echo
                                                      (mimiciv_ecg.record_list)
   4. The echo falls inside a hospital admission so   (mimiciv_3_1_hosp.admissions)
@@ -80,8 +81,18 @@ HOSP_PATIENTS = "physionet-data.mimiciv_3_1_hosp.patients"
 #   - Resting point estimates first (lvef -> biplane -> rest_lvef -> rest_biplane
 #     -> lvef_3d). These are mostly disjoint across studies (two lab systems), so
 #     ordering among them rarely changes the chosen value, only inclusion.
-#   - Range upper-bounds (`*_upper`) are last: they are the high end of a reported
-#     range, not a point EF, so only used when nothing better exists.
+#   - Range upper-bounds (`*_upper`) are EXCLUDED (#75): they are the high end
+#     of a reported range, not a point EF. When the chain still used
+#     `lvef_upper`, 18 of the 24 cohort rows it labelled carried LVEF = 100.0
+#     and the 6 such test rows scored 43.1 MAE against the canonical fused
+#     checkpoint vs 10.41 overall (docs/results/baseline_gap.json,
+#     `fused_mae_by_lvef_source`) — range-parse artifacts, not measurements. A
+#     midpoint conversion is no better with the upper end pinned at 100.
+#     `rest_lvef_upper` is the same bound semantics for the stress protocol's
+#     rest phase and never occurs in this cohort (see below), so it goes the
+#     same way. Studies whose only in-range reading is an upper bound now drop
+#     at the `echo_with_lvef` join; `run_lvef_breakdown` counts them so the
+#     cost is auditable.
 #   - `stress_lvef` is intentionally EXCLUDED: it is EF measured during stress, a
 #     different physiological state than the resting EF we are labelling (and it
 #     recovers ~1 study in practice). Add it here only if you explicitly want it.
@@ -95,16 +106,17 @@ LVEF_PRIORITY = [
     "rest_lvef",
     "rest_biplane_lvef",
     "lvef_3d",
-    "lvef_upper",
-    "rest_lvef_upper",
 ]
-LVEF_MEASUREMENTS = tuple(LVEF_PRIORITY)
+LVEF_EXCLUDED_BOUNDS = ("lvef_upper", "rest_lvef_upper")
 LVEF_IN_LIST = ", ".join(f"'{m}'" for m in LVEF_PRIORITY)
-LVEF_PRIORITY_SQL = (
-    "CASE measurement "
-    + " ".join(f"WHEN '{m}' THEN {i}" for i, m in enumerate(LVEF_PRIORITY))
-    + f" ELSE {len(LVEF_PRIORITY)} END"
-)
+LVEF_ALL_IN_LIST = ", ".join(f"'{m}'" for m in (*LVEF_PRIORITY, *LVEF_EXCLUDED_BOUNDS))
+
+
+def lvef_priority_case(col: str) -> str:
+    """SQL CASE ranking `col` by LVEF_PRIORITY; non-chain names sort last."""
+    whens = " ".join(f"WHEN '{m}' THEN {i}" for i, m in enumerate(LVEF_PRIORITY))
+    return f"CASE {col} {whens} ELSE {len(LVEF_PRIORITY)} END"
+
 
 # Age-band edges for fairness stratification (E03). Right-open bins [lo, hi):
 # adult clinical strata. The top "90+" bin captures MIMIC's age aggregation,
@@ -143,21 +155,22 @@ def funnel_stages(pair_by: str, require_admission: bool = True) -> list[tuple[st
     common = [
         ("echo_base", "1. Echo studies (all)"),
         ("echo_with_meas", "2. Linked to a structured measurement"),
-        ("echo_with_lvef", "3. Patient has an LVEF reading"),
-        ("echo_with_ecg_subject", "4. Patient also has an ECG (subject overlap)"),
+        ("echo_with_lvef_any", "3. Has an in-range LVEF reading (any source)"),
+        ("echo_with_lvef", "4. Point LVEF label (range bounds excluded, #75)"),
+        ("echo_with_ecg_subject", "5. Patient also has an ECG (subject overlap)"),
     ]
     if pair_by == "admission":
         return common + [
-            ("echo_adm", "5. Echo within a hospital admission"),
-            ("ecg_pairs", "6. ECG matched in same admission"),
+            ("echo_adm", "6. Echo within a hospital admission"),
+            ("ecg_pairs", "7. ECG matched in same admission"),
         ]
     adm_label = (
-        "6. Within a hospital admission (demographics)"
+        "7. Within a hospital admission (demographics)"
         if require_admission
-        else "6. Has admission demographics (subset, not a filter)"
+        else "7. Has admission demographics (subset, not a filter)"
     )
     return common + [
-        ("ecg_pairs", "5. ECG within window of the echo"),
+        ("ecg_pairs", "6. ECG within window of the echo"),
         ("adm_match", adm_label),
     ]
 
@@ -218,26 +231,42 @@ echo_with_meas AS (
   SELECT * FROM echo_base WHERE measurement_id IS NOT NULL
 ),
 
-lvef AS (
-  -- One LVEF value per measurement_id, chosen by the priority above.
+lvef_candidates AS (
+  -- One in-range LVEF reading per measurement_id, drawn from the label chain
+  -- plus the excluded range upper-bounds and preferring chain names in the
+  -- priority order. `accepted` marks chain membership: a measurement left
+  -- unaccepted has ONLY a range-bound reading, so its study drops from the
+  -- cohort (#75); the funnel and run_lvef_breakdown count the loss.
   SELECT measurement_id,
          SAFE_CAST(TRIM(REPLACE(result, '%', '')) AS FLOAT64) AS lvef_value,
-         measurement AS lvef_measurement
+         measurement AS lvef_measurement,
+         measurement IN ({LVEF_IN_LIST}) AS accepted
   FROM `{ECHO_STRUCTURED}`
-  WHERE measurement IN ({LVEF_IN_LIST})
+  WHERE measurement IN ({LVEF_ALL_IN_LIST})
     AND SAFE_CAST(TRIM(REPLACE(result, '%', '')) AS FLOAT64)
         BETWEEN {lvef_min} AND {lvef_max}
   QUALIFY ROW_NUMBER() OVER (
             PARTITION BY measurement_id
-            ORDER BY {LVEF_PRIORITY_SQL}, measurement_datetime, result
+            ORDER BY measurement IN ({LVEF_IN_LIST}) DESC,
+                     {lvef_priority_case("measurement")},
+                     measurement, measurement_datetime, result
           ) = 1
 ),
 
-echo_with_lvef AS (
+echo_with_lvef_any AS (
+  -- Funnel stage: studies with ANY in-range LVEF reading, range bounds
+  -- included, so the flow records what the #75 exclusion removes.
   SELECT m.subject_id, m.echo_study_id, m.echo_datetime, m.measurement_id,
-         l.lvef_value, l.lvef_measurement
+         c.lvef_value, c.lvef_measurement, c.accepted
   FROM echo_with_meas m
-  JOIN lvef l USING (measurement_id)
+  JOIN lvef_candidates c USING (measurement_id)
+),
+
+echo_with_lvef AS (
+  SELECT subject_id, echo_study_id, echo_datetime, measurement_id,
+         lvef_value, lvef_measurement
+  FROM echo_with_lvef_any
+  WHERE accepted
 ),
 
 dicom_counts AS (
@@ -423,26 +452,32 @@ def run_fetch(client: bigquery.Client, cte_sql: str) -> pd.DataFrame:
 def run_lvef_breakdown(client: bigquery.Client, cte_sql: str) -> pd.DataFrame:
     """Count how often each LVEF variant was used at the LVEF-selection stage.
 
-    Reported over `echo_with_lvef` (i.e. all LVEF-valid echo studies, before the
-    ECG / admission filters) so fallback frequency is visible independent of the
-    downstream pairing. Ordered by the configured priority.
+    Reported over the LVEF-selection stage (before the ECG / admission filters)
+    so fallback frequency is visible independent of the downstream pairing.
+    Ordered by the configured priority.
+
+    Rows with `excluded=True` are the range-upper-bound studies the #75
+    exclusion drops at this stage; they never enter the cohort, so their
+    `pct` and `is_fallback` are null and the labelled rows' `pct` still
+    partitions to 100.
     """
-    order = " ".join(f"WHEN '{m}' THEN {i}" for i, m in enumerate(LVEF_PRIORITY))
     sql = (
         cte_sql
         + f"""
 SELECT lvef_measurement,
        COUNT(*) AS n_studies,
-       ROUND(AVG(lvef_value), 1) AS mean_lvef
-FROM echo_with_lvef
-GROUP BY lvef_measurement
-ORDER BY CASE lvef_measurement {order} ELSE {len(LVEF_PRIORITY)} END
+       ROUND(AVG(lvef_value), 1) AS mean_lvef,
+       NOT accepted AS excluded
+FROM echo_with_lvef_any
+GROUP BY lvef_measurement, accepted
+ORDER BY accepted DESC, {lvef_priority_case("lvef_measurement")}, lvef_measurement
 """
     )
     df = client.query(sql).to_dataframe()
-    total = int(df["n_studies"].sum()) or 1
-    df["is_fallback"] = df["lvef_measurement"] != LVEF_PRIORITY[0]
-    df["pct"] = (df["n_studies"] / total * 100).round(2)
+    df["excluded"] = df["excluded"].astype(bool)
+    labelled = int(df.loc[~df["excluded"], "n_studies"].sum()) or 1
+    df["is_fallback"] = (df["lvef_measurement"] != LVEF_PRIORITY[0]).mask(df["excluded"])
+    df["pct"] = (df["n_studies"] / labelled * 100).round(2).mask(df["excluded"])
     return df
 
 
@@ -491,9 +526,14 @@ def write_cohort_summary(
             "require_linked_structured_lvef": True,
             "lvef_valid_range": [lvef_min, lvef_max],
             "out_of_range_or_nonnumeric": "dropped",
+            "range_upper_bounds_excluded": list(LVEF_EXCLUDED_BOUNDS),
             "note": (
                 "Missing / out-of-range LVEF is dropped upstream in SQL, "
-                "so the in-cohort missing rate is 0 by construction."
+                "so the in-cohort missing rate is 0 by construction. "
+                "Range upper-bound readings (*_upper) are not usable labels "
+                "(#75) and are excluded from the source chain; the funnel's "
+                "label-selection step and cohort_lvef_sources.* record what "
+                "that removes (pre-pairing)."
             ),
         },
     }
@@ -737,14 +777,28 @@ def main() -> None:
     log.info("LVEF source breakdown (at LVEF-selection stage):")
     lvef_src = run_lvef_breakdown(client, cte_sql)
     for r in lvef_src.itertuples(index=False):
-        log.info(
-            "  %-18s studies=%-7d (%.2f%%) mean=%-5s %s",
-            r.lvef_measurement,
-            r.n_studies,
-            r.pct,
-            r.mean_lvef,
-            "[fallback]" if r.is_fallback else "[primary]",
-        )
+        if r.excluded:
+            log.info(
+                "  %-18s studies=%-7d mean=%-5s [excluded #75]",
+                r.lvef_measurement,
+                r.n_studies,
+                r.mean_lvef,
+            )
+        else:
+            log.info(
+                "  %-18s studies=%-7d (%.2f%%) mean=%-5s %s",
+                r.lvef_measurement,
+                r.n_studies,
+                r.pct,
+                r.mean_lvef,
+                "[fallback]" if r.is_fallback else "[primary]",
+            )
+    n_upper_only = int(lvef_src.loc[lvef_src["excluded"], "n_studies"].sum())
+    log.info(
+        "  %d studies drop at label selection (pre-pairing): "
+        "only reading is a range upper bound (#75)",
+        n_upper_only,
+    )
     lvef_src.to_json(out_dir / "cohort_lvef_sources.json", orient="records", indent=2)
     lvef_src.to_csv(out_dir / "cohort_lvef_sources.csv", index=False)
 

@@ -63,3 +63,100 @@ def test_fairness_predictions_ignore_clip_padding():
     batched, _, _ = predict_on_df(model, df, EMBED, batch_size=8, device="cpu", echo_dim=ECHO)
     alone, _, _ = predict_on_df(model, df, EMBED, batch_size=1, device="cpu", echo_dim=ECHO)
     np.testing.assert_allclose(batched, alone, atol=1e-5)
+
+
+def test_run_fairness_reads_manifest_and_stratifies_per_condition(tmp_path):
+    """E08 (#65): fairness must score the joined manifest under dropped conditions too.
+
+    Synthetic fixture; only plumbing is asserted. One test row carries a non-finite ECG
+    vector so the stratified n must line up with the canonical rerun's drop behavior.
+    """
+    import numpy as np
+    import pandas as pd
+    import torch
+
+    from primed_ai.evaluation.fairness import MIMIC_BIAS_NOTE, run_fairness
+    from primed_ai.probes import cross_attn
+
+    EMBED, ECHO, ECG = 16, 24, 12
+    n = 30
+    rng = np.random.default_rng(0)
+    echo = rng.standard_normal((n, ECHO)).astype("float32")
+    ecg = rng.standard_normal((n, ECG)).astype("float32")
+    lvef = np.clip(55 + 15 * echo[:, 0], 10, 80)
+    ecg[5, 0] = np.nan  # index 5 % 3 == 2 lands in the test split below
+    df = pd.DataFrame(
+        {
+            "subject_id": np.arange(n),
+            "lvef": lvef,
+            "ef_le_40": lvef <= 40.0,
+            "split": np.array(["train", "val", "test"])[np.arange(n) % 3],
+            "sex": np.where(np.arange(n) % 2 == 0, "F", "M"),
+            "age_band": np.where(np.arange(n) < 15, "40-54", "65-74"),
+            "race": np.where(np.arange(n) % 3 == 0, "WHITE", "BLACK/AFRICAN AMERICAN"),
+            "echo_embedding": list(echo),
+            "ecg_embedding": list(ecg),
+        }
+    )
+    path = tmp_path / "manifest.parquet"
+    df.to_parquet(path, index=False)
+
+    torch.manual_seed(0)
+    model = cross_attn.CrossAttnFusedProbe(EMBED, echo_dim=ECHO, ecg_dim=ECG)
+    ckpt = tmp_path / "fused.pt"
+    torch.save(model.state_dict(), ckpt)
+
+    res = run_fairness(
+        path,
+        checkpoint=ckpt,
+        out_dir=tmp_path / "fairness",
+        embed_dim=EMBED,
+        echo_dim=ECHO,
+        ecg_dim=ECG,
+        device="cpu",
+        conditions=("full", "echo_dropped"),
+    )
+
+    assert set(res["conditions"]) == {"full", "echo_dropped"}
+    assert res["n_dropped_nonfinite_all_splits"] == 1
+    from primed_ai.probes.common import sha256_file
+
+    assert res["checkpoint_sha256"] == sha256_file(ckpt)
+    assert res["manifest_sha256"] == sha256_file(path)
+    assert res["n_test"] == 9  # 10 test rows minus the non-finite one
+    assert res["bias_note"] == MIMIC_BIAS_NOTE
+    full = res["conditions"]["full"]
+    assert set(full["by"]) == {"sex", "age_band", "race"}
+    assert all(m["small_n"] for m in full["by"]["sex"].values())
+    # aggregate.py reads overall/by at the top level of the combined payload
+    assert res["overall"] == full["overall"] and res["by"] == full["by"]
+    # masking the echo branch must actually change the predictions
+    assert full["overall"]["mae"] != res["conditions"]["echo_dropped"]["overall"]["mae"]
+    for condition in ("full", "echo_dropped"):
+        assert (tmp_path / "fairness" / condition / "fairness_metrics.json").exists()
+        assert (tmp_path / "fairness" / condition / "fairness_summary.csv").exists()
+    assert (tmp_path / "fairness" / "fairness_metrics.json").exists()
+
+    # A run without `full` has nothing to mirror at the top level; aggregate.py would show
+    # an empty fairness table, so the payload has to say why rather than look complete.
+    res_no_full = run_fairness(
+        path,
+        checkpoint=ckpt,
+        out_dir=tmp_path / "fairness_dropped_only",
+        embed_dim=EMBED,
+        echo_dim=ECHO,
+        ecg_dim=ECG,
+        device="cpu",
+        conditions=("echo_dropped",),
+    )
+    assert "overall" not in res_no_full and "by" not in res_no_full
+    assert "not scored" in res_no_full["top_level_note"]
+
+
+def test_run_fairness_rejects_unknown_conditions(tmp_path):
+    import pytest
+
+    from primed_ai.evaluation.fairness import run_fairness
+
+    with pytest.raises(ValueError, match="unknown conditions"):
+        run_fairness("whatever.parquet", checkpoint="x.pt", conditions=("upside_down",))

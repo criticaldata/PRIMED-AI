@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import pytest
 
 from primed_ai.failure import (
     analyze_modality_failure,
@@ -110,3 +111,121 @@ def test_split_has_healthy_prevalence():
     test = ~stratified_train_mask(ef, 0.7, seed=12345)
     prevalence = float(ef[test].mean())
     assert 0.15 < prevalence < 0.6  # both gate classes well represented in the held-out split
+
+
+def test_emitted_report_names_the_producing_model(tmp_path):
+    # A failure report and a fused-checkpoint report disagree badly on the dropped
+    # conditions, so an artifact that doesn't name its model can be read as the wrong one.
+    import run_failure_analysis
+
+    out = tmp_path / "failure_demo"
+    run_failure_analysis._run_demo(0, str(out))
+    payload = json.loads((out / "failure_report.json").read_text())
+
+    assert payload["provenance"]["model"] == run_failure_analysis.RIDGE_MODEL
+    assert payload["provenance"]["data"] == "synthetic_planted"
+    assert payload["conditions"]["full"]["mae"] > 0
+
+
+def _prediction_dump(tmp_path):
+    """A minimal `results/missing_modality.json`, shaped the way the fused eval writes it."""
+    rng = np.random.default_rng(4)
+    lvef = rng.uniform(15.0, 75.0, size=80)
+    ef = lvef <= 40.0
+    # echo carries the signal; the ECG-only arm is deliberately useless, so which condition
+    # maps to which modality shows up in the numbers rather than only in the field names.
+    full = lvef + rng.standard_normal(80)
+    echo_only = lvef + rng.standard_normal(80) * 3.0
+    ecg_only = np.full(80, 55.0)
+
+    def block(pred):
+        return {
+            "lvef": lvef.tolist(),
+            "prediction": np.asarray(pred, dtype=float).tolist(),
+            "ef_le_40": ef.tolist(),
+        }
+
+    payload = {
+        "seed": 42,
+        "git_sha": "deadbee",
+        "checkpoint": "probes/fused/cross_attn_fused.pt",
+        "checkpoint_sha256": "bac18bb8",
+        "manifest_sha256": "81694c9b",
+        "predictions": {
+            "full": block(full),
+            "echo_dropped": block(ecg_only),
+            "ecg_dropped": block(echo_only),
+        },
+    }
+    path = tmp_path / "missing_modality.json"
+    path.write_text(json.dumps(payload))
+    return path, lvef
+
+
+def test_fused_route_maps_each_condition_to_the_surviving_modality(tmp_path):
+    import run_failure_analysis
+
+    path, _ = _prediction_dump(tmp_path)
+    out = tmp_path / "failure_fused"
+    run_failure_analysis._run_predictions(str(path), str(out))
+    d = json.loads((out / "failure_report.json").read_text())
+
+    # `echo_dropped` leaves ECG alone, and ECG-only is the useless arm in the fixture --
+    # a flipped mapping would blame echo instead.
+    solo = d["complementarity"]["solo_mae"]
+    assert solo["ecg"] > solo["echo"]
+    assert d["complementarity"]["marginal_value"]["echo"] > 0
+    assert d["conditions"]["drop_echo"]["mae"] > d["conditions"]["drop_ecg"]["mae"]
+    assert d["n"] == 80
+
+
+def test_fused_route_records_checkpoint_provenance(tmp_path):
+    import run_failure_analysis
+
+    path, _ = _prediction_dump(tmp_path)
+    out = tmp_path / "failure_fused"
+    run_failure_analysis._run_predictions(str(path), str(out))
+    prov = json.loads((out / "failure_report.json").read_text())["provenance"]
+
+    assert prov["model"] == run_failure_analysis.FUSED_MODEL
+    assert prov["checkpoint"] == "probes/fused/cross_attn_fused.pt"
+    assert prov["checkpoint_sha256"] == "bac18bb8"
+    assert prov["manifest_sha256"] == "81694c9b"
+    assert prov["seed"] == 42
+    assert prov["source_git_sha"] == "deadbee"
+
+
+def test_fused_route_rejects_the_sanitized_bundle_copy(tmp_path):
+    import run_failure_analysis
+
+    # docs/results/ ships the aggregate copy with the per-example blocks stripped; pointed
+    # at that, the route has nothing to analyse and must say so rather than half-run.
+    stripped = tmp_path / "missing_modality.metrics.json"
+    stripped.write_text(json.dumps({"test": {"full": {"mae": 10.4}}}))
+    with pytest.raises(SystemExit, match="no per-example"):
+        run_failure_analysis._run_predictions(str(stripped), str(tmp_path / "out"))
+
+
+def test_fused_route_rejects_misaligned_conditions(tmp_path):
+    import run_failure_analysis
+
+    path, _ = _prediction_dump(tmp_path)
+    payload = json.loads(path.read_text())
+    labels = payload["predictions"]["echo_dropped"]["lvef"]
+    payload["predictions"]["echo_dropped"]["lvef"] = labels[1:] + labels[:1]
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(SystemExit, match="different labels"):
+        run_failure_analysis._run_predictions(str(path), str(tmp_path / "out"))
+
+
+def test_fused_route_rejects_a_dump_missing_a_condition(tmp_path):
+    import run_failure_analysis
+
+    path, _ = _prediction_dump(tmp_path)
+    payload = json.loads(path.read_text())
+    del payload["predictions"]["ecg_dropped"]
+    path.write_text(json.dumps(payload))
+
+    with pytest.raises(SystemExit, match="missing condition"):
+        run_failure_analysis._run_predictions(str(path), str(tmp_path / "out"))

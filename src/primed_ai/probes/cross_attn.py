@@ -220,7 +220,7 @@ def run(
     cohort_path,
     echo_embedding_path=None,
     ecg_embedding_path=None,
-    out_dir="probes/cross_attn_fused",
+    out_dir="probes/fused",
     *,
     embed_dim: int = 16,
     echo_dim: int | None = None,

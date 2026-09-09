@@ -1,6 +1,8 @@
 name: ecg_fm
 repo_id: wanglab/ecg-fm
 checkpoint: mimic_iv_ecg_physionet_pretrained.pt
+# Intentionally a local override: ECG-FM weights are only needed for the alternative
+# extraction path, which has produced no reported number. Point at your own download.
 checkpoint_path: /path/to/shared/weights/mimic_iv_ecg_physionet_pretrained.pt
 embed_dim: 768
 seq_len: 64
@@ -8,11 +10,16 @@ sample_rate: 500
 signal_length: 5000
 n_leads: 12
 frozen: true
+# ECG pooling decision (E11/#69): the HuBERT-ECG parquet stores one pooled vector per
+# record, so mean pooling is the only runnable option — attentive pooling over tiled
+# copies of a pooled vector is mathematically identical. Revisit only after a
+# token-level ECG re-extraction (#72).
 pooling: mean
 # Set use_stub: true for offline dev/CI without fairseq_signals + checkpoint.
 use_stub: false
 # Everything above configures the ECG-FM wrapper (encoders/ecg_fm.py), an alternative
 # extraction path that has not produced any reported result. The probes and evaluation
 # scripts read the pre-extracted HuBERT-ECG embeddings below — these are the ones behind
-# every reported ECG number.
-hubert_ecg_parquet: /path/to/shared/ecg-hubert/mimic-iv-ecg-ve.parquet
+# every reported ECG number. The repo-local canonical copy lands here via the team share;
+# see docs/embeddings.md §2 and docs/echo_hubert_results.md for how to obtain it.
+hubert_ecg_parquet: data/interim/hubert_ecg_embeddings.parquet

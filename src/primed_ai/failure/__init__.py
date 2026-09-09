@@ -1,7 +1,7 @@
 """Model-agnostic modality-failure analysis (MFA) harness.
 
 Public API:
-    analyze_modality_failure(embeddings, lvef, ef_le_40, predict_fn, ...) -> FailureReport
+    analyze_modality_failure(modalities, lvef, ef_le_40, predict_fn, ...) -> FailureReport
     classify_taxonomy(...)                      # per-example error categories
     make_synthetic_multimodal(...)             # planted-structure data for validation/demo
     masked_ridge_predict_fn(...)               # a simple maskable multimodal predict_fn

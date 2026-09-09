@@ -1,7 +1,14 @@
 name: echojepa
+# Intentionally a local override: echo checkpoints live on the MIT ORCD pool under
+# weights/ (docs/embeddings.md §3). Only needed to re-extract embeddings; probes read
+# the pre-extracted parquet.
 checkpoint_path: /path/to/shared/weights/vjepa21_vitl_mimic_pt117.pt
 embed_dim: 1024
 img_size: 256
 num_frames: 16
 frozen: true
+# Echo pooling decision (E11/#69): study-level mean pooling is the canonical regime
+# behind every reported number. Clip-level retention exists via
+# build_echo_study_embeddings(..., max_clips=N); the pooled-vs-clip val comparison
+# stays open until a clip-level manifest is rebuilt from the gated HF shards.
 pooling: mean

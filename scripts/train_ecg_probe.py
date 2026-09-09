@@ -9,7 +9,7 @@ Example:
   python scripts/train_ecg_probe.py \
       --cohort cohort/paired_with_splits.parquet \
       --embeddings ecg_hubert_cohort.csv \
-      --out-dir probes/ecg_only
+      --out-dir probes/ecg
 """
 
 from __future__ import annotations
@@ -31,7 +31,8 @@ def main() -> None:
     ap.add_argument(
         "--embeddings", required=True, help="Per-record ECG embedding table (parquet/csv)."
     )
-    ap.add_argument("--out-dir", default="probes/ecg_only")
+    # Same canonical location train_probes.py writes; the eval scripts read only this one.
+    ap.add_argument("--out-dir", default="probes/ecg")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--n-bootstrap", type=int, default=2000)
     args = ap.parse_args()
