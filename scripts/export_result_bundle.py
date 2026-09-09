@@ -59,9 +59,10 @@ def main() -> None:
     for cond in ("full", "echo_dropped", "ecg_dropped"):
         export_json(results / "calibration" / cond / "calibration.json", f"calibration_{cond}.json")
     export_json(results / "baseline_gap.json", "baseline_gap.json")
-    # Named for the harness that produced it: the failure views come from a Ridge on
-    # concatenated embeddings, not from the fused checkpoint the other artifacts score.
+    # Named for the model behind each: the ridge harness fits its own predictor, the fused
+    # report reuses the checkpoint predictions the rest of the bundle scores.
     export_json(results / "failure" / "failure_report.json", "failure_report.ridge.json")
+    export_json(results / "failure_fused" / "failure_report.json", "failure_report.fused.json")
 
     # checksums: the bundle itself, plus the local raw artifacts a reproduction must match.
     # Only the canonical M10 checkpoint locations — stale dirs from older layouts (e.g.
