@@ -12,14 +12,11 @@ Supports:
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable
 
 import numpy as np
-import pandas as pd
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 from sklearn.preprocessing import StandardScaler
@@ -47,7 +44,13 @@ def auprc_safe(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float("nan")
 
 
-def bootstrap_ci(y_true: np.ndarray, y_score: np.ndarray, metric_fn: Callable, n_bootstrap: int = 1000, seed: int = 42) -> list[float]:
+def bootstrap_ci(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    metric_fn: Callable,
+    n_bootstrap: int = 1000,
+    seed: int = 42,
+) -> list[float]:
     rng = np.random.default_rng(seed)
     scores = []
     n = len(y_true)
@@ -58,7 +61,10 @@ def bootstrap_ci(y_true: np.ndarray, y_score: np.ndarray, metric_fn: Callable, n
             scores.append(val)
     if not scores:
         return [float("nan"), float("nan")]
-    return [round(float(np.percentile(scores, 2.5)), 4), round(float(np.percentile(scores, 97.5)), 4)]
+    return [
+        round(float(np.percentile(scores, 2.5)), 4),
+        round(float(np.percentile(scores, 97.5)), 4),
+    ]
 
 
 @dataclass
@@ -117,7 +123,9 @@ class MultiTargetValvularClassifier:
             out[target] = clf.predict_proba(Z)[:, 1]
         return out
 
-    def evaluate(self, X: np.ndarray, y_dict: dict[str, np.ndarray], n_bootstrap: int = 1000) -> dict[str, ValvularEvaluationResult]:
+    def evaluate(
+        self, X: np.ndarray, y_dict: dict[str, np.ndarray], n_bootstrap: int = 1000
+    ) -> dict[str, ValvularEvaluationResult]:
         probs = self.predict_proba(X)
         results = {}
         for target, name in VALVULAR_TARGETS:
@@ -125,7 +133,9 @@ class MultiTargetValvularClassifier:
                 y_true = np.asarray(y_dict[target], dtype=bool)
                 score = probs[target]
                 auc = auroc_safe(y_true, score)
-                ci = bootstrap_ci(y_true, score, auroc_safe, n_bootstrap=n_bootstrap, seed=self.seed)
+                ci = bootstrap_ci(
+                    y_true, score, auroc_safe, n_bootstrap=n_bootstrap, seed=self.seed
+                )
                 prc = auprc_safe(y_true, score)
                 brier = float(brier_score_loss(y_true, score))
                 results[target] = ValvularEvaluationResult(

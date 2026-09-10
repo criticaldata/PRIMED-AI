@@ -38,11 +38,11 @@ VALVULAR_GRADES = [
 class ValvularBatch:
     subject_id: torch.Tensor
     echo_emb: torch.Tensor  # (B, 1024) or (B, N_clips, 1024)
-    ecg_emb: torch.Tensor   # (B, 768)
-    labels: torch.Tensor    # (B, 3) binary targets [AS, MR, TR]
-    grades: torch.Tensor    # (B, 3) ordinal severity grades [0..3]
+    ecg_emb: torch.Tensor  # (B, 768)
+    labels: torch.Tensor  # (B, 3) binary targets [AS, MR, TR]
+    grades: torch.Tensor  # (B, 3) ordinal severity grades [0..3]
     has_echo: torch.Tensor  # (B,) boolean mask
-    has_ecg: torch.Tensor   # (B,) boolean mask
+    has_ecg: torch.Tensor  # (B,) boolean mask
     demographics: dict[str, list]
 
 
@@ -73,14 +73,22 @@ class ValvularMultimodalDataset(Dataset):
         row = self.df.iloc[idx]
 
         # Extract embeddings
-        if "echo_embedding" in row and row["echo_embedding"] is not None and not (isinstance(row["echo_embedding"], float) and np.isnan(row["echo_embedding"])):
+        if (
+            "echo_embedding" in row
+            and row["echo_embedding"] is not None
+            and not (isinstance(row["echo_embedding"], float) and np.isnan(row["echo_embedding"]))
+        ):
             echo_vec = np.asarray(row["echo_embedding"], dtype=np.float32)
             has_echo = True
         else:
             echo_vec = np.zeros(self.echo_dim, dtype=np.float32)
             has_echo = False
 
-        if "ecg_embedding" in row and row["ecg_embedding"] is not None and not (isinstance(row["ecg_embedding"], float) and np.isnan(row["ecg_embedding"])):
+        if (
+            "ecg_embedding" in row
+            and row["ecg_embedding"] is not None
+            and not (isinstance(row["ecg_embedding"], float) and np.isnan(row["ecg_embedding"]))
+        ):
             ecg_vec = np.asarray(row["ecg_embedding"], dtype=np.float32)
             has_ecg = True
         else:
@@ -96,18 +104,24 @@ class ValvularMultimodalDataset(Dataset):
             has_ecg = False
 
         # Multi-task binary labels
-        labels = np.array([
-            float(bool(row.get("as_moderate_or_severe", False))),
-            float(bool(row.get("mr_moderate_or_severe", False))),
-            float(bool(row.get("tr_moderate_or_severe", False))),
-        ], dtype=np.float32)
+        labels = np.array(
+            [
+                float(bool(row.get("as_moderate_or_severe", False))),
+                float(bool(row.get("mr_moderate_or_severe", False))),
+                float(bool(row.get("tr_moderate_or_severe", False))),
+            ],
+            dtype=np.float32,
+        )
 
         # Multi-task ordinal grades (-1 if unassigned)
-        grades = np.array([
-            float(row.get("as_grade", -1) if pd.notna(row.get("as_grade")) else -1),
-            float(row.get("mr_grade", -1) if pd.notna(row.get("mr_grade")) else -1),
-            float(row.get("tr_grade", -1) if pd.notna(row.get("tr_grade")) else -1),
-        ], dtype=np.float32)
+        grades = np.array(
+            [
+                float(row.get("as_grade", -1) if pd.notna(row.get("as_grade")) else -1),
+                float(row.get("mr_grade", -1) if pd.notna(row.get("mr_grade")) else -1),
+                float(row.get("tr_grade", -1) if pd.notna(row.get("tr_grade")) else -1),
+            ],
+            dtype=np.float32,
+        )
 
         return {
             "subject_id": int(row.get("subject_id", 0)),
@@ -156,14 +170,36 @@ def create_valvular_dataloaders(
     num_workers: int = 0,
     mask_modality_eval: str | None = None,
 ) -> dict[str, DataLoader]:
-    df = pd.read_parquet(manifest_path) if str(manifest_path).endswith(".parquet") else pd.read_csv(manifest_path)
+    df = (
+        pd.read_parquet(manifest_path)
+        if str(manifest_path).endswith(".parquet")
+        else pd.read_csv(manifest_path)
+    )
 
     train_ds = ValvularMultimodalDataset(df, split="train")
     val_ds = ValvularMultimodalDataset(df, split="val", mask_modality=mask_modality_eval)
     test_ds = ValvularMultimodalDataset(df, split="test", mask_modality=mask_modality_eval)
 
     return {
-        "train": DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_valvular_batch, num_workers=num_workers),
-        "val": DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_valvular_batch, num_workers=num_workers),
-        "test": DataLoader(test_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_valvular_batch, num_workers=num_workers),
+        "train": DataLoader(
+            train_ds,
+            batch_size=batch_size,
+            shuffle=True,
+            collate_fn=collate_valvular_batch,
+            num_workers=num_workers,
+        ),
+        "val": DataLoader(
+            val_ds,
+            batch_size=batch_size,
+            shuffle=False,
+            collate_fn=collate_valvular_batch,
+            num_workers=num_workers,
+        ),
+        "test": DataLoader(
+            test_ds,
+            batch_size=batch_size,
+            shuffle=False,
+            collate_fn=collate_valvular_batch,
+            num_workers=num_workers,
+        ),
     }

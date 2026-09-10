@@ -1,20 +1,24 @@
 import sys
 from pathlib import Path
+
 import numpy as np
 import pytest
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from primed_ai.probes.valvular import (
     VALVULAR_TARGETS,
     MultiTargetValvularClassifier,
     auprc_safe,
     auroc_safe,
-    bootstrap_ci,
 )
-from scripts.extract_valvular_labels import parse_echo_text_with_ner
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+try:
+    from scripts.extract_valvular_labels import parse_echo_text_with_ner
+except ImportError:  # medspacy and the BigQuery client stack are not core deps
+    parse_echo_text_with_ner = None
 
 
 def test_valvular_targets_defined():
@@ -61,13 +65,19 @@ def test_multitarget_valvular_classifier_fit_and_predict():
     probs = clf.predict_proba(X)
     assert "as_moderate_or_severe" in probs
     assert len(probs["as_moderate_or_severe"]) == n
-    assert (probs["as_moderate_or_severe"] >= 0).all() and (probs["as_moderate_or_severe"] <= 1).all()
+    assert (probs["as_moderate_or_severe"] >= 0).all() and (
+        probs["as_moderate_or_severe"] <= 1
+    ).all()
 
     eval_results = clf.evaluate(X, y_dict, n_bootstrap=50)
     assert "as_moderate_or_severe" in eval_results
     assert eval_results["as_moderate_or_severe"].auroc >= 0.0
 
 
+@pytest.mark.skipif(
+    parse_echo_text_with_ner is None,
+    reason="medspacy (and the extraction script's other deps) not installed",
+)
 def test_clinical_ner_extraction_negation_and_severity():
     # Severe AS
     text1 = "Echocardiogram shows calcified aortic leaflets with severe aortic stenosis."

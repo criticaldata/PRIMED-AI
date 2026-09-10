@@ -38,21 +38,22 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("extract_valvular_labels")
 
-import medspacy
-from medspacy.context import ConTextRule
-from medspacy.ner import TargetRule
-from loguru import logger as loguru_logger
+import medspacy  # noqa: E402
+from loguru import logger as loguru_logger  # noqa: E402
+from medspacy.context import ConTextRule  # noqa: E402
+from medspacy.ner import TargetRule  # noqa: E402
 
 # Silence internal verbose logs
 loguru_logger.disable("PyRuSH")
 logging.getLogger("PyRuSH").setLevel(logging.WARNING)
+
 
 # Build and cache MedSpacy Clinical NER + ConText NLP pipeline (fast & silent)
 def build_clinical_nlp_pipeline():
     nlp = medspacy.load(medspacy_enable=["medspacy_target_matcher", "medspacy_context"])
     if "sentencizer" not in nlp.pipe_names:
         nlp.add_pipe("sentencizer", before="medspacy_target_matcher")
-    
+
     # 1. Target Rules for Valvular Pathology
     target_matcher = nlp.get_pipe("medspacy_target_matcher")
     target_rules = [
@@ -64,13 +65,11 @@ def build_clinical_nlp_pipeline():
         TargetRule("calcific aortic stenosis", "AORTIC_STENOSIS"),
         TargetRule("aortic sclerosis", "AORTIC_SCLEROSIS"),
         TargetRule("aortic valve sclerosis", "AORTIC_SCLEROSIS"),
-        
         # Mitral Regurgitation
         TargetRule("mitral regurgitation", "MITRAL_REGURGITATION"),
         TargetRule("mitral valve regurgitation", "MITRAL_REGURGITATION"),
         TargetRule("mitral insufficiency", "MITRAL_REGURGITATION"),
         TargetRule("mitral valve insufficiency", "MITRAL_REGURGITATION"),
-        
         # Tricuspid Regurgitation
         TargetRule("tricuspid regurgitation", "TRICUSPID_REGURGITATION"),
         TargetRule("tricuspid valve regurgitation", "TRICUSPID_REGURGITATION"),
@@ -78,7 +77,7 @@ def build_clinical_nlp_pipeline():
         TargetRule("tricuspid valve insufficiency", "TRICUSPID_REGURGITATION"),
     ]
     target_matcher.add(target_rules)
-    
+
     # 2. ConText Severity Modifiers (Bidirectional matching)
     context = nlp.get_pipe("medspacy_context")
     context_rules = [
@@ -87,18 +86,15 @@ def build_clinical_nlp_pipeline():
         ConTextRule("critical", "SEVERITY_SEVERE", direction="BIDIRECTIONAL"),
         ConTextRule("moderate to severe", "SEVERITY_SEVERE", direction="BIDIRECTIONAL"),
         ConTextRule("severe to critical", "SEVERITY_SEVERE", direction="BIDIRECTIONAL"),
-        
         # Moderate
         ConTextRule("moderate", "SEVERITY_MODERATE", direction="BIDIRECTIONAL"),
         ConTextRule("mild to moderate", "SEVERITY_MODERATE", direction="BIDIRECTIONAL"),
         ConTextRule("moderate degree of", "SEVERITY_MODERATE", direction="BIDIRECTIONAL"),
-        
         # Mild
         ConTextRule("mild", "SEVERITY_MILD", direction="BIDIRECTIONAL"),
         ConTextRule("trace to mild", "SEVERITY_MILD", direction="BIDIRECTIONAL"),
         ConTextRule("mild degree of", "SEVERITY_MILD", direction="BIDIRECTIONAL"),
         ConTextRule("minimal", "SEVERITY_MILD", direction="BIDIRECTIONAL"),
-        
         # Trace / Trivial / Physiologic -> Grade 0
         ConTextRule("trivial", "SEVERITY_NONE", direction="BIDIRECTIONAL"),
         ConTextRule("trace", "SEVERITY_NONE", direction="BIDIRECTIONAL"),
@@ -107,11 +103,17 @@ def build_clinical_nlp_pipeline():
     context.add(context_rules)
     return nlp
 
+
 CLINICAL_NLP = build_clinical_nlp_pipeline()
 
 # Quantitative Doppler and LVEF patterns
-RE_AVA_SEV = re.compile(r"aortic\s+valve\s+area\s*(?:<|<=|is|of|\:)?\s*0?\.[0-9]\s*cm\^?2", re.IGNORECASE)
-RE_GRAD_SEV = re.compile(r"(?:mean\s+(?:aortic\s+)?gradient|gradient)\s*(?:>|>=|is|of|\:)?\s*(?:4[0-9]|[5-9][0-9]|1[0-9]{2})\s*mm\s*hg", re.IGNORECASE)
+RE_AVA_SEV = re.compile(
+    r"aortic\s+valve\s+area\s*(?:<|<=|is|of|\:)?\s*0?\.[0-9]\s*cm\^?2", re.IGNORECASE
+)
+RE_GRAD_SEV = re.compile(
+    r"(?:mean\s+(?:aortic\s+)?gradient|gradient)\s*(?:>|>=|is|of|\:)?\s*(?:4[0-9]|[5-9][0-9]|1[0-9]{2})\s*mm\s*hg",
+    re.IGNORECASE,
+)
 RE_LVEF = re.compile(
     r"(?:lvef|ejection fraction|ef)\s*(?:is|of|was|\:|\=)?\s*(?:approximately\s*|approx\s*)?([1-9][0-9])\s*\%|"
     r"ejection fraction\s*(?:is|estimated at|of)?\s*(?:>|>=)\s*55\%|"
@@ -119,21 +121,37 @@ RE_LVEF = re.compile(
     re.IGNORECASE,
 )
 
-VALVULAR_KEYWORDS = ("valve", "stenosis", "regurgitation", "echo", "aortic", "mitral", "tricuspid", "lvef")
+VALVULAR_KEYWORDS = (
+    "valve",
+    "stenosis",
+    "regurgitation",
+    "echo",
+    "aortic",
+    "mitral",
+    "tricuspid",
+    "lvef",
+)
 
 
 def parse_echo_text_with_ner(raw_text: str) -> dict:
     """Extract valvular severity using MedSpacy Clinical NER and ConText assertion on relevant sections."""
     # Filter only lines/paragraphs containing relevant keywords for 50x faster speed
-    lines = [line.strip() for line in raw_text.split("\n") if any(k in line.lower() for k in VALVULAR_KEYWORDS)]
+    lines = [
+        line.strip()
+        for line in raw_text.split("\n")
+        if any(k in line.lower() for k in VALVULAR_KEYWORDS)
+    ]
     if not lines:
         return {
-            "as_grade": None, "as_evidence": None,
-            "mr_grade": None, "mr_evidence": None,
-            "tr_grade": None, "tr_evidence": None,
+            "as_grade": None,
+            "as_evidence": None,
+            "mr_grade": None,
+            "mr_evidence": None,
+            "tr_grade": None,
+            "tr_evidence": None,
             "lvef_extracted": None,
         }
-    
+
     text = " ".join(lines)
     doc = CLINICAL_NLP(text)
 
@@ -150,11 +168,11 @@ def parse_echo_text_with_ner(raw_text: str) -> dict:
     for ent in doc.ents:
         mod_cats = [m.category for m in ent._.modifiers]
         is_negated = ent._.is_negated
-        
+
         # 1. Skip non-patient and non-certain assertions
         if any(cat in ("FAMILY", "POSSIBLE_EXISTENCE", "HYPOTHETICAL") for cat in mod_cats):
             continue
-        
+
         # 2. Determine grade from NER ConText modifiers & Negation
         if is_negated:
             grade = 0
@@ -209,13 +227,15 @@ def build_bigquery_client(project: str) -> bigquery.Client:
     return bigquery.Client(project=project, credentials=credentials)
 
 
-def fetch_discharge_notes_with_ecg(client: bigquery.Client, limit: int | None = None) -> pd.DataFrame:
+def fetch_discharge_notes_with_ecg(
+    client: bigquery.Client, limit: int | None = None
+) -> pd.DataFrame:
     """Fetch discharge summaries matched with nearest ECG record within admission."""
     limit_clause = f"LIMIT {limit}" if limit else ""
     query = f"""
     WITH ecg_per_adm AS (
       -- Nearest ECG to admission charttime
-      SELECT 
+      SELECT
         a.subject_id,
         a.hadm_id,
         a.admittime,
@@ -230,16 +250,16 @@ def fetch_discharge_notes_with_ecg(client: bigquery.Client, limit: int | None = 
         DATETIME_DIFF(r.ecg_time, a.admittime, SECOND) / 3600.0 AS ecg_hours_from_admit
       FROM `physionet-data.mimiciv_3_1_hosp.admissions` a
       JOIN `physionet-data.mimiciv_3_1_hosp.patients` pt ON a.subject_id = pt.subject_id
-      JOIN `physionet-data.mimiciv_ecg.record_list` r 
+      JOIN `physionet-data.mimiciv_ecg.record_list` r
         ON a.subject_id = r.subject_id
        AND r.ecg_time BETWEEN a.admittime AND a.dischtime
       QUALIFY ROW_NUMBER() OVER (
-        PARTITION BY a.hadm_id 
+        PARTITION BY a.hadm_id
         ORDER BY ABS(DATETIME_DIFF(r.ecg_time, a.admittime, SECOND)), r.ecg_time
       ) = 1
     ),
     valvular_icd AS (
-      SELECT 
+      SELECT
         hadm_id,
         MAX(CASE WHEN icd_code IN ('I350', 'I352', '4241', '3950', '3952') THEN 1 ELSE 0 END) AS icd_as,
         MAX(CASE WHEN icd_code IN ('I340', '4240', '3941', 'I051') THEN 1 ELSE 0 END) AS icd_mr,
@@ -247,7 +267,7 @@ def fetch_discharge_notes_with_ecg(client: bigquery.Client, limit: int | None = 
       FROM `physionet-data.mimiciv_3_1_hosp.diagnoses_icd`
       GROUP BY hadm_id
     )
-    SELECT 
+    SELECT
       n.note_id,
       n.subject_id,
       n.hadm_id,
@@ -294,51 +314,66 @@ def main():
     extracted_records = []
     for _, row in df.iterrows():
         parsed = parse_echo_text_with_ner(row["text"])
-        
+
         # Consolidate clinical gates (combining NLP grade >= 2 or ICD diagnosis)
         as_grade = parsed["as_grade"]
         mr_grade = parsed["mr_grade"]
         tr_grade = parsed["tr_grade"]
-        
+
         as_mod_sev = bool((as_grade is not None and as_grade >= 2) or row["icd_as"] == 1)
         mr_mod_sev = bool((mr_grade is not None and mr_grade >= 2) or row["icd_mr"] == 1)
         tr_mod_sev = bool((tr_grade is not None and tr_grade >= 2) or row["icd_tr"] == 1)
-        
+
         # Only keep if at least one valve was parsed or ICD diagnosed
-        has_any_label = bool((as_grade is not None) or (mr_grade is not None) or (tr_grade is not None) or bool(row["icd_as"]) or bool(row["icd_mr"]) or bool(row["icd_tr"]))
-        
-        extracted_records.append({
-            "subject_id": int(row["subject_id"]),
-            "hadm_id": int(row["hadm_id"]),
-            "note_id": row["note_id"],
-            "ecg_record_id": row["ecg_record_id"],
-            "ecg_time": str(row["ecg_time"]),
-            "ecg_file_name": row["ecg_file_name"],
-            "ecg_path": row["ecg_path"],
-            "sex": row["sex"],
-            "age": int(row["age"]) if pd.notna(row["age"]) else None,
-            "race": row["race"],
-            "as_grade": as_grade,
-            "as_evidence": parsed["as_evidence"],
-            "as_moderate_or_severe": as_mod_sev,
-            "icd_as": int(row["icd_as"]),
-            "mr_grade": mr_grade,
-            "mr_evidence": parsed["mr_evidence"],
-            "mr_moderate_or_severe": mr_mod_sev,
-            "icd_mr": int(row["icd_mr"]),
-            "tr_grade": tr_grade,
-            "tr_evidence": parsed["tr_evidence"],
-            "tr_moderate_or_severe": tr_mod_sev,
-            "icd_tr": int(row["icd_tr"]),
-            "lvef_extracted": parsed["lvef_extracted"],
-            "has_valvular_label": has_any_label,
-        })
+        has_any_label = bool(
+            (as_grade is not None)
+            or (mr_grade is not None)
+            or (tr_grade is not None)
+            or bool(row["icd_as"])
+            or bool(row["icd_mr"])
+            or bool(row["icd_tr"])
+        )
+
+        extracted_records.append(
+            {
+                "subject_id": int(row["subject_id"]),
+                "hadm_id": int(row["hadm_id"]),
+                "note_id": row["note_id"],
+                "ecg_record_id": row["ecg_record_id"],
+                "ecg_time": str(row["ecg_time"]),
+                "ecg_file_name": row["ecg_file_name"],
+                "ecg_path": row["ecg_path"],
+                "sex": row["sex"],
+                "age": int(row["age"]) if pd.notna(row["age"]) else None,
+                "race": row["race"],
+                "as_grade": as_grade,
+                "as_evidence": parsed["as_evidence"],
+                "as_moderate_or_severe": as_mod_sev,
+                "icd_as": int(row["icd_as"]),
+                "mr_grade": mr_grade,
+                "mr_evidence": parsed["mr_evidence"],
+                "mr_moderate_or_severe": mr_mod_sev,
+                "icd_mr": int(row["icd_mr"]),
+                "tr_grade": tr_grade,
+                "tr_evidence": parsed["tr_evidence"],
+                "tr_moderate_or_severe": tr_mod_sev,
+                "icd_tr": int(row["icd_tr"]),
+                "lvef_extracted": parsed["lvef_extracted"],
+                "has_valvular_label": has_any_label,
+            }
+        )
 
     cohort_df = pd.DataFrame(extracted_records)
-    labeled_cohort = cohort_df[cohort_df["has_valvular_label"].astype(bool)].copy().reset_index(drop=True)
-    
-    log.info("Total cohort rows: %d | Labeled valvular rows: %d | Unique subjects: %d",
-             len(cohort_df), len(labeled_cohort), labeled_cohort["subject_id"].nunique())
+    labeled_cohort = (
+        cohort_df[cohort_df["has_valvular_label"].astype(bool)].copy().reset_index(drop=True)
+    )
+
+    log.info(
+        "Total cohort rows: %d | Labeled valvular rows: %d | Unique subjects: %d",
+        len(cohort_df),
+        len(labeled_cohort),
+        labeled_cohort["subject_id"].nunique(),
+    )
 
     # Write files
     parquet_path = out_dir / "valvular_cohort.parquet"
@@ -367,9 +402,18 @@ def main():
             },
         },
         "grade_distributions": {
-            "as_grades": {str(k): int(v) for k, v in labeled_cohort["as_grade"].value_counts(dropna=False).items()},
-            "mr_grades": {str(k): int(v) for k, v in labeled_cohort["mr_grade"].value_counts(dropna=False).items()},
-            "tr_grades": {str(k): int(v) for k, v in labeled_cohort["tr_grade"].value_counts(dropna=False).items()},
+            "as_grades": {
+                str(k): int(v)
+                for k, v in labeled_cohort["as_grade"].value_counts(dropna=False).items()
+            },
+            "mr_grades": {
+                str(k): int(v)
+                for k, v in labeled_cohort["mr_grade"].value_counts(dropna=False).items()
+            },
+            "tr_grades": {
+                str(k): int(v)
+                for k, v in labeled_cohort["tr_grade"].value_counts(dropna=False).items()
+            },
         },
     }
 
@@ -381,10 +425,18 @@ def main():
     print("\n" + "=" * 50)
     print("TASK B: VALVULAR EXTRACTION SUMMARY")
     print("=" * 50)
-    print(f"Total labeled cohort: {len(labeled_cohort):,} studies ({labeled_cohort['subject_id'].nunique():,} unique patients)")
-    print(f"  - AS (Moderate/Severe): {summary['prevalence']['aortic_stenosis_mod_or_sev']['n_positive']:,} ({summary['prevalence']['aortic_stenosis_mod_or_sev']['prevalence']*100:.1f}%)")
-    print(f"  - MR (Moderate/Severe): {summary['prevalence']['mitral_regurgitation_mod_or_sev']['n_positive']:,} ({summary['prevalence']['mitral_regurgitation_mod_or_sev']['prevalence']*100:.1f}%)")
-    print(f"  - TR (Moderate/Severe): {summary['prevalence']['tricuspid_regurgitation_mod_or_sev']['n_positive']:,} ({summary['prevalence']['tricuspid_regurgitation_mod_or_sev']['prevalence']*100:.1f}%)")
+    print(
+        f"Total labeled cohort: {len(labeled_cohort):,} studies ({labeled_cohort['subject_id'].nunique():,} unique patients)"
+    )
+    print(
+        f"  - AS (Moderate/Severe): {summary['prevalence']['aortic_stenosis_mod_or_sev']['n_positive']:,} ({summary['prevalence']['aortic_stenosis_mod_or_sev']['prevalence'] * 100:.1f}%)"
+    )
+    print(
+        f"  - MR (Moderate/Severe): {summary['prevalence']['mitral_regurgitation_mod_or_sev']['n_positive']:,} ({summary['prevalence']['mitral_regurgitation_mod_or_sev']['prevalence'] * 100:.1f}%)"
+    )
+    print(
+        f"  - TR (Moderate/Severe): {summary['prevalence']['tricuspid_regurgitation_mod_or_sev']['n_positive']:,} ({summary['prevalence']['tricuspid_regurgitation_mod_or_sev']['prevalence'] * 100:.1f}%)"
+    )
     print("=" * 50)
 
 

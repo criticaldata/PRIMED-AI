@@ -8,37 +8,41 @@ import pandas as pd
 import pytest
 import torch
 
+from primed_ai.data.valvular_dataset import (
+    ValvularMultimodalDataset,
+    create_valvular_dataloaders,
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from primed_ai.data.valvular_dataset import (
-    ValvularMultimodalDataset,
-    collate_valvular_batch,
-    create_valvular_dataloaders,
-)
-from scripts.build_valvular_manifest import build_valvular_manifest
+from scripts.build_valvular_manifest import build_valvular_manifest  # noqa: E402
 
 
 @pytest.fixture
 def dummy_valvular_df():
     rng = np.random.default_rng(42)
     n = 20
-    return pd.DataFrame({
-        "subject_id": np.arange(100, 100 + n),
-        "split": ["train"] * 14 + ["val"] * 2 + ["test"] * 4,
-        "as_moderate_or_severe": rng.choice([False, True], n),
-        "mr_moderate_or_severe": rng.choice([False, True], n),
-        "tr_moderate_or_severe": rng.choice([False, True], n),
-        "as_grade": rng.choice([0, 1, 2, 3], n),
-        "mr_grade": rng.choice([0, 1, 2, 3], n),
-        "tr_grade": rng.choice([0, 1, 2, 3], n),
-        "echo_embedding": [rng.normal(0, 1, 1024).astype(np.float32).tolist() for _ in range(n)],
-        "ecg_embedding": [rng.normal(0, 1, 768).astype(np.float32).tolist() for _ in range(n)],
-        "sex": ["M", "F"] * (n // 2),
-        "age": np.linspace(30, 80, n),
-        "race": ["WHITE"] * n,
-    })
+    return pd.DataFrame(
+        {
+            "subject_id": np.arange(100, 100 + n),
+            "split": ["train"] * 14 + ["val"] * 2 + ["test"] * 4,
+            "as_moderate_or_severe": rng.choice([False, True], n),
+            "mr_moderate_or_severe": rng.choice([False, True], n),
+            "tr_moderate_or_severe": rng.choice([False, True], n),
+            "as_grade": rng.choice([0, 1, 2, 3], n),
+            "mr_grade": rng.choice([0, 1, 2, 3], n),
+            "tr_grade": rng.choice([0, 1, 2, 3], n),
+            "echo_embedding": [
+                rng.normal(0, 1, 1024).astype(np.float32).tolist() for _ in range(n)
+            ],
+            "ecg_embedding": [rng.normal(0, 1, 768).astype(np.float32).tolist() for _ in range(n)],
+            "sex": ["M", "F"] * (n // 2),
+            "age": np.linspace(30, 80, n),
+            "race": ["WHITE"] * n,
+        }
+    )
 
 
 def test_valvular_dataset_shapes_and_splits(dummy_valvular_df):
@@ -91,7 +95,9 @@ def test_collate_and_dataloader(dummy_valvular_df, tmp_path):
 
 def test_build_valvular_manifest_runner(dummy_valvular_df, tmp_path):
     cohort_path = tmp_path / "cohort.parquet"
-    dummy_valvular_df.drop(columns=["echo_embedding", "ecg_embedding"]).to_parquet(cohort_path, index=False)
+    dummy_valvular_df.drop(columns=["echo_embedding", "ecg_embedding"]).to_parquet(
+        cohort_path, index=False
+    )
 
     out_manifest = tmp_path / "out_manifest.parquet"
     out_meta = tmp_path / "out_meta.csv"

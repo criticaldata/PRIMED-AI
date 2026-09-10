@@ -1,7 +1,6 @@
 """Unit tests for Neural Multimodal Valvular Probes (Task B)."""
 
 import torch
-import pytest
 
 from primed_ai.probes.neural_valvular import (
     ConcatMLPValvularProbe,
