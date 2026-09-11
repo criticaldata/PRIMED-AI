@@ -494,6 +494,89 @@ def build_joined_manifest(
     return manifest, summary
 
 
+def replace_manifest_echo_embeddings(
+    *,
+    base_manifest_path: Path,
+    echo_embeddings_path: Path,
+    manifest_path: Path,
+    metadata_csv_path: Path,
+    summary_json_path: Path,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Replace EchoJEPA vectors while retaining a joined manifest's cohort and ECG data.
+
+    This supports a controlled pooling ablation: labels, subject-level splits, and ECG
+    vectors are held fixed while only the echo representation changes.  It also avoids
+    re-reading the much larger source HuBERT parquet when a valid joined manifest exists.
+    """
+    base = pd.read_parquet(base_manifest_path)
+    echo = pd.read_parquet(echo_embeddings_path)
+
+    base_required = {"subject_id", "echo_study_id", "ecg_embedding"}
+    echo_required = {
+        "subject_id",
+        "echo_study_id",
+        "n_echo_clips",
+        "echo_embedding",
+        "echo_model",
+    }
+    missing_base = sorted(base_required - set(base.columns))
+    missing_echo = sorted(echo_required - set(echo.columns))
+    if missing_base:
+        raise ValueError(f"Base manifest missing required columns: {missing_base}")
+    if missing_echo:
+        raise ValueError(f"Echo embeddings missing required columns: {missing_echo}")
+
+    echo_columns = [
+        "subject_id",
+        "echo_study_id",
+        "n_echo_clips",
+        "echo_embedding",
+        "echo_model",
+    ]
+    if "n_echo_clips_retained" in echo.columns:
+        echo_columns.append("n_echo_clips_retained")
+
+    replacement_columns = [
+        "n_echo_clips",
+        "n_echo_clips_retained",
+        "echo_embedding",
+        "echo_model",
+        "has_echo_embedding",
+    ]
+    base = base.drop(columns=[c for c in replacement_columns if c in base.columns])
+    manifest = base.merge(
+        echo[echo_columns],
+        on=["subject_id", "echo_study_id"],
+        how="left",
+        validate="many_to_one",
+    )
+    manifest["has_echo_embedding"] = manifest["echo_embedding"].notna()
+    manifest["has_ecg_embedding"] = manifest["ecg_embedding"].notna()
+
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_json_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest.to_parquet(manifest_path, index=False)
+
+    metadata_columns = [
+        "subject_id", "echo_study_id", "ecg_study_id", "lvef", "ef_le_40", "split",
+        "sex", "age", "race", "n_echo_clips", "n_echo_clips_retained",
+        "has_echo_embedding", "has_ecg_embedding", "echo_model", "ecg_model",
+    ]
+    manifest[[c for c in metadata_columns if c in manifest]].to_csv(metadata_csv_path, index=False)
+
+    summary = summarize_manifest(manifest)
+    summary["outputs"] = {
+        "manifest_path": str(manifest_path),
+        "metadata_csv_path": str(metadata_csv_path),
+        "summary_json_path": str(summary_json_path),
+    }
+    summary["base_manifest_path"] = str(base_manifest_path)
+    summary["echo_embeddings_path"] = str(echo_embeddings_path)
+    summary_json_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    return manifest, summary
+
+
 def summarize_manifest(manifest: pd.DataFrame) -> dict[str, Any]:
     split_counts = manifest["split"].value_counts(dropna=False).to_dict()
     leakage = (

@@ -96,6 +96,15 @@ def parse_args() -> argparse.Namespace:
     ]:
         join.add_argument(f"--{name}")
 
+    replace_echo = subparsers.add_parser(
+        "replace-echo", help="Replace echo embeddings in an existing joined manifest."
+    )
+    replace_echo.add_argument("--base-manifest", type=Path, required=True)
+    replace_echo.add_argument("--echo", type=Path, required=True)
+    replace_echo.add_argument("--manifest", type=Path, required=True)
+    replace_echo.add_argument("--metadata-csv", type=Path, required=True)
+    replace_echo.add_argument("--summary-json", type=Path, required=True)
+
     all_steps = subparsers.add_parser("all", help="Run all build steps.")
     all_steps.add_argument("--echo-input", type=Path, required=True)
     all_steps.add_argument("--hubert-csv", type=Path, required=True)
@@ -154,6 +163,7 @@ def main() -> None:
         build_echo_study_embeddings,
         build_joined_manifest,
         convert_hubert_csv_to_parquet,
+        replace_manifest_echo_embeddings,
     )
 
     if args.command == "build-echo":
@@ -189,6 +199,15 @@ def main() -> None:
             args.metadata_csv,
             args.summary_json,
             **cohort_kwargs(args),
+        )
+        print_summary(summary)
+    elif args.command == "replace-echo":
+        _, summary = replace_manifest_echo_embeddings(
+            base_manifest_path=args.base_manifest,
+            echo_embeddings_path=args.echo,
+            manifest_path=args.manifest,
+            metadata_csv_path=args.metadata_csv,
+            summary_json_path=args.summary_json,
         )
         print_summary(summary)
     elif args.command == "all":

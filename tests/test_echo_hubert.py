@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -16,6 +17,7 @@ from primed_ai.data.echo_hubert_manifest import (
     build_echo_study_embeddings,
     build_joined_manifest,
     convert_hubert_csv_to_parquet,
+    replace_manifest_echo_embeddings,
 )
 
 
@@ -228,3 +230,61 @@ def test_subject_split_leakage_raises(tmp_path):
             tmp_path / "metadata.csv",
             tmp_path / "summary.json",
         )
+
+
+def test_replace_manifest_echo_embeddings_preserves_base_cohort_and_ecg(tmp_path):
+    base_path = tmp_path / "base.parquet"
+    echo_path = tmp_path / "clip_echo.parquet"
+    manifest_path = tmp_path / "clip_manifest.parquet"
+    metadata_path = tmp_path / "clip_metadata.csv"
+    summary_path = tmp_path / "clip_summary.json"
+
+    pd.DataFrame(
+        {
+            "subject_id": [1, 2],
+            "echo_study_id": [10, 20],
+            "ecg_study_id": [100, 200],
+            "lvef": [35.0, 60.0],
+            "ef_le_40": [True, False],
+            "split": ["train", "val"],
+            "n_echo_clips": [5, 4],
+            "echo_embedding": [[1.0, 2.0], [3.0, 4.0]],
+            "echo_model": ["pooled", "pooled"],
+            "ecg_embedding": [[0.1, 0.2], [0.3, 0.4]],
+            "ecg_model": ["hubert", "hubert"],
+        }
+    ).to_parquet(base_path, index=False)
+    pd.DataFrame(
+        {
+            "subject_id": [1, 2],
+            "echo_study_id": [10, 20],
+            "n_echo_clips": [5, 4],
+            "n_echo_clips_retained": [2, 2],
+            "echo_embedding": [
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[5.0, 6.0], [7.0, 8.0]],
+            ],
+            "echo_model": ["clip", "clip"],
+        }
+    ).to_parquet(echo_path, index=False)
+
+    manifest, summary = replace_manifest_echo_embeddings(
+        base_manifest_path=base_path,
+        echo_embeddings_path=echo_path,
+        manifest_path=manifest_path,
+        metadata_csv_path=metadata_path,
+        summary_json_path=summary_path,
+    )
+
+    assert np.asarray(manifest.loc[0, "ecg_embedding"]).tolist() == [0.1, 0.2]
+    assert np.asarray(manifest.loc[1, "ecg_embedding"]).tolist() == [0.3, 0.4]
+    assert np.allclose(
+        np.stack(manifest.loc[0, "echo_embedding"]),
+        [[1.0, 2.0], [3.0, 4.0]],
+    )
+    assert manifest["n_echo_clips_retained"].tolist() == [2, 2]
+    assert manifest["has_echo_embedding"].tolist() == [True, True]
+    assert summary["n_with_both_embeddings"] == 2
+    assert summary["base_manifest_path"] == str(base_path)
+    assert "echo_embedding" not in pd.read_csv(metadata_path).columns
+    assert json.loads(summary_path.read_text())["echo_embeddings_path"] == str(echo_path)
