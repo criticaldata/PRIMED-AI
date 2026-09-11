@@ -17,10 +17,12 @@ import argparse
 import json
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+from make_splits import file_sha256
 
 from primed_ai.probes import manifest as manifest_io
 from primed_ai.probes.common import auroc, regression_metrics
@@ -39,6 +41,65 @@ def read_json(path: Path) -> dict[str, Any]:
     """Read a JSON result file."""
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_kfold_metadata(path: Path, *, n_folds: int) -> dict[int, dict[str, Any]]:
+    """Read and validate the split metadata used by a k-fold run."""
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"K-fold metadata not found: {path}. Run make_kfold_splits.py first."
+        )
+    payload = read_json(path)
+    if payload.get("n_folds") != n_folds:
+        raise ValueError(
+            f"K-fold metadata has n_folds={payload.get('n_folds')}, expected {n_folds}."
+        )
+
+    metadata_by_fold = {int(entry["fold"]): entry for entry in payload.get("folds", [])}
+    expected = set(range(n_folds))
+    if set(metadata_by_fold) != expected:
+        raise ValueError(
+            "K-fold metadata does not contain exactly the requested fold IDs: "
+            f"expected {sorted(expected)}, got {sorted(metadata_by_fold)}."
+        )
+    return metadata_by_fold
+
+
+def check_validation_prevalence(
+    metadata_by_fold: dict[int, dict[str, Any]],
+    *,
+    min_val_positives: int,
+    allow_low_val_positives: bool,
+) -> None:
+    """Stop before training when a fold's validation AUROC is too underpowered."""
+    if min_val_positives < 1:
+        raise ValueError("min_val_positives must be at least 1.")
+
+    low_folds = []
+    for fold_idx, metadata in sorted(metadata_by_fold.items()):
+        try:
+            n_positive = int(metadata["ef_le_40_counts"]["val"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Fold {fold_idx} metadata is missing ef_le_40_counts.val. "
+                "Regenerate folds with make_kfold_splits.py."
+            ) from exc
+        if n_positive < min_val_positives:
+            low_folds.append((fold_idx, n_positive))
+
+    if not low_folds:
+        return
+
+    message = (
+        "Validation EF<=40 counts are below the requested minimum "
+        f"({min_val_positives}): "
+        + ", ".join(f"fold {fold}: {count}" for fold, count in low_folds)
+        + ". Checkpoint selection may be unstable."
+    )
+    if allow_low_val_positives:
+        warnings.warn(message, stacklevel=2)
+        return
+    raise ValueError(message + " Re-run with --allow-low-val-positives to override.")
 
 
 def train_fold(
@@ -215,11 +276,35 @@ def main() -> None:
     parser.add_argument("--fusion-dim", type=int, default=256)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--n-bootstrap", type=int, default=1000)
+    parser.add_argument(
+        "--kfold-manifest",
+        type=Path,
+        help="Split metadata from make_kfold_splits.py (default: FOLDS_DIR/kfold_manifest.json).",
+    )
+    parser.add_argument(
+        "--min-val-positives",
+        type=int,
+        default=10,
+        help="Minimum EF<=40 validation examples required before training each fold.",
+    )
+    parser.add_argument(
+        "--allow-low-val-positives",
+        action="store_true",
+        help="Warn instead of stopping when a fold has too few EF<=40 validation examples.",
+    )
     args = parser.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    kfold_metadata_path = args.kfold_manifest or args.folds_dir / "kfold_manifest.json"
+    metadata_by_fold = load_kfold_metadata(kfold_metadata_path, n_folds=args.n_folds)
+    check_validation_prevalence(
+        metadata_by_fold,
+        min_val_positives=args.min_val_positives,
+        allow_low_val_positives=args.allow_low_val_positives,
+    )
 
     result_paths: list[Path] = []
+    fold_provenance: list[dict[str, Any]] = []
 
     for fold_idx in range(args.n_folds):
         print(f"\n{'=' * 60}")
@@ -254,6 +339,16 @@ def main() -> None:
         )
 
         result_paths.append(result_path)
+        fold_provenance.append(
+            {
+                "fold": fold_idx,
+                "manifest_path": str(fold_manifest),
+                "manifest_sha256": file_sha256(fold_manifest),
+                "fused_checkpoint_path": str(checkpoint),
+                "fused_checkpoint_sha256": file_sha256(checkpoint),
+                "missing_modality_result_path": str(result_path),
+            }
+        )
 
     summary = aggregate_results(result_paths)
 
@@ -265,6 +360,13 @@ def main() -> None:
         "fusion_dim": args.fusion_dim,
         "seed": args.seed,
         "n_bootstrap": args.n_bootstrap,
+        "min_val_positives": args.min_val_positives,
+        "allow_low_val_positives": args.allow_low_val_positives,
+    }
+    summary["provenance"] = {
+        "kfold_manifest_path": str(kfold_metadata_path),
+        "kfold_manifest_sha256": file_sha256(kfold_metadata_path),
+        "folds": fold_provenance,
     }
 
     summary_path = args.out_dir / "kfold_results.json"

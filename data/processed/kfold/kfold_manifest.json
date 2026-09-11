@@ -1,0 +1,168 @@
+{
+  "task": "E13_patient_level_kfold",
+  "input_path": "../PRIMED-AI/data/processed/echo_hubert_manifest.parquet",
+  "input_sha256": "cfb7664f5e95a3b8419ec6107ff71c8eb04fed15c9a14465f9cbc6b8ff2481ef",
+  "seed": 42,
+  "n_folds": 5,
+  "val_frac": 0.1,
+  "n_rows": 1184,
+  "n_subjects": 992,
+  "subject_id_hash": "332c922821b24ad294eaa1d2a709c9ad1f49d19452461b53cfcfa5d4ec63fb0c",
+  "outer_test_coverage": {
+    "n_unique_test_subjects": 992,
+    "expected_subjects": 992,
+    "each_subject_tested_once": true
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "manifest_path": "data/processed/kfold/fold_0.parquet",
+      "subject_splits_path": "data/processed/kfold/fold_0_subjects.csv",
+      "row_counts": {
+        "train": 827,
+        "val": 120,
+        "test": 237
+      },
+      "subject_counts": {
+        "train": 694,
+        "val": 99,
+        "test": 199
+      },
+      "ef_le_40_counts": {
+        "train": 169,
+        "val": 27,
+        "test": 50
+      },
+      "split_subject_id_hashes": {
+        "train": "8ee0f4fa88378a23550c6e6476b3f5e7fa0aac2a0c40b7c58db6df254080a6ea",
+        "val": "e48d61e667e6c9589313f6a79eabbecf6006c3e712610fc90b9a6e114c6c4255",
+        "test": "d0601efc868996c574f64dac5991104781bae05b61ec37ee5196d32a2f6cf754"
+      },
+      "leakage_check": {
+        "train_val_overlap": 0,
+        "train_test_overlap": 0,
+        "val_test_overlap": 0
+      }
+    },
+    {
+      "fold": 1,
+      "manifest_path": "data/processed/kfold/fold_1.parquet",
+      "subject_splits_path": "data/processed/kfold/fold_1_subjects.csv",
+      "row_counts": {
+        "train": 839,
+        "val": 121,
+        "test": 224
+      },
+      "subject_counts": {
+        "train": 694,
+        "val": 99,
+        "test": 199
+      },
+      "ef_le_40_counts": {
+        "train": 169,
+        "val": 27,
+        "test": 50
+      },
+      "split_subject_id_hashes": {
+        "train": "6f6086044efeeba116bcd79948251d8bce4b0148d968dd000b87b042004fab13",
+        "val": "d17f335a1481229c6f8d0156ae836c87ff390b144a35df75d407fc9c573d27ec",
+        "test": "938e34450bdb0df0661ad91834bcaadd7f6b9c184c2e7c0fd07328f225cf263f"
+      },
+      "leakage_check": {
+        "train_val_overlap": 0,
+        "train_test_overlap": 0,
+        "val_test_overlap": 0
+      }
+    },
+    {
+      "fold": 2,
+      "manifest_path": "data/processed/kfold/fold_2.parquet",
+      "subject_splits_path": "data/processed/kfold/fold_2_subjects.csv",
+      "row_counts": {
+        "train": 832,
+        "val": 122,
+        "test": 230
+      },
+      "subject_counts": {
+        "train": 695,
+        "val": 99,
+        "test": 198
+      },
+      "ef_le_40_counts": {
+        "train": 176,
+        "val": 28,
+        "test": 42
+      },
+      "split_subject_id_hashes": {
+        "train": "1f00e0fd9058a35b7bfa1af9eea807caf57c4491d51cbad0e09756caf3087909",
+        "val": "3a4e057f62a35c71c8ff51b3ddf49c26599fc55ced0c815cdb54b1d6de829d79",
+        "test": "864288073998b584692d3b3418a859a7ec452138025043c7c59e3e85ce9c1e22"
+      },
+      "leakage_check": {
+        "train_val_overlap": 0,
+        "train_test_overlap": 0,
+        "val_test_overlap": 0
+      }
+    },
+    {
+      "fold": 3,
+      "manifest_path": "data/processed/kfold/fold_3.parquet",
+      "subject_splits_path": "data/processed/kfold/fold_3_subjects.csv",
+      "row_counts": {
+        "train": 831,
+        "val": 119,
+        "test": 234
+      },
+      "subject_counts": {
+        "train": 695,
+        "val": 99,
+        "test": 198
+      },
+      "ef_le_40_counts": {
+        "train": 176,
+        "val": 21,
+        "test": 49
+      },
+      "split_subject_id_hashes": {
+        "train": "1cd0f63b6409d232e582509fe274c1ffbbe67cf75ddae55561b57729cc723c6b",
+        "val": "48d421e0928be43ba2c4bbb5f8af4c6fc3a471d8b4a9d046ffaaef33d5ca23bc",
+        "test": "97d0a80a99710b07370d434348c0741486edd8217aaa9f713485255138e4b86c"
+      },
+      "leakage_check": {
+        "train_val_overlap": 0,
+        "train_test_overlap": 0,
+        "val_test_overlap": 0
+      }
+    },
+    {
+      "fold": 4,
+      "manifest_path": "data/processed/kfold/fold_4.parquet",
+      "subject_splits_path": "data/processed/kfold/fold_4_subjects.csv",
+      "row_counts": {
+        "train": 814,
+        "val": 111,
+        "test": 259
+      },
+      "subject_counts": {
+        "train": 695,
+        "val": 99,
+        "test": 198
+      },
+      "ef_le_40_counts": {
+        "train": 173,
+        "val": 18,
+        "test": 55
+      },
+      "split_subject_id_hashes": {
+        "train": "f3ef3109e0df6d729fd8b10de24fa26061875b70424189f564f12a138ed1113b",
+        "val": "9c91c1a6e336f982a3b855501d83ae3a187517a42dd15a5b8a2028208dbb9da1",
+        "test": "ad8f72fcfce6c9327f5d59c55e2f47a65671b267e92a05efbe94f515c25a9853"
+      },
+      "leakage_check": {
+        "train_val_overlap": 0,
+        "train_test_overlap": 0,
+        "val_test_overlap": 0
+      }
+    }
+  ]
+}

@@ -1,11 +1,8 @@
 import json
 import sys
-from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
-
-import run_kfold_cv as kfold_cv  # noqa: E402
+import pytest
+import run_kfold_cv as kfold_cv
 
 CONDITIONS = ("full", "echo_dropped", "ecg_dropped")
 
@@ -81,6 +78,18 @@ def test_main_runs_each_fold_without_real_training(tmp_path, monkeypatch):
     for fold_idx in range(2):
         (folds_dir / f"fold_{fold_idx}.parquet").touch()
 
+    (folds_dir / "kfold_manifest.json").write_text(
+        json.dumps(
+            {
+                "n_folds": 2,
+                "folds": [
+                    {"fold": fold_idx, "ef_le_40_counts": {"val": 10}} for fold_idx in range(2)
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
     trained = []
     evaluated = []
 
@@ -101,7 +110,10 @@ def test_main_runs_each_fold_without_real_training(tmp_path, monkeypatch):
                 "fusion_dim": fusion_dim,
             }
         )
-        return fold_dir / "probes" / "fused" / "cross_attn_fused.pt"
+        checkpoint = fold_dir / "probes" / "fused" / "cross_attn_fused.pt"
+        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        checkpoint.write_bytes(b"synthetic checkpoint")
+        return checkpoint
 
     def fake_evaluate_fold(
         fold_manifest,
@@ -191,3 +203,38 @@ def test_main_runs_each_fold_without_real_training(tmp_path, monkeypatch):
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["config"]["n_folds"] == 2
     assert summary["config"]["seed"] == 42
+    assert len(summary["provenance"]["kfold_manifest_sha256"]) == 64
+    assert [row["fold"] for row in summary["provenance"]["folds"]] == [0, 1]
+    assert all(len(row["manifest_sha256"]) == 64 for row in summary["provenance"]["folds"])
+    assert all(len(row["fused_checkpoint_sha256"]) == 64 for row in summary["provenance"]["folds"])
+
+
+def test_main_refuses_underpowered_validation_fold(tmp_path, monkeypatch):
+    folds_dir = tmp_path / "folds"
+    folds_dir.mkdir()
+    (folds_dir / "kfold_manifest.json").write_text(
+        json.dumps(
+            {
+                "n_folds": 2,
+                "folds": [
+                    {"fold": 0, "ef_le_40_counts": {"val": 9}},
+                    {"fold": 1, "ef_le_40_counts": {"val": 10}},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_kfold_cv.py",
+            "--folds-dir",
+            str(folds_dir),
+            "--n-folds",
+            "2",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="fold 0: 9"):
+        kfold_cv.main()
