@@ -129,10 +129,15 @@ def _run_predictions(predictions_path: str, out: str) -> None:
 
     def predict(present):
         if present not in preds:
-            raise SystemExit(f"no scored condition covers the modality subset {sorted(present)}")
+            # KeyError, not SystemExit: the harness degrades gracefully when an optional
+            # subset (the all-masked one Shapley probes) has no scored condition behind it.
+            raise KeyError(f"no scored condition covers the modality subset {sorted(present)}")
         return preds[present]
 
-    report = analyze_modality_failure(["echo", "ecg"], lvef, ef, predict)
+    try:
+        report = analyze_modality_failure(["echo", "ecg"], lvef, ef, predict)
+    except KeyError as e:
+        raise SystemExit(e.args[0]) from None
     _emit(
         report,
         out,

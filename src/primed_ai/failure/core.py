@@ -6,8 +6,9 @@ reports three things that transfer across model generations:
 
 1. **Failure taxonomy** -- per-example category (``correct`` / ``imprecise`` / ``critical``)
    under full-modality inference and under each missing-modality condition.
-2. **Complementarity** -- each modality's leave-one-out marginal value, a complementarity
-   matrix over modality subsets, and per-example attribution ("which modality wins").
+2. **Complementarity** -- each modality's leave-one-out marginal value, its exact Shapley
+   value over modality coalitions, a complementarity matrix over modality subsets, and
+   per-example attribution ("which modality wins").
 3. **Dropout profile (loud vs. silent)** -- when a modality is missing at inference, does the
    model fail *loudly* (output shifts / sits near the decision boundary -> monitorable) or
    *silently* (confident, stable-looking output that is now clinically wrong)?
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import combinations
+from math import factorial
 from typing import Callable
 
 import numpy as np
@@ -124,7 +126,23 @@ def analyze_modality_failure(
         needed.add(allm - {m})
     for a, b in combinations(modalities, 2):
         needed.add(frozenset({a, b}))
-    preds = {s: np.asarray(predict_fn(s), dtype=float) for s in needed}
+    # Exact Shapley attribution needs every coalition, the empty set (all branches
+    # masked) included. 2^N calls are cheap at the N this harness sees; past the cap
+    # we keep leave-one-out attribution only rather than blow up predict_fn calls.
+    shapley_ok = len(modalities) <= 8
+    if shapley_ok:
+        for k in range(len(modalities) + 1):
+            for combo in combinations(modalities, k):
+                needed.add(frozenset(combo))
+    preds = {}
+    for s in needed:
+        try:
+            preds[s] = np.asarray(predict_fn(s), dtype=float)
+        except Exception:
+            if s:
+                raise
+            # predict_fn that cannot mask everything: drop Shapley, keep the rest
+            shapley_ok = False
     full = preds[allm]
     err_full = _abs_err(full, y)
 
@@ -157,11 +175,31 @@ def analyze_modality_failure(
             row.append(round(float(_abs_err(preds[subset], y).mean()), 4))
         matrix.append(row)
 
+    # Exact Shapley value of each modality over the coalition game v(S) = -MAE(f(S)):
+    # the weighted mean MAE drop from adding m across all coalitions, so positive phi
+    # is error the modality removes. Unlike leave-one-out, two redundant modalities
+    # split the credit instead of both reading as worthless.
+    shapley = None
+    if shapley_ok:
+        mae_of = {s: float(_abs_err(p, y).mean()) for s, p in preds.items()}
+        nm = len(modalities)
+        shapley = {}
+        for m in modalities:
+            rest = [x for x in modalities if x != m]
+            phi = 0.0
+            for k in range(nm):
+                w = factorial(k) * factorial(nm - k - 1) / factorial(nm)
+                for combo in combinations(rest, k):
+                    s = frozenset(combo)
+                    phi += w * (mae_of[s] - mae_of[s | {m}])
+            shapley[m] = round(phi, 4)
+
     best_solo = min(solo_mae.values())
     complementarity = {
         "full_mae": round(float(err_full.mean()), 4),
         "solo_mae": solo_mae,
         "marginal_value": marginal_value,  # how much each modality is worth (LOO)
+        "shapley_value": shapley,  # coalition-fair attribution; None past the subset cap
         "fusion_gain_vs_best_solo": round(best_solo - float(err_full.mean()), 4),
         "per_example_winners": winners,  # which modality "wins" overall
         "matrix": {"modalities": modalities, "values": matrix},
