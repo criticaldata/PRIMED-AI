@@ -14,6 +14,7 @@ from .core import CATEGORIES, FailureReport, analyze_modality_failure, classify_
 from .demo import (
     make_synthetic_modalities,
     make_synthetic_multimodal,
+    masked_mlp_predict_fn,
     masked_ridge_predict_fn,
     stratified_train_mask,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "CATEGORIES",
     "make_synthetic_multimodal",
     "make_synthetic_modalities",
+    "masked_mlp_predict_fn",
     "masked_ridge_predict_fn",
     "stratified_train_mask",
 ]
