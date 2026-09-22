@@ -71,6 +71,8 @@ ECHO_STRUCTURED = "physionet-data.mimiciv_echo.structured_measurement"
 ECG_RECORD_LIST = "physionet-data.mimiciv_ecg.record_list"
 HOSP_ADMISSIONS = "physionet-data.mimiciv_3_1_hosp.admissions"
 HOSP_PATIENTS = "physionet-data.mimiciv_3_1_hosp.patients"
+GIB = 1024**3
+DEFAULT_MAX_BYTES_BILLED = 25 * GIB
 
 # LVEF is not stored in a single column: an echo-lab system transition (and the
 # stress-echo protocol's separate rest/stress phases) means it appears under
@@ -421,10 +423,8 @@ final AS (
     return head + tail
 
 
-def run_funnel(
-    client: bigquery.Client, cte_sql: str, pair_by: str, require_admission: bool
-) -> pd.DataFrame:
-    """Count distinct studies and subjects remaining at each inclusion step."""
+def build_funnel_sql(cte_sql: str, pair_by: str, require_admission: bool) -> str:
+    """Build the funnel query shared by execution and no-charge estimation."""
     parts = [
         f"SELECT '{label}' AS stage, {i} AS step, "
         f"COUNT(*) AS n_studies, "
@@ -433,8 +433,33 @@ def run_funnel(
         f"FROM {cte} s LEFT JOIN dicom_counts d USING (echo_study_id)"
         for i, (cte, label) in enumerate(funnel_stages(pair_by, require_admission))
     ]
-    sql = cte_sql + "\n UNION ALL \n".join(parts) + "\nORDER BY step"
-    df = client.query(sql).to_dataframe()
+    return cte_sql + "\n UNION ALL \n".join(parts) + "\nORDER BY step"
+
+
+def estimate_query_bytes(client: bigquery.Client, sql: str) -> int:
+    """Return BigQuery's byte estimate without executing or billing the query."""
+    job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
+    job = client.query(sql, job_config=job_config)
+    return int(job.total_bytes_processed or 0)
+
+
+def _query_to_dataframe(
+    client: bigquery.Client, sql: str, maximum_bytes_billed: int | None
+) -> pd.DataFrame:
+    job_config = bigquery.QueryJobConfig(maximum_bytes_billed=maximum_bytes_billed)
+    return client.query(sql, job_config=job_config).to_dataframe()
+
+
+def run_funnel(
+    client: bigquery.Client,
+    cte_sql: str,
+    pair_by: str,
+    require_admission: bool,
+    maximum_bytes_billed: int | None = DEFAULT_MAX_BYTES_BILLED,
+) -> pd.DataFrame:
+    """Count distinct studies and subjects remaining at each inclusion step."""
+    sql = build_funnel_sql(cte_sql, pair_by, require_admission)
+    df = _query_to_dataframe(client, sql, maximum_bytes_billed)
 
     df["excluded_studies"] = df["n_studies"].shift(1).fillna(0).astype(int) - df["n_studies"]
     df["excluded_dicom_files"] = (
@@ -444,12 +469,20 @@ def run_funnel(
     return df
 
 
-def run_fetch(client: bigquery.Client, cte_sql: str) -> pd.DataFrame:
+def run_fetch(
+    client: bigquery.Client,
+    cte_sql: str,
+    maximum_bytes_billed: int | None = DEFAULT_MAX_BYTES_BILLED,
+) -> pd.DataFrame:
     sql = cte_sql + "SELECT * FROM final ORDER BY subject_id, echo_study_id"
-    return client.query(sql).to_dataframe()
+    return _query_to_dataframe(client, sql, maximum_bytes_billed)
 
 
-def run_lvef_breakdown(client: bigquery.Client, cte_sql: str) -> pd.DataFrame:
+def run_lvef_breakdown(
+    client: bigquery.Client,
+    cte_sql: str,
+    maximum_bytes_billed: int | None = DEFAULT_MAX_BYTES_BILLED,
+) -> pd.DataFrame:
     """Count how often each LVEF variant was used at the LVEF-selection stage.
 
     Reported over the LVEF-selection stage (before the ECG / admission filters)
@@ -473,7 +506,7 @@ GROUP BY lvef_measurement, accepted
 ORDER BY accepted DESC, {lvef_priority_case("lvef_measurement")}, lvef_measurement
 """
     )
-    df = client.query(sql).to_dataframe()
+    df = _query_to_dataframe(client, sql, maximum_bytes_billed)
     df["excluded"] = df["excluded"].astype(bool)
     labelled = int(df.loc[~df["excluded"], "n_studies"].sum()) or 1
     df["is_fallback"] = (df["lvef_measurement"] != LVEF_PRIORITY[0]).mask(df["excluded"])
@@ -721,7 +754,17 @@ def main() -> None:
         action="store_true",
         help="Print the funnel only; do not download/write the cohort.",
     )
+    ap.add_argument(
+        "--max-bytes-billed-gib",
+        type=float,
+        default=DEFAULT_MAX_BYTES_BILLED / GIB,
+        help="Hard BigQuery limit for each query in GiB (default: 25).",
+    )
     args = ap.parse_args()
+
+    if args.max_bytes_billed_gib <= 0:
+        ap.error("--max-bytes-billed-gib must be positive.")
+    maximum_bytes_billed = int(args.max_bytes_billed_gib * GIB)
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -754,7 +797,13 @@ def main() -> None:
     )
 
     log.info("Computing inclusion/exclusion funnel ...")
-    funnel = run_funnel(client, cte_sql, args.pair_by, args.require_admission)
+    funnel = run_funnel(
+        client,
+        cte_sql,
+        args.pair_by,
+        args.require_admission,
+        maximum_bytes_billed=maximum_bytes_billed,
+    )
     for r in funnel.itertuples(index=False):
         log.info(
             "  %-46s studies=%-7d patients=%-7d dicoms=%-9d (excluded %d studies)",
@@ -775,7 +824,9 @@ def main() -> None:
     log.info("Wrote funnel + flowchart to %s (and results/cohort_flow.csv)", out_dir)
 
     log.info("LVEF source breakdown (at LVEF-selection stage):")
-    lvef_src = run_lvef_breakdown(client, cte_sql)
+    lvef_src = run_lvef_breakdown(
+        client, cte_sql, maximum_bytes_billed=maximum_bytes_billed
+    )
     for r in lvef_src.itertuples(index=False):
         if r.excluded:
             log.info(
@@ -807,7 +858,7 @@ def main() -> None:
         return
 
     log.info("Fetching paired cohort ...")
-    cohort = run_fetch(client, cte_sql)
+    cohort = run_fetch(client, cte_sql, maximum_bytes_billed=maximum_bytes_billed)
 
     dupes = cohort.duplicated(subset=["subject_id", "echo_study_id"]).sum()
     if dupes:
