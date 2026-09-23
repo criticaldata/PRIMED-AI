@@ -113,6 +113,11 @@ def main() -> None:
         default=Path("data/processed/kfold"),
         help="Directory where fold-specific manifests and metadata are written.",
     )
+    parser.add_argument(
+        "--publish-metadata",
+        type=Path,
+        help="Optional aggregate-only copy of kfold_manifest.json for docs/results.",
+    )
     parser.add_argument("--n-folds", type=int, default=5)
     parser.add_argument("--val-frac", type=float, default=0.10)
     parser.add_argument("--seed", type=int, default=42)
@@ -200,6 +205,7 @@ def main() -> None:
             {
                 "fold": fold_idx,
                 "manifest_path": str(fold_path),
+                "manifest_sha256": file_sha256(fold_path),
                 "subject_splits_path": str(subject_split_path),
                 "row_counts": row_counts,
                 "subject_counts": subject_counts,
@@ -237,11 +243,17 @@ def main() -> None:
         "folds": fold_metadata,
     }
 
+    metadata_text = json.dumps(metadata, indent=2) + "\n"
     metadata_path = args.out_dir / "kfold_manifest.json"
-    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    metadata_path.write_text(metadata_text, encoding="utf-8")
+    if args.publish_metadata:
+        args.publish_metadata.parent.mkdir(parents=True, exist_ok=True)
+        args.publish_metadata.write_text(metadata_text, encoding="utf-8")
 
     print(f"Wrote {args.n_folds} fold manifests to: {args.out_dir}")
     print(f"Wrote k-fold metadata to: {metadata_path}")
+    if args.publish_metadata:
+        print(f"Published aggregate metadata to: {args.publish_metadata}")
     print("Leakage check passed for every fold.")
     print("Every subject appears in exactly one outer test fold.")
 

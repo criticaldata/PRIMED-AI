@@ -1,6 +1,6 @@
 {
   "task": "E13_patient_level_kfold",
-  "input_path": "../PRIMED-AI/data/processed/echo_hubert_manifest.parquet",
+  "input_path": "data/processed/echo_hubert_manifest.parquet",
   "input_sha256": "cfb7664f5e95a3b8419ec6107ff71c8eb04fed15c9a14465f9cbc6b8ff2481ef",
   "seed": 42,
   "n_folds": 5,
@@ -17,6 +17,7 @@
     {
       "fold": 0,
       "manifest_path": "data/processed/kfold/fold_0.parquet",
+      "manifest_sha256": "d8bc0ef7908d51a4a6441a914bc34d151fdc752545e8c0a0318cc6a11673267e",
       "subject_splits_path": "data/processed/kfold/fold_0_subjects.csv",
       "row_counts": {
         "train": 827,
@@ -47,6 +48,7 @@
     {
       "fold": 1,
       "manifest_path": "data/processed/kfold/fold_1.parquet",
+      "manifest_sha256": "18cff1546c50af462234e3929cee913685b26d5241a33ea35da369a1832e12be",
       "subject_splits_path": "data/processed/kfold/fold_1_subjects.csv",
       "row_counts": {
         "train": 839,
@@ -77,6 +79,7 @@
     {
       "fold": 2,
       "manifest_path": "data/processed/kfold/fold_2.parquet",
+      "manifest_sha256": "822d297cc7abcd522312277614c30b1927922fef937a6c464e61b503bae68942",
       "subject_splits_path": "data/processed/kfold/fold_2_subjects.csv",
       "row_counts": {
         "train": 832,
@@ -107,6 +110,7 @@
     {
       "fold": 3,
       "manifest_path": "data/processed/kfold/fold_3.parquet",
+      "manifest_sha256": "d22781038e72e5a8a121f3fd73f355fb65d25aac0d0d94ae2684a88223f5f044",
       "subject_splits_path": "data/processed/kfold/fold_3_subjects.csv",
       "row_counts": {
         "train": 831,
@@ -137,6 +141,7 @@
     {
       "fold": 4,
       "manifest_path": "data/processed/kfold/fold_4.parquet",
+      "manifest_sha256": "872eff6080377b056b9fcc91fa5a62dc0dd1772323cee50e792485ae9599a450",
       "subject_splits_path": "data/processed/kfold/fold_4_subjects.csv",
       "row_counts": {
         "train": 814,

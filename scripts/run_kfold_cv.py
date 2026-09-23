@@ -43,7 +43,7 @@ def read_json(path: Path) -> dict[str, Any]:
         return json.load(f)
 
 
-def load_kfold_metadata(path: Path, *, n_folds: int) -> dict[int, dict[str, Any]]:
+def load_kfold_metadata(path: Path, *, n_folds: int, folds_dir: Path) -> dict[int, dict[str, Any]]:
     """Read and validate the split metadata used by a k-fold run."""
     if not path.is_file():
         raise FileNotFoundError(
@@ -62,6 +62,23 @@ def load_kfold_metadata(path: Path, *, n_folds: int) -> dict[int, dict[str, Any]
             "K-fold metadata does not contain exactly the requested fold IDs: "
             f"expected {sorted(expected)}, got {sorted(metadata_by_fold)}."
         )
+
+    for fold_idx, metadata in sorted(metadata_by_fold.items()):
+        fold_path = folds_dir / f"fold_{fold_idx}.parquet"
+        if not fold_path.is_file():
+            raise FileNotFoundError(f"Fold manifest not found: {fold_path}")
+        expected_sha256 = metadata.get("manifest_sha256")
+        if not expected_sha256:
+            raise ValueError(
+                f"Fold {fold_idx} metadata is missing manifest_sha256. "
+                "Regenerate folds with make_kfold_splits.py."
+            )
+        actual_sha256 = file_sha256(fold_path)
+        if actual_sha256 != expected_sha256:
+            raise ValueError(
+                f"Fold {fold_idx} manifest hash mismatch: metadata has "
+                f"{expected_sha256}, but {fold_path} has {actual_sha256}."
+            )
     return metadata_by_fold
 
 
@@ -296,7 +313,11 @@ def main() -> None:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     kfold_metadata_path = args.kfold_manifest or args.folds_dir / "kfold_manifest.json"
-    metadata_by_fold = load_kfold_metadata(kfold_metadata_path, n_folds=args.n_folds)
+    metadata_by_fold = load_kfold_metadata(
+        kfold_metadata_path,
+        n_folds=args.n_folds,
+        folds_dir=args.folds_dir,
+    )
     check_validation_prevalence(
         metadata_by_fold,
         min_val_positives=args.min_val_positives,
@@ -319,13 +340,13 @@ def main() -> None:
         fold_dir = args.out_dir / f"fold_{fold_idx}"
         fold_dir.mkdir(parents=True, exist_ok=True)
 
-        fold_seed = args.seed
-
+        # Reuse one seed deliberately so fold assignment, not RNG drift, is the
+        # experimental variable across the five training runs.
         checkpoint = train_fold(
             fold_manifest,
             fold_dir,
             epochs=args.epochs,
-            seed=fold_seed,
+            seed=args.seed,
             fusion_dim=args.fusion_dim,
         )
 
@@ -334,7 +355,7 @@ def main() -> None:
             checkpoint,
             fold_dir,
             fusion_dim=args.fusion_dim,
-            seed=fold_seed,
+            seed=args.seed,
             n_bootstrap=args.n_bootstrap,
         )
 

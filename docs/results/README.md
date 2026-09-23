@@ -63,3 +63,12 @@ manifest against a controlled clip-16 manifest. It records validation metrics, r
 attention spread, manifest/checkpoint hashes, and the decision to keep pooled embeddings
 canonical. Local manifests, checkpoints, run metadata, and per-example outputs remain
 gitignored.
+
+## Patient-level k-fold validation
+
+`kfold_manifest.json` is the aggregate-only E13 (#78) split certificate for the corrected
+1,184-row manifest. It records input and per-fold parquet hashes, row/subject/EF≤40 counts,
+whole-split subject hashes, complete outer-test coverage, and zero-overlap checks; it does
+not contain subject IDs. `kfold_results.json` reports per-fold bootstrap intervals,
+across-fold mean±SD, pooled out-of-fold metrics, and manifest/checkpoint provenance. It
+contains no predictions or patient/study identifiers.

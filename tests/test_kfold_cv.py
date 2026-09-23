@@ -83,7 +83,14 @@ def test_main_runs_each_fold_without_real_training(tmp_path, monkeypatch):
             {
                 "n_folds": 2,
                 "folds": [
-                    {"fold": fold_idx, "ef_le_40_counts": {"val": 10}} for fold_idx in range(2)
+                    {
+                        "fold": fold_idx,
+                        "ef_le_40_counts": {"val": 10},
+                        "manifest_sha256": kfold_cv.file_sha256(
+                            folds_dir / f"fold_{fold_idx}.parquet"
+                        ),
+                    }
+                    for fold_idx in range(2)
                 ],
             }
         ),
@@ -212,13 +219,23 @@ def test_main_runs_each_fold_without_real_training(tmp_path, monkeypatch):
 def test_main_refuses_underpowered_validation_fold(tmp_path, monkeypatch):
     folds_dir = tmp_path / "folds"
     folds_dir.mkdir()
+    for fold_idx in range(2):
+        (folds_dir / f"fold_{fold_idx}.parquet").touch()
     (folds_dir / "kfold_manifest.json").write_text(
         json.dumps(
             {
                 "n_folds": 2,
                 "folds": [
-                    {"fold": 0, "ef_le_40_counts": {"val": 9}},
-                    {"fold": 1, "ef_le_40_counts": {"val": 10}},
+                    {
+                        "fold": 0,
+                        "ef_le_40_counts": {"val": 9},
+                        "manifest_sha256": kfold_cv.file_sha256(folds_dir / "fold_0.parquet"),
+                    },
+                    {
+                        "fold": 1,
+                        "ef_le_40_counts": {"val": 10},
+                        "manifest_sha256": kfold_cv.file_sha256(folds_dir / "fold_1.parquet"),
+                    },
                 ],
             }
         ),
@@ -238,3 +255,29 @@ def test_main_refuses_underpowered_validation_fold(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="fold 0: 9"):
         kfold_cv.main()
+
+
+def test_load_kfold_metadata_rejects_stale_fold_manifest(tmp_path):
+    folds_dir = tmp_path / "folds"
+    folds_dir.mkdir()
+    fold_path = folds_dir / "fold_0.parquet"
+    fold_path.write_bytes(b"current fold")
+    metadata_path = folds_dir / "kfold_manifest.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "n_folds": 1,
+                "folds": [
+                    {
+                        "fold": 0,
+                        "manifest_sha256": "0" * 64,
+                        "ef_le_40_counts": {"val": 10},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Fold 0 manifest hash mismatch"):
+        kfold_cv.load_kfold_metadata(metadata_path, n_folds=1, folds_dir=folds_dir)

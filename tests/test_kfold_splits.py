@@ -9,6 +9,7 @@ from make_kfold_splits import (
     verify_no_subject_overlap,
     verify_test_fold_coverage,
 )
+from make_splits import file_sha256
 
 
 def test_five_fold_sizes_match_70_10_20():
@@ -144,15 +145,22 @@ def test_main_writes_ef40_counts_and_preserves_canonical_split(
             "0.10",
             "--seed",
             "42",
+            "--publish-metadata",
+            str(tmp_path / "published" / "kfold_manifest.json"),
         ],
     )
 
     main()
 
     metadata = json.loads((out_dir / "kfold_manifest.json").read_text(encoding="utf-8"))
+    published_metadata = json.loads(
+        (tmp_path / "published" / "kfold_manifest.json").read_text(encoding="utf-8")
+    )
+    assert published_metadata == metadata
 
     fold_df = pd.read_parquet(out_dir / "fold_0.parquet")
     fold_metadata = metadata["folds"][0]
+    assert fold_metadata["manifest_sha256"] == file_sha256(out_dir / "fold_0.parquet")
 
     assert "split_canonical" in fold_df.columns
 

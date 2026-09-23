@@ -226,6 +226,16 @@ model. This tests the deployed fused checkpoint under missing input. Learned nul
 and branch dropout are deferred unless the missing-modality rerun shows masking is
 unstable.
 
+**Patient-level five-fold validation (E13).** On the corrected 1,184-row manifest, each
+subject appears in exactly one outer test fold; the five finite-row test sets pool to
+1,172 out-of-fold predictions after the same 12-row non-finite embedding exclusion used
+by training. Full-input performance is stable across folds: MAE 9.3587 ± 0.2619 and
+EF≤40 AUROC 0.8261 ± 0.0346 (pooled OOF 9.3537 / 0.8165). Missing-input behavior is less
+stable: echo-dropped MAE is 17.8287 ± 4.4433 and ECG-dropped MAE is 11.7005 ± 1.6594.
+The single holdout remains the locked paper split, while k-fold results quantify its
+sampling uncertainty. Aggregate results and split certificates are in
+`docs/results/kfold_results.json` and `docs/results/kfold_manifest.json`.
+
 ### 7.2 Fairness audit
 
 Post-hoc stratification of probe predictions — no additional training required.
