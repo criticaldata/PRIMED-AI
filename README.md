@@ -40,7 +40,7 @@ Fusion vs. unimodal accuracy is **supporting evidence**, not the thesis.
 
 | Stage | Input | Output |
 |-------|-------|--------|
-| **Cohort construction** | MIMIC-IV-Echo studies, MIMIC-IV-ECG records, MIMIC-IV demographics | Paired rows on `subject_id` within 24–48h, joined to structured LVEF, split by subject |
+| **Cohort construction** | MIMIC-IV-Echo studies, MIMIC-IV-ECG records, MIMIC-IV demographics | Nearest ECG on `subject_id` within ±24h (primary), joined to structured LVEF and split by subject; ±48h and same-admission are sensitivity cohorts |
 | **Embedding extraction** | Paired cohort only (~few K–tens of K studies, not all 525K echos) | Frozen EchoJEPA-L (1024-d) and HuBERT-ECG (768-d) vectors, cached to Parquet |
 | **Probes** | Cached embeddings | ECG-only, echo-only (attentive), concat-MLP, and cross-attention fusion heads |
 | **Deployment analyses** | Trained fused checkpoint + held-out test split | Missing-modality degradation, fairness stratification, EF≤40% calibration |

@@ -54,8 +54,11 @@ ECG studies among shared subjects: 57,459
 Subject-only candidate Echo+ECG pairs: 116,754
 Exact echo_study_id == ecg_study_id matches: 0
 
-Final joined manifest rows: 1,208
-Rows with both EchoJEPA and HuBERT embeddings: 1,208
+Original joined manifest rows: 1,208
+Corrected rows after excluding range-upper-bound labels (#75): 1,184
+Live BigQuery ±24h rebuild (2026-09-21): 1,180
+Live ±48h / same-admission sensitivity rows: 1,560 / 1,492
+Rows with both EchoJEPA and HuBERT embeddings: 100% in all three live scenarios
 Train/val/test rows: 829/131/248
 Train/val/test subjects: 702/100/201
 Joined echo embedding dim: 1,024
@@ -80,6 +83,10 @@ Important interpretation:
   manifest so the loader has one consistent ECG key.
 - The train/val/test split was generated at subject level, so no patient appears
   in more than one split.
+- D07's live ±24h result is an exact 1,180-pair subset of the corrected 1,184-row
+  local manifest (four old studies are absent; no pair assignments changed). Keep
+  the locked local manifest for reported models until a source-snapshot rebuild is
+  explicitly approved. See `results/cohort_sensitivity.json` for aggregate details.
 
 See [`echo_hubert_results.md`](echo_hubert_results.md) for the concise results
 summary and final artifact list.

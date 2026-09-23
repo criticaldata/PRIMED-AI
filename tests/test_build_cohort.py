@@ -9,7 +9,10 @@ from build_cohort import (
     LVEF_PRIORITY,
     add_age_bands,
     build_cte_sql,
+    build_funnel_sql,
+    estimate_query_bytes,
     funnel_stages,
+    run_funnel,
     write_cohort_summary,
     write_demographics_coverage,
     write_flowchart,
@@ -111,6 +114,50 @@ def test_write_flowchart(tmp_path):
     text = path.read_text()
     assert "flowchart TD" in text
     assert "studies = 200" in text
+
+
+def test_bigquery_dry_run_estimates_without_execution():
+    class FakeJob:
+        total_bytes_processed = 123456
+
+    class FakeClient:
+        def query(self, sql, job_config):
+            assert sql == "SELECT 1"
+            assert job_config.dry_run is True
+            assert job_config.use_query_cache is False
+            return FakeJob()
+
+    assert estimate_query_bytes(FakeClient(), "SELECT 1") == 123456
+
+
+def test_funnel_query_enforces_maximum_bytes_billed():
+    result = pd.DataFrame(
+        {
+            "stage": ["1. Echo"],
+            "step": [0],
+            "n_studies": [10],
+            "n_subjects": [8],
+            "n_dicom_files": [20],
+        }
+    )
+
+    class FakeJob:
+        def to_dataframe(self):
+            return result.copy()
+
+    class FakeClient:
+        def query(self, sql, job_config):
+            assert "ORDER BY step" in sql
+            assert job_config.maximum_bytes_billed == 1024
+            return FakeJob()
+
+    cte = "WITH echo_base AS (SELECT 1 AS subject_id, 1 AS echo_study_id), "
+    sql = build_funnel_sql(cte, "window", require_admission=True)
+    assert "ECG within window" in sql
+    funnel = run_funnel(
+        FakeClient(), cte, "window", require_admission=True, maximum_bytes_billed=1024
+    )
+    assert funnel.loc[0, "excluded_studies"] == 0
 
 
 def test_summarize_sensitivity_compares_final_rows():

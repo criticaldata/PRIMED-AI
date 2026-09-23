@@ -56,14 +56,19 @@ For each echo study:
    max |delta_hours| is 23.98).
 2. Join to the structured **LVEF** label from MIMIC-IV-Echo.
 
-Current synchronized manifest size is 1,208 paired rows. Without extracting more
-EchoJEPA studies, the hard ceiling is 6,617 echo studies from subjects who also have an
-ECG; larger cohorts require additional echo embedding coverage, not just a looser join.
+The original synchronized manifest had 1,208 paired rows; excluding range-upper-bound
+labels in #75 leaves 1,184. A 2026-09-21 rebuild against the live BigQuery tables returned
+1,180 rows: all 1,180 pairs are unchanged from the corrected manifest, while four old
+studies are absent from the live source result. Keep the 1,184-row snapshot for reported
+models until the source snapshot is explicitly locked and a rebuild is approved.
 
-Window sensitivity, measured on the built manifest: tightening to ±12h keeps 767 of the
-1,208 rows and ±6h keeps 515. Widening beyond ±24h cannot be measured from the manifest —
-it needs a cohort-database rebuild (`scripts/run_cohort_sensitivity.py` wraps the
-24h/48h/admission comparison into one command for whoever has BigQuery access).
+The database-level D07 sensitivity sweep isolates the pairing rule: ±24h returns 1,180
+rows, ±48h returns 1,560 (+380, +32.20%), and same-admission matching returns 1,492
+(+312, +26.44%). The time window is binding: 4,614 of the 6,257 point-LVEF studies with
+subject-level ECG overlap (73.74%) fail the ±24h pairing stage. All rows in all three
+scenarios have both downloaded EchoJEPA and HuBERT embeddings, so embedding extraction
+is not the limiter for this sweep. The aggregate funnels and provenance are committed in
+`docs/results/cohort_sensitivity.json`.
 
 ### 3.2 Train / test split
 
@@ -74,12 +79,13 @@ it needs a cohort-database rebuild (`scripts/run_cohort_sensitivity.py` wraps th
 
 | Step | Filter |
 |---|---|
-| 1 | All MIMIC-IV-Echo studies (~525K) |
-| 2 | Has a structured LVEF label |
-| 3 | Has an ECG within 24–48h on the same `subject_id` |
-| 4 | Deduplicate / resolve multi-match edge cases |
-| 5 | Final paired cohort |
-| 6 | `subject_id`-level train / val / test split |
+| 1 | All MIMIC-IV-Echo studies (7,228 studies / 524,137 DICOM file references in the live release) |
+| 2 | Linked to structured measurements (7,167) |
+| 3 | Has an in-range point LVEF after range-bound exclusion (6,845) |
+| 4 | Patient has an ECG record (6,257) |
+| 5 | Nearest ECG is within ±24h (1,643) |
+| 6 | Echo is within an admission for demographics (1,180 live rows) |
+| 7 | `subject_id`-level train / val / test split |
 
 Record exclusion counts at each step — they are what makes the cohort auditable.
 
@@ -167,6 +173,13 @@ pre-maps. Reported pooled-manifest numbers should be read accordingly. Decision:
 cross-attention architecture — it fuses for real once clip-level echo tokens are in the
 manifest — and treat token-level ECG (which needs a re-extraction pass from raw waveforms;
 the parquet stores pooled vectors only) as the gate for restoring the second direction.
+
+**E12 pooling ablation.** Retaining up to 16 evenly sampled echo clips restored genuine
+ECG-to-echo attention (mean attention-weight range 0.454636 versus 0 for pooled inputs),
+but did not improve the pre-specified fused validation MAE: 10.5861 for clip-16 versus
+10.4499 for pooled embeddings. Pooled therefore remains the canonical regime, and the
+canonical missing-modality evaluation was not rerun. The controlled aggregate result and
+manifest/checkpoint hashes are in `docs/results/pooling_ablation.json`.
 
 ### 6.5 Prediction targets
 
@@ -324,10 +337,11 @@ This work differs from EchoingECG on three axes: frozen embeddings (no fine-tuni
 - [x] ECG pooling: mean — the parquet stores one pooled vector per record, and attentive
       pooling over tiled copies of it is mathematically identical to mean pooling, so this
       is the only runnable choice. Revisit only after a token-level ECG re-extraction (#72).
-- [x] Echo↔ECG pairing window: fixed at ±24h — this is what the canonical cohort was built
-      with (max |delta_hours| 23.98). Within-manifest tightening loses rows fast (767 at
-      ±12h, 515 at ±6h); widening to 48h needs a cohort-database rebuild and is scoped
-      under D07 (#62) via `scripts/run_cohort_sensitivity.py`.
+- [x] Echo↔ECG pairing window: fixed at ±24h for the primary cohort. This is what the
+      reported manifest used (max |delta_hours| 23.98), and it preserves the strongest
+      temporal relationship. D07's database sweep measured 1,180 live rows at ±24h,
+      1,560 at ±48h (+32.20%), and 1,492 by same admission (+26.44%). The relaxed rules
+      are sensitivity cohorts, not silent replacements for the canonical manifest.
 - [x] Multi-match resolution: when multiple ECGs fall within the window, take nearest timestamp
 - [x] EF≤40% prevalence in paired cohort: train/test are reportable; validation has only 26 EF<=40 positives, so validation AUROC should be treated as unstable
 - [x] GPU + storage budget for cached probe training: no GPU needed; current pooled manifest and checkpoints are laptop-scale
