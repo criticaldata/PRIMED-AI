@@ -559,9 +559,21 @@ def replace_manifest_echo_embeddings(
     manifest.to_parquet(manifest_path, index=False)
 
     metadata_columns = [
-        "subject_id", "echo_study_id", "ecg_study_id", "lvef", "ef_le_40", "split",
-        "sex", "age", "race", "n_echo_clips", "n_echo_clips_retained",
-        "has_echo_embedding", "has_ecg_embedding", "echo_model", "ecg_model",
+        "subject_id",
+        "echo_study_id",
+        "ecg_study_id",
+        "lvef",
+        "ef_le_40",
+        "split",
+        "sex",
+        "age",
+        "race",
+        "n_echo_clips",
+        "n_echo_clips_retained",
+        "has_echo_embedding",
+        "has_ecg_embedding",
+        "echo_model",
+        "ecg_model",
     ]
     manifest[[c for c in metadata_columns if c in manifest]].to_csv(metadata_csv_path, index=False)
 
