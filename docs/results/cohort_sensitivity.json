@@ -1,0 +1,132 @@
+{
+  "task": "D07_cohort_recovery",
+  "issue": 62,
+  "run_date": "2026-09-21",
+  "sources": {
+    "echo_studies": "physionet-data.mimiciv_echo.echo_study_list",
+    "echo_records": "physionet-data.mimiciv_echo.echo_record_list",
+    "echo_measurements": "physionet-data.mimiciv_echo.structured_measurement",
+    "ecg_records": "physionet-data.mimiciv_ecg.record_list",
+    "admissions": "physionet-data.mimiciv_3_1_hosp.admissions",
+    "patients": "physionet-data.mimiciv_3_1_hosp.patients",
+    "echo_embedding_inventory": {
+      "model": "vjepa2.1-vitl-mimic-pt-100",
+      "study_rows": 7251
+    },
+    "ecg_embedding_inventory": {
+      "model": "HuBERT-ECG",
+      "record_rows": 800035
+    }
+  },
+  "query_safety": {
+    "estimate_gib_per_scenario": 0.923,
+    "max_gib_per_query": 25,
+    "max_gib_preflight_total": 100
+  },
+  "common_funnel": [
+    {
+      "stage": "Echo studies (all)",
+      "n_studies": 7228,
+      "n_subjects": 4572,
+      "excluded_studies": 0
+    },
+    {
+      "stage": "Linked to a structured measurement",
+      "n_studies": 7167,
+      "n_subjects": 4545,
+      "excluded_studies": 61
+    },
+    {
+      "stage": "Has an in-range LVEF reading (any source)",
+      "n_studies": 6902,
+      "n_subjects": 4465,
+      "excluded_studies": 265
+    },
+    {
+      "stage": "Point LVEF label (range bounds excluded, #75)",
+      "n_studies": 6845,
+      "n_subjects": 4453,
+      "excluded_studies": 57
+    },
+    {
+      "stage": "Patient also has an ECG (subject overlap)",
+      "n_studies": 6257,
+      "n_subjects": 3984,
+      "excluded_studies": 588
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario": "window_24h",
+      "pairing_stage": {
+        "n_studies": 1643,
+        "n_subjects": 1312,
+        "excluded_studies": 4614
+      },
+      "final_after_admission": {
+        "n_studies": 1180,
+        "n_subjects": 989,
+        "excluded_studies": 463
+      },
+      "gain_vs_24h": 0,
+      "gain_vs_24h_pct": 0.0,
+      "echo_embedding_rows": 1180,
+      "ecg_embedding_rows": 1180,
+      "both_embedding_rows": 1180
+    },
+    {
+      "scenario": "window_48h",
+      "pairing_stage": {
+        "n_studies": 2046,
+        "n_subjects": 1546,
+        "excluded_studies": 4211
+      },
+      "final_after_admission": {
+        "n_studies": 1560,
+        "n_subjects": 1228,
+        "excluded_studies": 486
+      },
+      "gain_vs_24h": 380,
+      "gain_vs_24h_pct": 32.2,
+      "echo_embedding_rows": 1560,
+      "ecg_embedding_rows": 1560,
+      "both_embedding_rows": 1560
+    },
+    {
+      "scenario": "same_admission",
+      "echo_within_admission": {
+        "n_studies": 2910,
+        "n_subjects": 2061,
+        "excluded_studies": 3347
+      },
+      "final_same_admission_pair": {
+        "n_studies": 1492,
+        "n_subjects": 1128,
+        "excluded_studies": 1418
+      },
+      "gain_vs_24h": 312,
+      "gain_vs_24h_pct": 26.44,
+      "echo_embedding_rows": 1492,
+      "ecg_embedding_rows": 1492,
+      "both_embedding_rows": 1492
+    }
+  ],
+  "findings": {
+    "binding_constraint": "The ECG-to-echo time window: 4,614 of 6,257 studies with a point LVEF and subject-level ECG overlap (73.74%) fail the +/-24 hour pairing stage.",
+    "embedding_coverage_is_binding": false,
+    "material_growth_by_relaxing_window": true,
+    "material_growth_without_weakening_pairing_protocol": false,
+    "canonical_decision": "Keep nearest ECG within +/-24 hours as the primary cohort. Report +/-48 hours and same-admission matching as sensitivity analyses; do not silently replace the canonical manifest.",
+    "rationale": "The 48-hour rule adds 380 rows (32.20%) and same-admission matching adds 312 (26.44%), but both admit temporally weaker pairs. Every recovered row already has both frozen embeddings, so encoder extraction is not the limiting step."
+  },
+  "release_drift": {
+    "corrected_local_manifest_rows": 1184,
+    "live_24h_rows": 1180,
+    "shared_echo_studies": 1180,
+    "old_only_echo_studies": 4,
+    "live_only_echo_studies": 0,
+    "identical_echo_ecg_pairs": 1180,
+    "shared_echo_studies_with_changed_ecg_pair": 0,
+    "interpretation": "The live result is a strict 1,180-row subset of the corrected 1,184-row local manifest. Preserve the existing manifest for reported models until the team locks the source snapshot and explicitly approves a rebuild."
+  }
+}

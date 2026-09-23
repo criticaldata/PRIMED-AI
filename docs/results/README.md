@@ -47,3 +47,11 @@ python scripts/export_result_bundle.py
 ```
 
 on a machine that has the manifest and the raw `results/`.
+
+## Cohort sensitivity
+
+`cohort_sensitivity.json` is the aggregate-only D07 (#62) BigQuery result. It records
+the full exclusion funnel for the canonical ±24-hour rule, the ±48-hour and
+same-admission sensitivity cohorts, frozen-embedding coverage, query-cost estimates,
+the fixed pairing decision, and the four-row live-source drift relative to the corrected
+1,184-row local manifest. It contains no patient- or study-level identifiers.
