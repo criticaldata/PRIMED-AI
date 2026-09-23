@@ -50,14 +50,12 @@ def make_synthetic_multimodal(
     return embeddings, lvef, ef_le_40, planted
 
 
-def masked_ridge_predict_fn(embeddings: dict, lvef, train_mask, alpha: float = 1.0):
-    """Train one Ridge model on the full concatenated embeddings; mask absent modalities at
+def _masked_predict_fn(model, embeddings: dict, lvef, train_mask):
+    """Fit ``model`` on the full concatenated embeddings; mask absent modalities at
     inference by zeroing their columns. This mimics a *single deployed multimodal model*
     evaluated under missing inputs (no per-condition retraining), which is exactly what the
     dropout analysis assumes.
     """
-    from sklearn.linear_model import Ridge
-
     mods = list(embeddings)
     cols, off = {}, 0
     for m in mods:
@@ -67,7 +65,7 @@ def masked_ridge_predict_fn(embeddings: dict, lvef, train_mask, alpha: float = 1
     X = np.concatenate([np.asarray(embeddings[m], dtype=float) for m in mods], axis=1)
     y = np.asarray(lvef, dtype=float)
     train_mask = np.asarray(train_mask, dtype=bool)
-    model = Ridge(alpha=alpha).fit(X[train_mask], y[train_mask])
+    model.fit(X[train_mask], y[train_mask])
 
     def predict_fn(present: frozenset) -> np.ndarray:
         Xm = X.copy()
@@ -77,6 +75,26 @@ def masked_ridge_predict_fn(embeddings: dict, lvef, train_mask, alpha: float = 1
         return model.predict(Xm)
 
     return predict_fn
+
+
+def masked_ridge_predict_fn(embeddings: dict, lvef, train_mask, alpha: float = 1.0):
+    """One Ridge model on the full concatenation, absent modalities zeroed at inference."""
+    from sklearn.linear_model import Ridge
+
+    return _masked_predict_fn(Ridge(alpha=alpha), embeddings, lvef, train_mask)
+
+
+def masked_mlp_predict_fn(embeddings: dict, lvef, train_mask, seed: int = 0):
+    """Nonlinear counterpart of :func:`masked_ridge_predict_fn`: one small MLP trained on the
+    full concatenation. Exists so the harness's recovery checks are not conditional on a
+    linear probe.
+    """
+    from sklearn.neural_network import MLPRegressor
+
+    model = MLPRegressor(
+        hidden_layer_sizes=(64,), max_iter=2000, random_state=seed, early_stopping=True
+    )
+    return _masked_predict_fn(model, embeddings, lvef, train_mask)
 
 
 def make_synthetic_modalities(

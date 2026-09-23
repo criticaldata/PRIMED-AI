@@ -5,6 +5,9 @@
 (1) Multi-seed recovery (echo/ECG): does the harness reliably recover planted echo-dominance and
     the modality-specific silent-failure asymmetry across seeds?
 (2) N-modality generality (echo/ECG/labs): does it produce a genuine 3x3 complementarity matrix?
+(3) Redundancy stress case: two equally strong modalities plus one weak one -- leave-one-out
+    reads the redundant pair as worthless, Shapley splits the credit between them.
+(4) Nonlinear probe: the two-modality recovery repeated with a small MLP instead of Ridge.
 """
 
 from __future__ import annotations
@@ -18,16 +21,17 @@ from primed_ai.failure import (
     analyze_modality_failure,
     make_synthetic_modalities,
     make_synthetic_multimodal,
+    masked_mlp_predict_fn,
     masked_ridge_predict_fn,
     stratified_train_mask,
 )
 from primed_ai.failure.plots import plot_complementarity_matrix
 
 
-def _analyze(emb, lvef, ef, seed):
+def _analyze(emb, lvef, ef, seed, probe=masked_ridge_predict_fn):
     train = stratified_train_mask(ef, 0.7, seed=seed + 1000)
     test = ~train
-    predict_full = masked_ridge_predict_fn(emb, lvef, train)
+    predict_full = probe(emb, lvef, train)
     return analyze_modality_failure(
         {m: emb[m][test] for m in emb},
         lvef[test],
@@ -92,6 +96,32 @@ def threemodal(out: str, figdir: str) -> dict:
     return d
 
 
+def redundancy(out: str) -> dict:
+    emb, lvef, ef = make_synthetic_modalities({"m1": 2.0, "m2": 2.0, "weak": 0.5}, n=750, seed=0)
+    d = _analyze(emb, lvef, ef, 0).to_dict()
+    c = d["complementarity"]
+    Path(out).mkdir(parents=True, exist_ok=True)
+    (Path(out) / "validation_redundancy.json").write_text(json.dumps(d, indent=2))
+    print("=== redundancy stress case (m1 == m2 strong, weak) ===")
+    print("leave-one-out :", c["marginal_value"])
+    print("shapley       :", c["shapley_value"])
+    return d
+
+
+def nonlinear(out: str) -> dict:
+    emb, lvef, ef, _ = make_synthetic_multimodal(seed=0)
+    d = _analyze(emb, lvef, ef, 0, probe=masked_mlp_predict_fn).to_dict()
+    c = d["complementarity"]
+    Path(out).mkdir(parents=True, exist_ok=True)
+    (Path(out) / "validation_nonlinear.json").write_text(json.dumps(d, indent=2))
+    print("=== nonlinear probe (MLP) on the planted two-modality data ===")
+    print("leave-one-out :", c["marginal_value"])
+    print("shapley       :", c["shapley_value"])
+    print("winners       :", c["per_example_winners"])
+    print("silent rates  :", {k: v["silent_rate"] for k, v in d["dropout"].items()})
+    return d
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seeds", type=int, default=12)
@@ -100,6 +130,8 @@ def main() -> None:
     a = ap.parse_args()
     multiseed(a.seeds, a.out)
     threemodal(a.out, a.figdir)
+    redundancy(a.out)
+    nonlinear(a.out)
 
 
 if __name__ == "__main__":

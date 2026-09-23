@@ -67,6 +67,61 @@ def test_report_is_json_serializable():
     assert d["complementarity"]["matrix"]["modalities"] == ["echo", "ecg"]
 
 
+def test_shapley_efficiency_and_closed_form():
+    # exact Shapley over v(S) = -MAE(f(S)): the values must sum to the full-vs-empty MAE
+    # gap, and at N = 2 each phi has a closed form over the four subset MAEs
+    emb, lvef, ef, _ = make_synthetic_multimodal(n=600, seed=0)
+    train = stratified_train_mask(ef, 0.7, seed=12345)
+    test = ~train
+    pf = masked_ridge_predict_fn(emb, lvef, train)
+    report = analyze_modality_failure(
+        {m: emb[m][test] for m in emb}, lvef[test], ef[test], lambda present: pf(present)[test]
+    )
+    shap = report.complementarity["shapley_value"]
+    y = report.predictions["__labels__"]
+
+    def mae(key):
+        return float(np.abs(report.predictions[key] - y).mean())
+
+    assert sum(shap.values()) == pytest.approx(mae("") - mae("ecg,echo"), abs=1e-3)
+    closed_echo = 0.5 * ((mae("") - mae("echo")) + (mae("ecg") - mae("ecg,echo")))
+    assert shap["echo"] == pytest.approx(closed_echo, abs=1e-3)
+    assert shap["echo"] > shap["ecg"]  # planted dominance survives the attribution change
+
+
+def test_shapley_credits_redundant_modalities_beyond_loo():
+    # two equally strong modalities: leave-one-out under-credits each (the twin covers),
+    # Shapley counts the coalitions where the twin is absent and pays both more
+    from primed_ai.failure import make_synthetic_modalities
+
+    emb, lvef, ef = make_synthetic_modalities({"m1": 2.0, "m2": 2.0, "weak": 0.5}, n=750, seed=0)
+    train = stratified_train_mask(ef, 0.7, seed=1000)
+    test = ~train
+    pf = masked_ridge_predict_fn(emb, lvef, train)
+    c = analyze_modality_failure(
+        {m: emb[m][test] for m in emb}, lvef[test], ef[test], lambda present: pf(present)[test]
+    ).complementarity
+    loo, shap = c["marginal_value"], c["shapley_value"]
+    assert shap["m1"] > loo["m1"] and shap["m2"] > loo["m2"]
+    assert abs(shap["m1"] - shap["m2"]) < 1.0  # symmetric plants get symmetric credit
+    assert shap["weak"] < min(shap["m1"], shap["m2"])
+
+
+def test_shapley_none_when_empty_set_unsupported():
+    rng = np.random.default_rng(0)
+    y = rng.uniform(15, 75, 40)
+    gate = y <= 40
+
+    def predict_fn(present: frozenset) -> np.ndarray:
+        if not present:
+            raise ValueError("cannot mask everything")
+        return y + rng.normal(0, len(present), 40)
+
+    report = analyze_modality_failure(["echo", "ecg"], y, gate, predict_fn)
+    assert report.complementarity["shapley_value"] is None
+    assert report.complementarity["marginal_value"]  # the rest of the report still works
+
+
 def test_classify_taxonomy_categories():
     y = np.array([35.0, 55.0, 50.0])
     pred = np.array(
