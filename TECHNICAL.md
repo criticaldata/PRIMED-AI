@@ -174,6 +174,13 @@ cross-attention architecture — it fuses for real once clip-level echo tokens a
 manifest — and treat token-level ECG (which needs a re-extraction pass from raw waveforms;
 the parquet stores pooled vectors only) as the gate for restoring the second direction.
 
+**E12 pooling ablation.** Retaining up to 16 evenly sampled echo clips restored genuine
+ECG-to-echo attention (mean attention-weight range 0.454636 versus 0 for pooled inputs),
+but did not improve the pre-specified fused validation MAE: 10.5861 for clip-16 versus
+10.4499 for pooled embeddings. Pooled therefore remains the canonical regime, and the
+canonical missing-modality evaluation was not rerun. The controlled aggregate result and
+manifest/checkpoint hashes are in `docs/results/pooling_ablation.json`.
+
 ### 6.5 Prediction targets
 
 | Target | Type | Use |

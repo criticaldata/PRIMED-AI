@@ -1,0 +1,122 @@
+{
+  "task_id": "E12",
+  "title": "Pooled vs clip-level EchoJEPA tokens",
+  "status": "measured",
+  "decision": {
+    "canonical_regime": "pooled",
+    "selection_split": "validation",
+    "selection_metric": "fused.full.mae",
+    "pooled_mae": 10.4499,
+    "clip16_mae": 10.5861,
+    "clip16_minus_pooled_mae": 0.1362,
+    "rationale": "Clip-level tokens restored non-degenerate ECG-to-echo attention, but did not improve the pre-specified fused validation MAE. The canonical missing-modality rerun was therefore not triggered."
+  },
+  "experimental_control": {
+    "repo_git_sha": "adb2ee3e68db7f4734121d85f261270b5dffd7bc",
+    "seed": 42,
+    "epochs": 50,
+    "fusion_dim": 256,
+    "same_cohort_labels_splits_and_ecg_embeddings": true,
+    "cohort_rows": 1184,
+    "splits": {
+      "train": 809,
+      "val": 115,
+      "test": 260
+    },
+    "fused_rows_after_nonfinite_filter": {
+      "train": 805,
+      "val": 110,
+      "test": 257
+    }
+  },
+  "clip_construction": {
+    "max_clips": 16,
+    "sampling": "even-stride subsample from each study",
+    "source_echo_studies": 7251,
+    "source_n_echo_clips": {
+      "min": 1,
+      "median": 76,
+      "p95": 103,
+      "max": 141,
+      "studies_with_at_least_16_clips": 1173,
+      "studies_with_fewer_than_16_clips": 11
+    }
+  },
+  "provenance": {
+    "pooled": {
+      "manifest": "data/processed/echo_hubert_manifest.parquet",
+      "manifest_sha256": "cfb7664f5e95a3b8419ec6107ff71c8eb04fed15c9a14465f9cbc6b8ff2481ef",
+      "echo_tokens_are_clip_level": false,
+      "fused_checkpoint_sha256": "dfa481d37ddbda1b91ee4aa05a04665b8e087e7d901a6ff20da765241e47a9ec"
+    },
+    "clip16": {
+      "manifest": "data/processed/echo_hubert_manifest_clip16.parquet",
+      "manifest_sha256": "09eed550c933bae3358252f09ea3fbdd244cfb2865189858ab81f2ccdf0404d4",
+      "echo_tokens_are_clip_level": true,
+      "fused_checkpoint_sha256": "def2522f789371bae9c2546dba726d92b3d7ff7659a3b202711b903a62693188"
+    }
+  },
+  "validation_metrics": {
+    "ecg_ridge_mae": {
+      "pooled": 11.5787,
+      "clip16": 11.5787
+    },
+    "echo_attentive": {
+      "pooled": {
+        "mae": 11.5314,
+        "ef40_auroc": 0.6853
+      },
+      "clip16": {
+        "mae": 11.5512,
+        "ef40_auroc": 0.6329
+      }
+    },
+    "concat": {
+      "pooled": {
+        "mae": 11.0677,
+        "ef40_auroc": 0.7776
+      },
+      "clip16": {
+        "mae": 11.0635,
+        "ef40_auroc": 0.7825
+      }
+    },
+    "fused_full": {
+      "pooled": {
+        "mae": 10.4499,
+        "ef40_auroc": 0.8207
+      },
+      "clip16": {
+        "mae": 10.5861,
+        "ef40_auroc": 0.78
+      }
+    }
+  },
+  "ecg_to_echo_attention_on_validation": {
+    "method": "mean attention over heads; range and standard deviation calculated across non-padded echo keys for the single ECG query",
+    "pooled": {
+      "implementation_note": "The pooled vector is tiled to eight identical echo tokens for the fused loader, so an eight-token shape does not imply token diversity.",
+      "examples": 110,
+      "valid_echo_tokens": {
+        "min": 8,
+        "median": 8,
+        "max": 8
+      },
+      "mean_weight_range": 0.0,
+      "max_weight_range": 0.0,
+      "mean_weight_std": 0.0
+    },
+    "clip16": {
+      "examples": 110,
+      "examples_with_more_than_one_echo_token": 109,
+      "valid_echo_tokens": {
+        "min": 1,
+        "median": 16,
+        "max": 16
+      },
+      "mean_weight_range": 0.454636,
+      "max_weight_range": 0.75,
+      "mean_weight_std": 0.139113
+    }
+  }
+}
